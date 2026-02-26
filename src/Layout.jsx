@@ -4,6 +4,7 @@ import { createPageUrl } from './utils';
 import { Link } from 'react-router-dom';
 import { LogOut, Truck, Shield, Building2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import NotificationBell from '@/components/notifications/NotificationBell';
 
 function LayoutInner({ children, currentPageName }) {
   const { session, loading, logout } = useSession();
@@ -76,6 +77,9 @@ function LayoutInner({ children, currentPageName }) {
                   <Button variant="ghost" size="sm" className="text-xs">Notes</Button>
                 </Link>
               </nav>
+            )}
+            {(isAdmin || session.code_type === 'CompanyOwner') && (
+              <NotificationBell session={session} />
             )}
             <Button
               variant="ghost"
