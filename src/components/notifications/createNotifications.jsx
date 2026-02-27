@@ -1,44 +1,48 @@
 import { base44 } from '@/api/base44Client';
 
 /**
- * Create notifications for dispatch status changes
+ * Create notifications for dispatch status changes (or new dispatch creation).
+ * Only sends to CompanyOwner access codes — NOT truck codes.
  */
 export async function notifyDispatchChange(dispatch, oldStatus, newStatus, companies, accessCodes) {
   try {
     const company = companies.find(c => c.id === dispatch.company_id);
     if (!company) return;
 
-    const affectedAccessCodes = accessCodes.filter(ac => {
+    // Only notify CompanyOwner codes whose allowed_trucks intersect the dispatch
+    const affectedOwnerCodes = accessCodes.filter(ac => {
       if (!ac.active_flag) return false;
+      if (ac.code_type !== 'CompanyOwner') return false;
       if (ac.company_id !== company.id) return false;
-      
-      // Check if this access code has any trucks in the dispatch
-      const intersection = (dispatch.trucks_assigned || []).filter(t => 
+      const intersection = (dispatch.trucks_assigned || []).filter(t =>
         (ac.allowed_trucks || []).includes(t)
       );
       return intersection.length > 0;
     });
 
-    const statusText = {
-      Confirmed: 'confirmed',
-      Dispatched: 'dispatched',
-      Amended: 'amended',
-      Canceled: 'canceled'
-    }[newStatus] || newStatus;
+    if (affectedOwnerCodes.length === 0) return;
 
-    const notifications = affectedAccessCodes.map(ac => ({
+    const statusLabels = {
+      Confirmed: 'Confirmed (details to follow)',
+      Dispatched: 'Dispatched',
+      Amended: 'Amended',
+      Canceled: 'Canceled',
+    };
+    const statusText = statusLabels[newStatus] || newStatus;
+    const isNew = !oldStatus;
+    const titlePrefix = isNew ? 'New Dispatch' : `Dispatch ${statusText}`;
+
+    const notifications = affectedOwnerCodes.map(ac => ({
       recipient_type: 'AccessCode',
       recipient_access_code_id: ac.id,
       recipient_company_id: company.id,
-      title: `Dispatch ${statusText}`,
-      message: `Dispatch for ${dispatch.date} (${dispatch.shift_time} shift) has been ${statusText}${dispatch.client_name ? ` - ${dispatch.client_name}` : ''}`,
+      title: titlePrefix,
+      message: `Dispatch for ${dispatch.date} (${dispatch.shift_time} shift) — ${statusText}${dispatch.client_name ? ` | ${dispatch.client_name}` : ''}`,
       related_dispatch_id: dispatch.id,
-      read_flag: false
+      read_flag: false,
     }));
 
-    if (notifications.length > 0) {
-      await base44.entities.Notification.bulkCreate(notifications);
-    }
+    await base44.entities.Notification.bulkCreate(notifications);
   } catch (error) {
     console.error('Error creating dispatch notifications:', error);
   }

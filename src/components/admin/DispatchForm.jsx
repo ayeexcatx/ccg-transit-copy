@@ -113,17 +113,19 @@ export default function DispatchForm({ dispatch, companies, accessCodes, onSave,
       }
     }
 
-    // Notify on status changes
-    const oldStatus = dispatch?.status;
+    const oldStatus = dispatch && !dispatch._isCopy ? dispatch.status : null;
     const newStatus = finalForm.status;
-    
+
     onSave(finalForm);
-    
-    // Send notifications after save
-    if (dispatch && oldStatus !== newStatus && accessCodes) {
-      setTimeout(() => {
-        notifyDispatchChange(finalForm, oldStatus, newStatus, companies, accessCodes);
-      }, 500);
+
+    // Notify on new dispatch creation OR status change
+    if (accessCodes) {
+      const shouldNotify = !oldStatus || oldStatus !== newStatus;
+      if (shouldNotify) {
+        setTimeout(() => {
+          notifyDispatchChange(finalForm, oldStatus, newStatus, companies, accessCodes);
+        }, 500);
+      }
     }
   };
 
