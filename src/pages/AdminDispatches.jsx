@@ -134,6 +134,11 @@ export default function AdminDispatches() {
   const [deleteError, setDeleteError] = useState('');
   const [filters, setFilters] = useState({ status: 'all', company_id: 'all', truck: '', dateFrom: '', dateTo: '' });
   const [showFilters, setShowFilters] = useState(false);
+  const dispatchRefs = useRef({});
+  const didAutoScroll = useRef(false);
+
+  const urlParams = new URLSearchParams(window.location.search);
+  const targetDispatchId = urlParams.get('dispatchId');
 
   const { data: dispatches = [], isLoading } = useQuery({
     queryKey: ['dispatches-admin'],
