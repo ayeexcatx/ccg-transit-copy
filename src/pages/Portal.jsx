@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect, useRef } from 'react';
 import { base44 } from '@/api/base44Client';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useSession } from '../components/session/SessionContext';
@@ -13,6 +13,13 @@ export default function Portal() {
   const { session } = useSession();
   const [tab, setTab] = useState('active');
   const queryClient = useQueryClient();
+  const dispatchRefs = useRef({});
+  const [expandedDispatchId, setExpandedDispatchId] = useState(null);
+  const didAutoScroll = useRef(false);
+
+  // Read ?dispatchId from URL
+  const urlParams = new URLSearchParams(window.location.search);
+  const targetDispatchId = urlParams.get('dispatchId');
 
   const { data: dispatches = [] } = useQuery({
     queryKey: ['portal-dispatches', session?.company_id],
