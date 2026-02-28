@@ -1,5 +1,4 @@
-import React, { useState, useEffect } from 'react';
-import { base44 } from '@/api/base44Client';
+import React, { useState } from 'react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -23,16 +22,16 @@ const tollColors = {
   'Included in Rate': 'bg-purple-50 text-purple-700',
 };
 
-const DispatchCard = React.forwardRef(function DispatchCard({
+export default function DispatchCard({
   dispatch, session, confirmations, timeEntries, templateNotes,
-  onConfirm, onTimeEntry, companyName, defaultExpanded = false
-}, ref) {
-  const [expanded, setExpanded] = useState(defaultExpanded);
+  onConfirm, onTimeEntry, companyName, forceExpanded
+}) {
+  const [expanded, setExpanded] = useState(false);
 
-  // If defaultExpanded changes (e.g. from notification link), sync
-  useEffect(() => {
-    if (defaultExpanded) setExpanded(true);
-  }, [defaultExpanded]);
+  // Allow parent to force-expand this card
+  React.useEffect(() => {
+    if (forceExpanded) setExpanded(true);
+  }, [forceExpanded]);
   const [startTime, setStartTime] = useState('');
   const [endTime, setEndTime] = useState('');
 
@@ -86,7 +85,6 @@ const DispatchCard = React.forwardRef(function DispatchCard({
   );
 
   return (
-    <div ref={ref}>
     <Card className="overflow-hidden border-slate-200 hover:border-slate-300 transition-colors">
       <CardContent className="p-0">
         {/* Header */}
@@ -194,45 +192,41 @@ const DispatchCard = React.forwardRef(function DispatchCard({
                     <p className="text-sm text-slate-700 whitespace-pre-wrap">{dispatch.notes}</p>
                   </div>
                 )}
-
-            {(dispatch.additional_assignments || []).length > 0 && (
-              <div>
-                <p className="text-xs font-medium text-slate-500 mb-2">Additional Assignments</p>
-                <div className="space-y-2">
-                  {dispatch.additional_assignments.map((a, i) => (
-                    <div key={i} className="bg-white rounded-lg border border-slate-200 p-3 text-sm">
-                      <div className="flex items-center gap-2 text-slate-600 mb-1">
-                        <Clock className="h-3 w-3 text-slate-400" />{a.start_time}
-                        <MapPin className="h-3 w-3 text-slate-400 ml-2" />{a.start_location}
-                      </div>
-                      {a.instructions && <p className="text-xs text-slate-500">{a.instructions}</p>}
+                {(dispatch.additional_assignments || []).length > 0 && (
+                  <div>
+                    <p className="text-xs font-medium text-slate-500 mb-2">Additional Assignments</p>
+                    <div className="space-y-2">
+                      {dispatch.additional_assignments.map((a, i) => (
+                        <div key={i} className="bg-white rounded-lg border border-slate-200 p-3 text-sm">
+                          <div className="flex items-center gap-2 text-slate-600 mb-1">
+                            <Clock className="h-3 w-3 text-slate-400" />{a.start_time}
+                            <MapPin className="h-3 w-3 text-slate-400 ml-2" />{a.start_location}
+                          </div>
+                          {a.instructions && <p className="text-xs text-slate-500">{a.instructions}</p>}
+                        </div>
+                      ))}
                     </div>
-                  ))}
-                </div>
-              </div>
-            )}
-
-            {templateNotes?.length > 0 && (
-              <div>
-                <p className="text-xs font-medium text-slate-500 mb-1">General Notes</p>
-                <div className="space-y-1">
-                  {templateNotes.map(n => (
-                    <p key={n.id} className="text-xs text-slate-600">• {n.note_text}</p>
-                  ))}
-                </div>
-              </div>
-            )}
-
-            {dispatch.canceled_reason && (
-              <div className="flex items-start gap-2 bg-red-50 rounded-lg p-3">
-                <AlertTriangle className="h-4 w-4 text-red-500 mt-0.5" />
-                <div>
-                  <p className="text-xs font-medium text-red-700">Canceled</p>
-                  <p className="text-sm text-red-600">{dispatch.canceled_reason}</p>
-                </div>
-              </div>
-            )}
-
+                  </div>
+                )}
+                {templateNotes?.length > 0 && (
+                  <div>
+                    <p className="text-xs font-medium text-slate-500 mb-1">General Notes</p>
+                    <div className="space-y-1">
+                      {templateNotes.map(n => (
+                        <p key={n.id} className="text-xs text-slate-600">• {n.note_text}</p>
+                      ))}
+                    </div>
+                  </div>
+                )}
+                {dispatch.canceled_reason && (
+                  <div className="flex items-start gap-2 bg-red-50 rounded-lg p-3">
+                    <AlertTriangle className="h-4 w-4 text-red-500 mt-0.5" />
+                    <div>
+                      <p className="text-xs font-medium text-red-700">Canceled</p>
+                      <p className="text-sm text-red-600">{dispatch.canceled_reason}</p>
+                    </div>
+                  </div>
+                )}
               </>
             )}
 
@@ -339,8 +333,5 @@ const DispatchCard = React.forwardRef(function DispatchCard({
         )}
       </CardContent>
     </Card>
-    </div>
   );
-});
-
-export default DispatchCard;
+}
