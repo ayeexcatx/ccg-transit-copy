@@ -126,6 +126,35 @@ export default function Portal() {
   const currentList = tab === 'active' ? activeDispatches : historyDispatches;
   const sortedNotes = [...templateNotes].sort((a, b) => (a.priority || 0) - (b.priority || 0));
 
+  // Auto-navigate to target dispatch when data is loaded
+  useEffect(() => {
+    if (!targetDispatchId || didAutoScroll.current || filteredDispatches.length === 0) return;
+    const target = filteredDispatches.find(d => d.id === targetDispatchId);
+    if (!target) return;
+
+    // Determine correct tab
+    const isActive = activeDispatches.some(d => d.id === targetDispatchId);
+    const isHistory = historyDispatches.some(d => d.id === targetDispatchId);
+    if (!isActive && !isHistory) return; // not visible in any tab
+
+    const correctTab = isActive ? 'active' : 'history';
+    if (tab !== correctTab) {
+      setTab(correctTab);
+      return; // wait for re-render
+    }
+
+    // Expand and scroll
+    setExpandedDispatchId(targetDispatchId);
+    didAutoScroll.current = true;
+
+    setTimeout(() => {
+      const el = dispatchRefs.current[targetDispatchId];
+      if (el) {
+        el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      }
+    }, 150);
+  }, [targetDispatchId, filteredDispatches, tab, activeDispatches, historyDispatches]);
+
   return (
     <div className="space-y-6">
       <div>
