@@ -81,7 +81,7 @@ const DispatchCard = React.forwardRef(function DispatchCard({
   );
 
   return (
-    <Card className="overflow-hidden border-slate-200 hover:border-slate-300 transition-colors">
+    <Card ref={ref} className="overflow-hidden border-slate-200 hover:border-slate-300 transition-colors">
       <CardContent className="p-0">
         {/* Header */}
         <div className="p-4 sm:p-5">
