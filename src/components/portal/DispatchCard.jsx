@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { base44 } from '@/api/base44Client';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -23,16 +23,11 @@ const tollColors = {
   'Included in Rate': 'bg-purple-50 text-purple-700',
 };
 
-export default function DispatchCard({
+const DispatchCard = React.forwardRef(function DispatchCard({
   dispatch, session, confirmations, timeEntries, templateNotes,
-  onConfirm, onTimeEntry, companyName, forceExpanded
-}) {
-  const [expanded, setExpanded] = useState(false);
-
-  // Allow parent to force-expand this card
-  React.useEffect(() => {
-    if (forceExpanded) setExpanded(true);
-  }, [forceExpanded]);
+  onConfirm, onTimeEntry, companyName, defaultExpanded = false
+}, ref) {
+  const [expanded, setExpanded] = useState(defaultExpanded);
   const [startTime, setStartTime] = useState('');
   const [endTime, setEndTime] = useState('');
 
@@ -86,7 +81,7 @@ export default function DispatchCard({
   );
 
   return (
-    <Card className="overflow-hidden border-slate-200 hover:border-slate-300 transition-colors">
+    <Card ref={ref} className="overflow-hidden border-slate-200 hover:border-slate-300 transition-colors">
       <CardContent className="p-0">
         {/* Header */}
         <div className="p-4 sm:p-5">
@@ -339,4 +334,6 @@ export default function DispatchCard({
       </CardContent>
     </Card>
   );
-}
+});
+
+export default DispatchCard;
