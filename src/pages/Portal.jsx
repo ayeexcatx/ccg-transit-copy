@@ -173,6 +173,11 @@ export default function Portal() {
 
   return (
     <div className="space-y-6">
+      {dispatchNotFound && (
+        <div className="bg-amber-50 border border-amber-200 rounded-lg px-4 py-3 text-sm text-amber-700">
+          Dispatch no longer available.
+        </div>
+      )}
       <div>
         <div className="flex items-center gap-3 mb-1">
           <h2 className="text-xl font-bold text-slate-900">My Dispatches</h2>
