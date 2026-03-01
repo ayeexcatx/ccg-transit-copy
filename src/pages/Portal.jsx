@@ -9,6 +9,11 @@ import { Truck, Inbox } from 'lucide-react';
 import { format, isToday, isBefore, startOfDay } from 'date-fns';
 import { notifyTruckConfirmation } from '../components/notifications/createNotifications';
 
+function myTrucksForHistory(dispatch, timeEntries, session) {
+  const trucks = (session?.allowed_trucks || []).filter(t => (dispatch.trucks_assigned || []).includes(t));
+  return trucks.some(t => timeEntries.some(te => te.dispatch_id === dispatch.id && te.truck_number === t));
+}
+
 export default function Portal() {
   const { session } = useSession();
   const [tab, setTab] = useState('today');
