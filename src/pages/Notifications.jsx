@@ -9,6 +9,7 @@ import { Bell, CheckCircle2, ExternalLink } from 'lucide-react';
 import { format } from 'date-fns';
 import { createPageUrl } from '@/utils';
 import { useNavigate } from 'react-router-dom';
+import NotificationStatusBadge from '@/components/notifications/NotificationStatusBadge';
 
 export default function Notifications() {
   const { session } = useSession();
