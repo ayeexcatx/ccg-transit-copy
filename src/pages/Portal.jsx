@@ -83,16 +83,36 @@ export default function Portal() {
     });
   }, [dispatches, allowedTrucks]);
 
-  const thirtyDaysAgo = subDays(new Date(), 30);
+  const today = startOfDay(new Date());
 
-  const activeDispatches = filteredDispatches.filter(d =>
-    d.status !== 'Completed' && d.status !== 'Canceled'
-  );
+  const upcomingDispatches = useMemo(() => {
+    return filteredDispatches
+      .filter(d => d.status !== 'Canceled' && d.date && new Date(d.date) > today)
+      .sort((a, b) => {
+        const dateDiff = new Date(a.date) - new Date(b.date);
+        if (dateDiff !== 0) return dateDiff;
+        const aTime = a.start_time || 'zzz';
+        const bTime = b.start_time || 'zzz';
+        return aTime.localeCompare(bTime);
+      });
+  }, [filteredDispatches, today]);
 
-  const historyDispatches = filteredDispatches.filter(d =>
-    (d.status === 'Completed' || d.status === 'Canceled') &&
-    new Date(d.date) >= thirtyDaysAgo
-  );
+  const todayDispatches = useMemo(() => {
+    return filteredDispatches
+      .filter(d => d.status !== 'Canceled' && d.date && isToday(new Date(d.date)))
+      .sort((a, b) => {
+        if (!a.start_time && !b.start_time) return 0;
+        if (!a.start_time) return 1;
+        if (!b.start_time) return -1;
+        return a.start_time.localeCompare(b.start_time);
+      });
+  }, [filteredDispatches]);
+
+  const historyDispatches = useMemo(() => {
+    return filteredDispatches
+      .filter(d => d.status === 'Canceled' || (d.date && isBefore(new Date(d.date), today)))
+      .sort((a, b) => new Date(b.date) - new Date(a.date));
+  }, [filteredDispatches, today]);
 
   const companyMap = {};
   companies.forEach(c => { companyMap[c.id] = c.name; });
