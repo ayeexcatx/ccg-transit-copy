@@ -114,6 +114,11 @@ export default function Notifications() {
                       )}
                     </div>
                     <p className="text-sm text-slate-600">{n.message}</p>
+                    {n.required_trucks?.length > 0 && (
+                      <div className="mt-1.5">
+                        <NotificationStatusBadge notification={n} confirmations={confirmations} />
+                      </div>
+                    )}
                     <p className="text-xs text-slate-400 mt-2">
                       {format(new Date(n.created_date), 'MMM d, yyyy h:mm a')}
                     </p>
