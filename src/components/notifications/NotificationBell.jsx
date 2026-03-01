@@ -31,6 +31,14 @@ export default function NotificationBell({ session }) {
       }, '-created_date', 20);
     },
     enabled: !!session,
+    refetchInterval: 30000,
+  });
+
+  const { data: confirmations = [] } = useQuery({
+    queryKey: ['confirmations-bell'],
+    queryFn: () => base44.entities.Confirmation.list('-confirmed_at', 500),
+    enabled: session?.code_type === 'CompanyOwner',
+    refetchInterval: 30000,
   });
 
   const markAsReadMutation = useMutation({
