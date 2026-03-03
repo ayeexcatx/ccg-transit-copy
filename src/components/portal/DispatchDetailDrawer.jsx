@@ -5,7 +5,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import {
   CheckCircle2, Clock, MapPin, Truck, Sun, Moon,
-  FileText, AlertTriangle, Save
+  FileText, AlertTriangle, Save, History
 } from 'lucide-react';
 import { format } from 'date-fns';
 import { statusBadgeColors } from './statusConfig';
