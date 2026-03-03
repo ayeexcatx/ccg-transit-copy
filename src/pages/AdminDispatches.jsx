@@ -247,11 +247,11 @@ export default function AdminDispatches() {
     setDeleteError('');
   };
 
-  // Auto-open preview for target dispatch from notification
+  // Auto-open drawer for target dispatch from notification
   useEffect(() => {
     if (!targetDispatchId || didAutoScroll.current || dispatches.length === 0) return;
     const target = dispatches.find(d => d.id === targetDispatchId);
-    if (!target) return;
+    if (!target) { didAutoScroll.current = true; return; }
 
     // Clear status filter if it would hide the dispatch
     if (filters.status !== 'all' && filters.status !== target.status) {
@@ -259,13 +259,11 @@ export default function AdminDispatches() {
     }
 
     didAutoScroll.current = true;
+    setPreviewDispatch(target);
+
     setTimeout(() => {
       const el = dispatchRefs.current[targetDispatchId];
-      if (el) {
-        el.scrollIntoView({ behavior: 'smooth', block: 'center' });
-        el.classList.add('ring-2', 'ring-blue-400', 'ring-offset-1');
-        setTimeout(() => el.classList.remove('ring-2', 'ring-blue-400', 'ring-offset-1'), 3000);
-      }
+      if (el) el.scrollIntoView({ behavior: 'smooth', block: 'center' });
     }, 200);
   }, [targetDispatchId, dispatches]);
 
