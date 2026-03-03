@@ -76,6 +76,11 @@ function LayoutInner({ children, currentPageName }) {
                 <Link to={createPageUrl('AdminTemplateNotes')}>
                   <Button variant="ghost" size="sm" className="text-xs">Notes</Button>
                 </Link>
+                <Link to={createPageUrl('AdminAnnouncements')}>
+                  <Button variant="ghost" size="sm" className="text-xs flex items-center gap-1">
+                    <Megaphone className="h-3 w-3" />Announcements
+                  </Button>
+                </Link>
               </nav>
             )}
             {(isAdmin || session.code_type === 'CompanyOwner') && (
