@@ -255,23 +255,39 @@ export default function DispatchForm({ dispatch, companies, accessCodes, onSave,
 
       {/* Additional Assignments - only for full dispatches */}
       {!isConfirmed && !isCanceled && (
-        <div>
-          <div className="flex items-center justify-between mb-2">
+        <div className="space-y-3">
+          <div className="flex items-center justify-between">
             <Label>Additional Assignments</Label>
             <Button type="button" variant="outline" size="sm" onClick={addAssignment} className="text-xs">
-              <Plus className="h-3 w-3 mr-1" />Add
+              <Plus className="h-3 w-3 mr-1" />Add Assignment
             </Button>
           </div>
           {form.additional_assignments.map((a, i) => (
-            <div key={i} className="flex gap-2 items-start mb-2 bg-slate-50 p-3 rounded-lg">
-              <div className="flex-1 grid grid-cols-1 sm:grid-cols-3 gap-2">
-                <Input placeholder="Time" type="time" value={a.start_time} onChange={e => updateAssignment(i, 'start_time', e.target.value)} />
-                <Input placeholder="Location" value={a.start_location} onChange={e => updateAssignment(i, 'start_location', e.target.value)} />
-                <Input placeholder="Instructions" value={a.instructions} onChange={e => updateAssignment(i, 'instructions', e.target.value)} />
+            <div key={i} className={`rounded-lg border border-slate-200 p-4 space-y-3 ${i % 2 === 0 ? 'bg-slate-50' : 'bg-blue-50/40'}`}>
+              <div className="flex items-center justify-between">
+                <p className="text-xs font-semibold text-slate-500 uppercase tracking-wide">Assignment {i + 2}</p>
+                <Button variant="ghost" size="icon" onClick={() => removeAssignment(i)} className="h-7 w-7 text-red-500">
+                  <Trash2 className="h-3.5 w-3.5" />
+                </Button>
               </div>
-              <Button variant="ghost" size="icon" onClick={() => removeAssignment(i)} className="h-8 w-8 text-red-500 shrink-0">
-                <Trash2 className="h-3.5 w-3.5" />
-              </Button>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div>
+                  <Label className="text-xs">Job Number</Label>
+                  <Input placeholder="Job #" value={a.job_number || ''} onChange={e => updateAssignment(i, 'job_number', e.target.value)} />
+                </div>
+                <div>
+                  <Label className="text-xs">Start Time</Label>
+                  <Input type="time" value={a.start_time} onChange={e => updateAssignment(i, 'start_time', e.target.value)} />
+                </div>
+              </div>
+              <div>
+                <Label className="text-xs">Start Location</Label>
+                <Textarea placeholder="Enter address (multi-line supported)" value={a.start_location} onChange={e => updateAssignment(i, 'start_location', e.target.value)} rows={2} />
+              </div>
+              <div>
+                <Label className="text-xs">Instructions</Label>
+                <Textarea placeholder="Instructions" value={a.instructions} onChange={e => updateAssignment(i, 'instructions', e.target.value)} rows={2} />
+              </div>
             </div>
           ))}
         </div>
