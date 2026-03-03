@@ -165,6 +165,17 @@ export default function AdminDispatches() {
     queryFn: () => base44.entities.TimeEntry.list('-created_date', 500),
   });
 
+  const openDrawer = async (d) => {
+    setPreviewDispatch(d);
+    // Fetch dispatch-specific confirmations and time entries
+    const [confs, times] = await Promise.all([
+      base44.entities.Confirmation.filter({ dispatch_id: d.id }, '-confirmed_at', 100),
+      base44.entities.TimeEntry.filter({ dispatch_id: d.id }, '-created_date', 100),
+    ]);
+    setDrawerConfirmations(confs);
+    setDrawerTimeEntries(times);
+  };
+
   const { data: templateNotes = [] } = useQuery({
     queryKey: ['template-notes'],
     queryFn: () => base44.entities.DispatchTemplateNotes.filter({ active_flag: true }, 'priority', 50),
