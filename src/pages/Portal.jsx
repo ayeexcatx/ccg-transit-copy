@@ -67,8 +67,8 @@ export default function Portal() {
       let savedEntry;
       if (existing) {
         savedEntry = await base44.entities.TimeEntry.update(existing.id, {
-          start_time: start || existing.start_time,
-          end_time: end || existing.end_time,
+          start_time: start !== undefined ? start : existing.start_time,
+          end_time: end !== undefined ? end : existing.end_time,
         });
       } else {
         savedEntry = await base44.entities.TimeEntry.create({
