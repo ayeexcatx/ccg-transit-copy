@@ -167,12 +167,28 @@ export default function AdminDispatches() {
 
   const openDrawer = async (d) => {
     setPreviewDispatch(d);
-    const [confs, times] = await Promise.all([
+    const [confs, times, adminNotifs] = await Promise.all([
       base44.entities.Confirmation.filter({ dispatch_id: d.id }, '-confirmed_at', 100),
       base44.entities.TimeEntry.filter({ dispatch_id: d.id }, '-created_date', 100),
+      base44.entities.Notification.filter({
+        recipient_type: 'Admin',
+        related_dispatch_id: d.id,
+      }, '-created_date', 50),
     ]);
     setDrawerConfirmations(confs);
     setDrawerTimeEntries(times);
+
+    // Bulk-mark as read all unread admin notifications for this dispatch+status group
+    const groupKey = `${d.id}:${d.status}`;
+    const unreadGroup = (adminNotifs || []).filter(n =>
+      !n.read_flag && (n.admin_group_key === groupKey || n.related_dispatch_id === d.id)
+    );
+    if (unreadGroup.length > 0) {
+      await Promise.all(unreadGroup.map(n =>
+        base44.entities.Notification.update(n.id, { read_flag: true })
+      ));
+      queryClient.invalidateQueries({ queryKey: ['notifications'] });
+    }
   };
 
   const { data: templateNotes = [] } = useQuery({

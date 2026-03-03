@@ -125,9 +125,12 @@ export async function notifyTruckConfirmation(dispatch, truckNumber, companyName
       title: `Truck ${truckNumber} Confirmed`,
       message: `${dispatch.date} · ${dispatch.shift_time} shift · ${dispatch.status}${companyName ? ` | ${companyName}` : ''}${dispatch.client_name ? ` | ${dispatch.client_name}` : ''}`,
       related_dispatch_id: dispatch.id,
-      read_flag: false
+      read_flag: false,
+      // Group key so all truck confirmations for the same dispatch+status can be bulk-resolved
+      admin_group_key: `${dispatch.id}:${dispatch.status}`,
+      confirmation_type: dispatch.status,
     });
-  } catch (error) {
-    console.error('Error creating confirmation notification:', error);
+  } catch (err) {
+    console.error('Error creating confirmation notification:', err);
   }
 }
