@@ -5,7 +5,7 @@ import { useSession } from '../components/session/SessionContext';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { Bell, Truck, Clock, MapPin, FileText, Sun, Moon, ArrowRight, CheckCircle2, AlertCircle } from 'lucide-react';
+import { Bell, Clock, MapPin, Sun, Moon, ArrowRight, CheckCircle2, AlertCircle, Megaphone } from 'lucide-react';
 import { format, isToday, startOfDay } from 'date-fns';
 import { createPageUrl } from '@/utils';
 import { Link, useNavigate } from 'react-router-dom';
