@@ -24,6 +24,13 @@ function TruckTimeRow({ truck, dispatch, timeEntries, onTimeEntry, readOnly }) {
   const [end, setEnd] = useState(existing?.end_time || '');
   const [saved, setSaved] = useState(false);
 
+  React.useEffect(() => {
+    if (existing) {
+      setStart(existing.start_time || '');
+      setEnd(existing.end_time || '');
+    }
+  }, [existing?.start_time, existing?.end_time]);
+
   const handleSave = () => {
     onTimeEntry(dispatch, truck, start, end);
     setSaved(true);
