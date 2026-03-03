@@ -118,14 +118,11 @@ export default function DispatchForm({ dispatch, companies, accessCodes, onSave,
 
     onSave(finalForm);
 
-    // Notify on new dispatch creation OR status change
+    // Always notify on creation or whenever status is set (dedup is handled inside notifyDispatchChange)
     if (accessCodes) {
-      const shouldNotify = !oldStatus || oldStatus !== newStatus;
-      if (shouldNotify) {
-        setTimeout(() => {
-          notifyDispatchChange(finalForm, oldStatus, newStatus, companies, accessCodes);
-        }, 500);
-      }
+      setTimeout(() => {
+        notifyDispatchChange(finalForm, oldStatus, newStatus, companies, accessCodes);
+      }, 500);
     }
   };
 
