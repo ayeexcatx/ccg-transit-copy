@@ -10,7 +10,6 @@ import { format, parseISO } from 'date-fns';
 import { getDispatchBucket } from '../components/portal/dispatchBuckets';
 import { createPageUrl } from '@/utils';
 import { Link, useNavigate } from 'react-router-dom';
-import NotificationStatusBadge from '../components/notifications/NotificationStatusBadge';
 import { useOwnerNotifications } from '../components/notifications/useOwnerNotifications';
 
 const statusColors = {
