@@ -38,6 +38,9 @@ function LayoutInner({ children, currentPageName }) {
   if (!session) return null;
 
   const isAdmin = session.code_type === 'Admin';
+  const isOwner = session.code_type === 'CompanyOwner';
+  const location = useLocation();
+  const isActive = (pageName) => location.pathname === createPageUrl(pageName);
 
   return (
     <div className="min-h-screen bg-slate-50">
