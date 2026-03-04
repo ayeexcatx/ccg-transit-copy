@@ -25,10 +25,9 @@ export default function NotificationBell({ session }) {
   const handleNotificationClick = (n) => {
     if (n.related_dispatch_id) {
       const targetPage = session.code_type === 'Admin' ? 'AdminDispatches' : 'Portal';
-      const notifParam = !n.read_flag ? `&notificationId=${n.id}` : '';
-      navigate(createPageUrl(`${targetPage}?dispatchId=${n.related_dispatch_id}${notifParam}`));
+      navigate(createPageUrl(`${targetPage}?dispatchId=${n.related_dispatch_id}`));
     } else {
-      if (!n.read_flag) markRead(n.id);
+      navigate(createPageUrl('Notifications'));
     }
   };
 
