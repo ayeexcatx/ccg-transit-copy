@@ -123,11 +123,13 @@ function AdminConfirmationsPanel({ dispatch, confirmations }) {
 export default function AdminDispatches() {
   const queryClient = useQueryClient();
   const { session } = useSession();
+  const location = useLocation();
   const [open, setOpen] = useState(false);
   const [editing, setEditing] = useState(null);
   const [previewDispatch, setPreviewDispatch] = useState(null);
   const [drawerConfirmations, setDrawerConfirmations] = useState([]);
   const [drawerTimeEntries, setDrawerTimeEntries] = useState([]);
+  const [drawerMountKey, setDrawerMountKey] = useState('');
   const [deleteTarget, setDeleteTarget] = useState(null);
   const [deleteCode, setDeleteCode] = useState('');
   const [deleteError, setDeleteError] = useState('');
@@ -135,9 +137,9 @@ export default function AdminDispatches() {
   const [showFilters, setShowFilters] = useState(false);
   const [tab, setTab] = useState('today');
   const dispatchRefs = useRef({});
-  const lastOpenedIdRef = useRef(null);
+  const pendingOpenIdRef = useRef(null);
 
-  const urlParams = new URLSearchParams(window.location.search);
+  const urlParams = new URLSearchParams(location.search);
   const targetDispatchId = urlParams.get('dispatchId');
   const targetNotificationId = urlParams.get('notificationId');
 
