@@ -197,36 +197,39 @@ export default function Portal() {
     !dispatches.find(d => d.id === targetDispatchId);
 
   useEffect(() => {
-    if (!targetDispatchId || dispatches.length === 0) return;
+    const idToOpen = targetDispatchId || pendingOpenIdRef.current;
+    if (!idToOpen || dispatches.length === 0) return;
 
-    const target = dispatches.find(d => d.id === targetDispatchId);
+    const target = dispatches.find(d => d.id === idToOpen);
     if (!target) return;
 
-    const filteredTarget = filteredDispatches.find(d => d.id === targetDispatchId);
+    const filteredTarget = filteredDispatches.find(d => d.id === idToOpen);
     if (!filteredTarget) return;
 
-    const inUpcoming = upcomingDispatches.some(d => d.id === targetDispatchId);
-    const inToday = todayDispatches.some(d => d.id === targetDispatchId);
-    const inHistory = historyDispatches.some(d => d.id === targetDispatchId);
+    const inUpcoming = upcomingDispatches.some(d => d.id === idToOpen);
+    const inToday = todayDispatches.some(d => d.id === idToOpen);
+    const inHistory = historyDispatches.some(d => d.id === idToOpen);
 
     const correctTab = inUpcoming ? 'upcoming' : inToday ? 'today' : inHistory ? 'history' : null;
     if (!correctTab) return;
 
     if (tab !== correctTab) {
+      pendingOpenIdRef.current = idToOpen;
       setTab(correctTab);
       return;
     }
 
-    // Close then re-open to force remount even if same id was already open
+    pendingOpenIdRef.current = null;
     setDrawerDispatchId(null);
-    setTimeout(() => {
-      setDrawerDispatchId(targetDispatchId);
+    setDrawerMountKey(`${idToOpen}:${Date.now()}`);
+    requestAnimationFrame(() => {
+      setDrawerDispatchId(idToOpen);
       setTimeout(() => {
-        const el = dispatchRefs.current[targetDispatchId];
+        const el = dispatchRefs.current[idToOpen];
         if (el) el.scrollIntoView({ behavior: 'smooth', block: 'center' });
       }, 100);
-    }, 0);
-  }, [targetDispatchId, filteredDispatches, tab, upcomingDispatches, todayDispatches, historyDispatches]);
+    });
+  }, [location.search, filteredDispatches, tab, upcomingDispatches, todayDispatches, historyDispatches]);
 
   return (
     <div className="space-y-6">
