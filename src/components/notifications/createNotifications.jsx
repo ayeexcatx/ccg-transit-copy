@@ -79,28 +79,29 @@ export async function notifyDispatchChange(dispatch, oldStatus, newStatus, compa
  * After a truck confirms, check if all required trucks for the owner's notification
  * are now confirmed. If so, mark the notification as read (resolved).
  */
-export async function resolveOwnerNotificationIfComplete(dispatch, confirmations, accessCodes) {
+/**
+ * After a truck confirms, check if all required trucks for the owner's notification
+ * are now confirmed. If so, mark the notification as read (resolved).
+ * ownerAccessCodeId: the session.id of the CompanyOwner who confirmed.
+ */
+export async function resolveOwnerNotificationIfComplete(dispatch, confirmations, ownerAccessCodeId) {
   try {
     const status = dispatch.status;
-    // Find all owner notifications for this dispatch+status (keys now include owner id)
+    const dedupKey = `${dispatch.id}:${status}:${ownerAccessCodeId}`;
+
     const ownerNotifs = await base44.entities.Notification.filter({
-      related_dispatch_id: dispatch.id,
-      recipient_type: 'AccessCode',
-    }, '-created_date', 50);
+      recipient_access_code_id: ownerAccessCodeId,
+      dispatch_status_key: dedupKey,
+    }, '-created_date', 5);
 
-    const filteredOwnerNotifs = (ownerNotifs || []).filter(n => {
-      const key = n.dispatch_status_key || '';
-      return key.startsWith(`${dispatch.id}:${status}:`);
-    });
-
-    if (!filteredOwnerNotifs || filteredOwnerNotifs.length === 0) return;
+    if (!ownerNotifs || ownerNotifs.length === 0) return;
 
     const confirmedTrucksForStatus = confirmations
       .filter(c => c.dispatch_id === dispatch.id && c.confirmation_type === status)
       .map(c => c.truck_number);
 
-    for (const notif of filteredOwnerNotifs) {
-      if (notif.read_flag) continue; // already resolved
+    for (const notif of ownerNotifs) {
+      if (notif.read_flag) continue;
 
       const required = notif.required_trucks || [];
       if (required.length === 0) continue;
