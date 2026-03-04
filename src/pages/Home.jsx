@@ -11,6 +11,7 @@ import { getDispatchBucket } from '../components/portal/dispatchBuckets';
 import { createPageUrl } from '@/utils';
 import { Link, useNavigate } from 'react-router-dom';
 import { useOwnerNotifications } from '../components/notifications/useOwnerNotifications';
+import NotificationStatusBadge from '../components/notifications/NotificationStatusBadge';
 
 const dateOnly = (v) => (typeof v === 'string' ? v.slice(0, 10) : v);
 
