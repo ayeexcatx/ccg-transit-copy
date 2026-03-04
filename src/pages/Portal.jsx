@@ -163,7 +163,9 @@ export default function Portal() {
       { dispatch_id: dispatch.id, truck_number: truck, confirmation_type: confType }
     ];
 
-    resolveOwnerNotificationIfComplete(dispatch, updatedConfirmations, []);
+    if (session?.code_type === 'CompanyOwner') {
+      resolveOwnerNotificationIfComplete(dispatch, updatedConfirmations, session.id);
+    }
 
     // Auto-archive Canceled dispatch once all trucks have confirmed cancellation
     if (confType === 'Canceled') {
