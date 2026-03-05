@@ -169,11 +169,11 @@ export default function Portal() {
       resolveOwnerNotificationIfComplete(dispatch, updatedConfirmations, session.id);
     }
 
-    // Auto-archive Cancel dispatch once all trucks have confirmed cancellation
-    if (confType === 'Cancel') {
+    // Auto-archive Cancelled dispatch once all trucks have confirmed cancellation
+    if (confType === 'Cancelled') {
       const allTrucks = dispatch.trucks_assigned || [];
       const confirmedCanceledTrucks = updatedConfirmations
-        .filter(c => c.dispatch_id === dispatch.id && c.confirmation_type === 'Cancel')
+        .filter(c => c.dispatch_id === dispatch.id && c.confirmation_type === 'Cancelled')
         .map(c => c.truck_number);
       const allConfirmed = allTrucks.every(t => confirmedCanceledTrucks.includes(t));
       if (allConfirmed && !dispatch.archived_flag) {
