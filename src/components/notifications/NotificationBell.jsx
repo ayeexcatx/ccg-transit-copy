@@ -69,7 +69,6 @@ export default function NotificationBell({ session }) {
                 <div className="flex items-start justify-between gap-2">
                   <div className="flex-1 min-w-0">
                     <p className="text-sm font-medium text-slate-900">{n.title}</p>
-                    <p className="text-xs text-slate-600 mt-0.5">{n.message}</p>
                     {n.required_trucks?.length > 0 && (
                       <div className="mt-1">
                         <NotificationStatusBadge notification={n} confirmations={confirmations} />

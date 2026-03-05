@@ -1,4 +1,5 @@
 import { base44 } from '@/api/base44Client';
+import { formatDispatchDateTime } from '@/lib/dispatchFormatters';
 
 /**
  * Create (or deduplicate) owner notifications for a dispatch status change.
@@ -49,7 +50,6 @@ export async function notifyDispatchChange(dispatch, oldStatus, newStatus, compa
       Cancelled: 'Cancelled',
     };
     const statusText = statusLabels[newStatus] || newStatus;
-    const titlePrefix = `Status: ${statusText}`;
 
     for (const ac of affectedOwnerCodes) {
       const dedupKey = `${dispatch.id}:${newStatus}:${ac.id}`;
@@ -71,8 +71,13 @@ export async function notifyDispatchChange(dispatch, oldStatus, newStatus, compa
         ? `Trucks: ${relevantTrucks.join(', ')}`
         : `${relevantTrucks.length} trucks assigned`;
 
+      const dispatchDateTimeText = formatDispatchDateTime({
+        date: dispatch.date,
+        start_time: dispatch.start_time,
+        status: newStatus,
+      });
+      const title = [dispatchDateTimeText, statusText].filter(Boolean).join(' · ');
       const message = [
-        `${dispatch.date} · ${dispatch.shift_time} · ${statusText}`,
         dispatch.client_name ? dispatch.client_name : null,
         truckSummary,
       ].filter(Boolean).join(' | ');
@@ -82,7 +87,7 @@ export async function notifyDispatchChange(dispatch, oldStatus, newStatus, compa
         recipient_access_code_id: ac.id,
         recipient_id: ac.id,
         recipient_company_id: company.id,
-        title: titlePrefix,
+        title,
         message,
         related_dispatch_id: dispatch.id,
         read_flag: false,

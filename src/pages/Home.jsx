@@ -6,14 +6,12 @@ import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Bell, Clock, MapPin, Sun, Moon, ArrowRight, AlertCircle, Megaphone } from 'lucide-react';
-import { format, parseISO } from 'date-fns';
 import { getDispatchBucket } from '../components/portal/dispatchBuckets';
 import { createPageUrl } from '@/utils';
 import { Link, useNavigate } from 'react-router-dom';
 import { useOwnerNotifications } from '../components/notifications/useOwnerNotifications';
 import NotificationStatusBadge from '../components/notifications/NotificationStatusBadge';
-
-const dateOnly = (v) => (typeof v === 'string' ? v.slice(0, 10) : v);
+import { dateOnly, formatDispatchDate, formatDispatchTime } from '@/lib/dispatchFormatters';
 
 const statusColors = {
   Scheduled: 'bg-blue-50 text-blue-700 border-blue-200',
@@ -23,6 +21,9 @@ const statusColors = {
 };
 
 function MiniDispatchCard({ dispatch }) {
+  const timeText = formatDispatchTime(dispatch.start_time);
+  const showTime = dispatch.status !== 'Schedule' && dispatch.status !== 'Scheduled' && timeText;
+
   return (
     <Link to={createPageUrl(`Portal?dispatchId=${dispatch.id}`)}>
       <div className="flex items-start gap-3 p-3 rounded-lg hover:bg-slate-50 border border-transparent hover:border-slate-200 transition-all cursor-pointer">
@@ -34,12 +35,12 @@ function MiniDispatchCard({ dispatch }) {
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-2 flex-wrap mb-1">
             <Badge className={`${statusColors[dispatch.status]} border text-xs`}>{dispatch.status}</Badge>
-            <span className="text-xs text-slate-500">{dispatch.date && format(parseISO(dateOnly(dispatch.date)), 'MMM d')}</span>
+            <span className="text-xs text-slate-500">{formatDispatchDate(dispatch.date)}</span>
           </div>
           <p className="text-sm font-medium text-slate-700 truncate">{dispatch.client_name || 'Dispatch'}</p>
           <div className="flex items-center gap-2 mt-0.5 text-xs text-slate-500 flex-wrap">
-            {dispatch.start_time && (
-              <span className="flex items-center gap-1"><Clock className="h-3 w-3" />{dispatch.start_time}</span>
+            {showTime && (
+              <span className="flex items-center gap-1"><Clock className="h-3 w-3" />{timeText}</span>
             )}
             {dispatch.start_location && (
               <span className="flex items-center gap-1 truncate max-w-[160px]">
@@ -109,7 +110,7 @@ export default function Home() {
   const upcomingDispatches = useMemo(() =>
     filteredDispatches
       .filter(d => getDispatchBucket(d) === 'upcoming')
-      .sort((a, b) => parseISO(dateOnly(a.date)) - parseISO(dateOnly(b.date)))
+      .sort((a, b) => dateOnly(a.date).localeCompare(dateOnly(b.date)))
       .slice(0, 5),
     [filteredDispatches]
   );
@@ -191,7 +192,6 @@ export default function Home() {
                       <Bell className="h-4 w-4 text-blue-500 shrink-0 mt-0.5" />
                       <div className="flex-1 min-w-0">
                         <p className="text-sm font-semibold text-slate-800 truncate">{n.title}</p>
-                        <p className="text-xs text-slate-600 mt-0.5 line-clamp-2">{n.message}</p>
                         {n.required_trucks?.length > 0 && (
                           <div className="mt-1">
                             <NotificationStatusBadge notification={n} confirmations={confirmations} />
