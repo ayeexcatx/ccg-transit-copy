@@ -76,6 +76,16 @@ function MiniDispatchCard({ dispatch }) {
                 </>
               )}
             </div>
+          </div>
+          <div className="flex items-center gap-2 flex-wrap">
+            <Badge className={`${statusColors[dispatch.status]} border text-xs`}>{dispatch.status}</Badge>
+          </div>
+          <div className="flex items-center justify-between text-xs text-slate-500 mb-1">
+            <span>{dispatch.date && format(parseISO(dispatch.date), 'EEE, MMM d, yyyy')}</span>
+            {dispatch.start_time && (
+              <span className="flex items-center gap-1"><Clock className="h-3 w-3" />{formatDispatchTime(dispatch.start_time)}</span>
+            )}
+          </div>
           <p className="text-sm font-medium text-slate-700 truncate">{dispatch.client_name || 'Dispatch'}</p>
           <div className="flex items-center gap-2 mt-0.5 text-xs text-slate-500 flex-wrap">
             {dispatch.start_location && (
@@ -86,7 +96,6 @@ function MiniDispatchCard({ dispatch }) {
           </div>
         </div>
         <ArrowRight className="h-4 w-4 text-slate-300 shrink-0 mt-1" />
-      </div>
       </div>
     </Link>
   );
