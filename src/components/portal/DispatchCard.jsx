@@ -5,7 +5,7 @@ import {
   Clock, MapPin, Truck, Sun, Moon,
   FileText, ChevronDown
 } from 'lucide-react';
-import { formatDispatchDate, formatDispatchTime } from '@/lib/dispatchFormatters';
+import { format, parseISO } from 'date-fns';
 import DispatchDetailDrawer from './DispatchDetailDrawer';
 import { statusBadgeColors, statusBorderAccent } from './statusConfig';
 
@@ -33,8 +33,6 @@ const DispatchCard = React.forwardRef(function DispatchCard({
   const myTrucks = (session.allowed_trucks || []).filter(t =>
     (dispatch.trucks_assigned || []).includes(t)
   );
-  const timeText = formatDispatchTime(dispatch.start_time);
-  const showTime = dispatch.status !== 'Schedule' && dispatch.status !== 'Scheduled' && timeText;
 
   return (
     <div ref={ref}>
@@ -60,12 +58,12 @@ const DispatchCard = React.forwardRef(function DispatchCard({
                 </span>
               </div>
               <span className="text-xs text-slate-500 whitespace-nowrap">
-                {formatDispatchDate(dispatch.date)}
+                {dispatch.date && format(parseISO(dispatch.date), 'MMM d, yyyy')}
               </span>
             </div>
 
             <div className="space-y-2">
-              {dispatch.status === 'Scheduled' || dispatch.status === 'Schedule' ? (
+              {dispatch.status === 'Scheduled' ? (
                 <>
                   <h3 className="font-semibold text-slate-900">Scheduled Dispatch</h3>
                   <p className="text-xs text-blue-600 italic mt-0.5">Your truck has been scheduled — details will follow</p>
@@ -85,10 +83,10 @@ const DispatchCard = React.forwardRef(function DispatchCard({
                         Job #{dispatch.job_number}
                       </div>
                     )}
-                    {showTime && (
+                    {dispatch.start_time && (
                       <div className="flex items-center gap-2 text-slate-600">
                         <Clock className="h-3.5 w-3.5 text-slate-400" />
-                        {timeText}
+                        {dispatch.start_time}
                       </div>
                     )}
                     {dispatch.start_location && (

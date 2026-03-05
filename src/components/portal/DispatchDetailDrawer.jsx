@@ -7,8 +7,7 @@ import {
   CheckCircle2, Clock, MapPin, Truck, Sun, Moon,
   FileText, AlertTriangle, Save, History
 } from 'lucide-react';
-import { format } from 'date-fns';
-import { formatDispatchDate, formatDispatchTime } from '@/lib/dispatchFormatters';
+import { format, parseISO } from 'date-fns';
 import { statusBadgeColors } from './statusConfig';
 
 const tollColors = {
@@ -132,9 +131,10 @@ export default function DispatchDetailDrawer({
     onConfirm(dispatch, truck, currentConfType);
   };
 
-  const displayDate = formatDispatchDate(dispatch.date);
-  const timeText = formatDispatchTime(dispatch.start_time);
-  const showPrimaryTime = dispatch.status !== 'Schedule' && dispatch.status !== 'Scheduled' && timeText;
+  // Safe date display: use parseISO to avoid timezone shift on YYYY-MM-DD strings
+  const displayDate = dispatch.date
+    ? format(parseISO(dispatch.date), 'MMM d, yyyy')
+    : '';
 
   return (
     <Sheet open={open} onOpenChange={(v) => { if (!v) onClose(); }}>
@@ -160,7 +160,7 @@ export default function DispatchDetailDrawer({
         <div className="px-5 py-5 space-y-6">
 
           {/* Main info */}
-          {dispatch.status === 'Scheduled' || dispatch.status === 'Schedule' ? (
+          {dispatch.status === 'Scheduled' ? (
             <div>
               <h2 className="font-semibold text-slate-900 text-lg">Scheduled Dispatch</h2>
               <p className="text-sm text-blue-600 mt-1 italic">Your truck has been scheduled — details will follow</p>
@@ -195,7 +195,7 @@ export default function DispatchDetailDrawer({
             </div>
           )}
 
-          {dispatch.status !== 'Scheduled' && dispatch.status !== 'Schedule' && (
+          {dispatch.status !== 'Scheduled' && (
             <>
               {(dispatch.instructions || dispatch.notes || dispatch.toll_status || dispatch.start_time || dispatch.start_location) && (
                 <div className="rounded-lg border border-slate-200 bg-slate-50 p-3 space-y-3">
@@ -205,10 +205,10 @@ export default function DispatchDetailDrawer({
                       Toll: {dispatch.toll_status}
                     </Badge>
                   )}
-                  {showPrimaryTime && (
+                  {dispatch.start_time && (
                     <div className="flex items-center gap-2 text-sm text-slate-600">
                       <Clock className="h-4 w-4 text-slate-400 shrink-0" />
-                      <span>{timeText}</span>
+                      <span>{dispatch.start_time}</span>
                     </div>
                   )}
                   {dispatch.start_location && (
@@ -251,10 +251,10 @@ export default function DispatchDetailDrawer({
                               <span>Job #{a.job_number}</span>
                             </div>
                           )}
-                          {formatDispatchTime(a.start_time) && (
+                          {a.start_time && (
                             <div className="flex items-center gap-2 text-slate-600">
                               <Clock className="h-3.5 w-3.5 text-slate-400 shrink-0" />
-                              <span>{formatDispatchTime(a.start_time)}</span>
+                              <span>{a.start_time}</span>
                             </div>
                           )}
                           {a.start_location && (
