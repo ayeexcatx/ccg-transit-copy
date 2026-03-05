@@ -24,6 +24,18 @@ export default function NotificationBell({ session }) {
     refetchInterval: 30000,
   });
 
+  const { data: dispatches = [] } = useQuery({
+    queryKey: ['dispatches-bell', session?.company_id],
+    queryFn: () => base44.entities.Dispatch.filter({ company_id: session.company_id }, '-date', 500),
+    enabled: session?.code_type === 'CompanyOwner' && !!session?.company_id,
+    refetchInterval: 30000,
+  });
+
+  const dispatchMap = React.useMemo(
+    () => Object.fromEntries(dispatches.map((dispatch) => [dispatch.id, dispatch])),
+    [dispatches]
+  );
+
   const handleNotificationClick = (n) => {
     if (!session) return;
     if (n.related_dispatch_id) {
@@ -73,7 +85,11 @@ export default function NotificationBell({ session }) {
                     <p className="text-xs text-slate-600 mt-0.5 whitespace-pre-line">{formatNotificationDetailsMessage(n.message)}</p>
                     {n.required_trucks?.length > 0 && (
                       <div className="mt-1">
-                        <NotificationStatusBadge notification={n} confirmations={confirmations} />
+                        <NotificationStatusBadge
+                          notification={n}
+                          confirmations={confirmations}
+                          requiredTrucks={dispatchMap[n.related_dispatch_id]?.trucks_assigned}
+                        />
                       </div>
                     )}
                     <p className="text-xs text-slate-400 mt-1">
