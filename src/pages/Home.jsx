@@ -247,7 +247,7 @@ export default function Home() {
                         <p className="text-xs text-slate-600 mt-0.5 line-clamp-2 whitespace-pre-line">{formatNotificationDetailsMessage(n.message)}</p>
                         {n.required_trucks?.length > 0 && (
                           <div className="mt-1">
-                            <NotificationStatusBadge notification={n} confirmations={confirmations} />
+                            <NotificationStatusBadge notification={n} confirmations={confirmations} dispatch={d} />
                           </div>
                         )}
                       </div>

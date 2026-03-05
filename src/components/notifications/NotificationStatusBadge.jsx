@@ -6,15 +6,17 @@ import { Clock, CheckCircle2 } from 'lucide-react';
  * Shows "Pending confirmations: X/Y trucks" for owner notifications,
  * or nothing for resolved / non-owner notifications.
  */
-export default function NotificationStatusBadge({ notification, confirmations = [] }) {
-  const required = notification.required_trucks;
+export default function NotificationStatusBadge({ notification, confirmations = [], dispatch }) {
+  const required =
+    Array.isArray(dispatch?.trucks_assigned) && dispatch.trucks_assigned.length > 0
+      ? dispatch.trucks_assigned
+      : (notification.required_trucks || []);
   if (!required || required.length === 0) return null;
 
   // Parse the status from dedup key: "{dispatch_id}:{status}"
   const dispatchId = notification.related_dispatch_id;
   const dedupKey = notification.dispatch_status_key || '';
-  const parts = dedupKey.split(':');
-  const status = parts.length >= 2 ? parts[1] : '';
+  const status = dedupKey.includes(':') ? dedupKey.slice(dedupKey.indexOf(':') + 1) : '';
 
   if (!dispatchId || !status) return null;
 
