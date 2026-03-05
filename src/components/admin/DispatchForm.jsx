@@ -9,7 +9,7 @@ import { notifyDispatchChange } from '@/components/notifications/createNotificat
 
 export default function DispatchForm({ dispatch, companies, accessCodes, onSave, onCancel, saving }) {
   const [form, setForm] = useState({
-    company_id: '', date: '', shift_time: 'Day', client_name: '', job_number: '',
+    company_id: '', date: '', shift_time: 'Day Shift', client_name: '', job_number: '',
     start_time: '', start_location: '', instructions: 'Deliver material to / from',
     notes: '', toll_status: '', trucks_assigned: [],
     status: 'Scheduled', additional_assignments: [],
@@ -21,7 +21,7 @@ export default function DispatchForm({ dispatch, companies, accessCodes, onSave,
       setForm({
         company_id: dispatch.company_id || '',
         date: dispatch.date || '',
-        shift_time: dispatch.shift_time || 'Day',
+        shift_time: dispatch.shift_time || 'Day Shift',
         client_name: dispatch.client_name || '',
         job_number: dispatch.job_number || '',
         start_time: dispatch.start_time || '',
@@ -158,8 +158,8 @@ export default function DispatchForm({ dispatch, companies, accessCodes, onSave,
           <Select value={form.shift_time} onValueChange={(v) => setForm({ ...form, shift_time: v })}>
             <SelectTrigger><SelectValue /></SelectTrigger>
             <SelectContent>
-              <SelectItem value="Day">Day</SelectItem>
-              <SelectItem value="Night">Night</SelectItem>
+              <SelectItem value="Day Shift">Day Shift</SelectItem>
+              <SelectItem value="Night Shift">Night Shift</SelectItem>
             </SelectContent>
           </Select>
         </div>

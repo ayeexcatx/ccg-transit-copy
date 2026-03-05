@@ -27,7 +27,7 @@ function MiniDispatchCard({ dispatch }) {
     <Link to={createPageUrl(`Portal?dispatchId=${dispatch.id}`)}>
       <div className="flex items-start gap-3 p-3 rounded-lg hover:bg-slate-50 border border-transparent hover:border-slate-200 transition-all cursor-pointer">
         <div className="shrink-0 mt-0.5">
-          {dispatch.shift_time === 'Day'
+          {dispatch.shift_time === 'Day Shift'
             ? <Sun className="h-4 w-4 text-amber-400" />
             : <Moon className="h-4 w-4 text-slate-400" />}
         </div>

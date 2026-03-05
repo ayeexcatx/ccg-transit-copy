@@ -431,7 +431,7 @@ export default function AdminDispatches() {
                         </Badge>
                       )}
                       <span className="text-xs text-slate-400 flex items-center gap-1">
-                        {d.shift_time === 'Day' ? <Sun className="h-3 w-3" /> : <Moon className="h-3 w-3" />}
+                        {d.shift_time === 'Day Shift' ? <Sun className="h-3 w-3" /> : <Moon className="h-3 w-3" />}
                         {d.shift_time}
                       </span>
                       <span className="text-xs text-slate-500">
@@ -513,7 +513,7 @@ export default function AdminDispatches() {
           <div className="space-y-4 pt-1">
             <p className="text-sm text-slate-600">
               This will permanently delete the dispatch for{' '}
-              <span className="font-semibold">{deleteTarget?.date} ({deleteTarget?.shift_time} shift)</span>.
+              <span className="font-semibold">{deleteTarget?.date} ({deleteTarget?.shift_time})</span>.
               Enter your admin access code to confirm.
             </p>
             <div className="space-y-1.5">
