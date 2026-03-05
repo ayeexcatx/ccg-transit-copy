@@ -25,18 +25,6 @@ export default function Notifications() {
     refetchInterval: 30000,
   });
 
-  const { data: dispatches = [] } = useQuery({
-    queryKey: ['portal-dispatches-for-notif', session?.company_id],
-    queryFn: () => base44.entities.Dispatch.filter({ company_id: session.company_id }, '-date', 200),
-    enabled: session?.code_type === 'CompanyOwner' && !!session?.company_id,
-  });
-
-  const dispatchMap = React.useMemo(() => {
-    const map = {};
-    dispatches.forEach(d => { map[d.id] = d; });
-    return map;
-  }, [dispatches]);
-
   const handleNotificationClick = (n) => {
     if (n.related_dispatch_id) {
       const targetPage = session?.code_type === 'Admin' ? 'AdminDispatches' : 'Portal';
@@ -82,9 +70,7 @@ export default function Notifications() {
         </Card>
       ) : (
         <div className="space-y-2">
-          {notifications.map(n => {
-            const d = dispatchMap[n.related_dispatch_id];
-            return (
+          {notifications.map(n => (
             <Card
               key={n.id}
               className={`hover:shadow-sm transition-shadow cursor-pointer ${!n.read_flag ? 'border-blue-200 bg-blue-50/30' : ''}`}
@@ -103,7 +89,7 @@ export default function Notifications() {
                     <p className="text-sm text-slate-600 whitespace-pre-line">{formatNotificationDetailsMessage(n.message)}</p>
                     {n.required_trucks?.length > 0 && (
                       <div className="mt-1.5">
-                        <NotificationStatusBadge notification={n} confirmations={confirmations} dispatch={d} />
+                        <NotificationStatusBadge notification={n} confirmations={confirmations} />
                       </div>
                     )}
                     <p className="text-xs text-slate-400 mt-2">
@@ -113,8 +99,7 @@ export default function Notifications() {
                 </div>
               </CardContent>
             </Card>
-            );
-          })}
+          ))}
         </div>
       )}
     </div>

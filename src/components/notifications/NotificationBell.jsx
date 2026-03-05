@@ -24,18 +24,6 @@ export default function NotificationBell({ session }) {
     refetchInterval: 30000,
   });
 
-  const { data: dispatches = [] } = useQuery({
-    queryKey: ['portal-dispatches-for-notif', session?.company_id],
-    queryFn: () => base44.entities.Dispatch.filter({ company_id: session.company_id }, '-date', 200),
-    enabled: session?.code_type === 'CompanyOwner' && !!session?.company_id,
-  });
-
-  const dispatchMap = React.useMemo(() => {
-    const map = {};
-    dispatches.forEach(d => { map[d.id] = d; });
-    return map;
-  }, [dispatches]);
-
   const handleNotificationClick = (n) => {
     if (!session) return;
     if (n.related_dispatch_id) {
@@ -73,9 +61,7 @@ export default function NotificationBell({ session }) {
           {notifications.length === 0 ? (
             <div className="p-4 text-center text-sm text-slate-500">No notifications</div>
           ) : (
-            notifications.slice(0, 5).map(n => {
-              const d = dispatchMap[n.related_dispatch_id];
-              return (
+            notifications.slice(0, 5).map(n => (
               <div
                 key={n.id}
                 className={`p-3 border-b hover:bg-slate-50 cursor-pointer ${!n.read_flag ? 'bg-blue-50/30' : ''}`}
@@ -87,7 +73,7 @@ export default function NotificationBell({ session }) {
                     <p className="text-xs text-slate-600 mt-0.5 whitespace-pre-line">{formatNotificationDetailsMessage(n.message)}</p>
                     {n.required_trucks?.length > 0 && (
                       <div className="mt-1">
-                        <NotificationStatusBadge notification={n} confirmations={confirmations} dispatch={d} />
+                        <NotificationStatusBadge notification={n} confirmations={confirmations} />
                       </div>
                     )}
                     <p className="text-xs text-slate-400 mt-1">
@@ -99,8 +85,7 @@ export default function NotificationBell({ session }) {
                   )}
                 </div>
               </div>
-              );
-            })
+            ))
           )}
         </div>
       </PopoverContent>
