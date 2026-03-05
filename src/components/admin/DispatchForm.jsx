@@ -122,6 +122,73 @@ export default function DispatchForm({ dispatch, companies, accessCodes, onSave,
     notifyDispatchChange(savedDispatch || finalForm, oldStatus, newStatus, companies, accessCodes);
   };
 
+  const renderAssignmentFields = ({
+    assignmentLabelClass = '',
+    jobNumber,
+    startTime,
+    startLocation,
+    instructions,
+    notes,
+    tollStatus,
+    onJobNumberChange,
+    onStartTimeChange,
+    onStartLocationChange,
+    onInstructionsChange,
+    onNotesChange,
+    onTollStatusChange,
+    showStatusAfterInstructions = false
+  }) => (
+    <>
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+        <div>
+          <Label className={assignmentLabelClass}>Job Number</Label>
+          <Input placeholder="Job #" value={jobNumber || ''} onChange={onJobNumberChange} />
+        </div>
+        <div>
+          <Label className={assignmentLabelClass}>Start Time {isFullDispatch && '(recommended)'}</Label>
+          <Input type="time" value={startTime || ''} onChange={onStartTimeChange} />
+        </div>
+      </div>
+      <div>
+        <Label className={assignmentLabelClass}>Start Location {isFullDispatch && '*'}</Label>
+        <Textarea value={startLocation || ''} onChange={onStartLocationChange} rows={2} placeholder="Enter address (multi-line supported)" />
+      </div>
+      <div>
+        <Label className={assignmentLabelClass}>Instructions {isFullDispatch && '(recommended)'}</Label>
+        <Textarea placeholder="Instructions" value={instructions || ''} onChange={onInstructionsChange} rows={2} />
+      </div>
+      {showStatusAfterInstructions &&
+      <div>
+          <Label>Total Status</Label>
+          <Select value={form.status} onValueChange={(v) => setForm({ ...form, status: v })}>
+            <SelectTrigger><SelectValue /></SelectTrigger>
+            <SelectContent>
+              <SelectItem value="Scheduled">Scheduled (pending dispatch)</SelectItem>
+              <SelectItem value="Dispatch">Dispatch (full details)</SelectItem>
+              <SelectItem value="Amended">Amended</SelectItem>
+              <SelectItem value="Cancelled">Cancelled</SelectItem>
+            </SelectContent>
+          </Select>
+        </div>
+      }
+      <div>
+        <Label className={assignmentLabelClass}>Notes</Label>
+        <Textarea placeholder="Notes" value={notes || ''} onChange={onNotesChange} rows={2} />
+      </div>
+      <div>
+        <Label className={assignmentLabelClass}>Toll Status</Label>
+        <Select value={tollStatus || ''} onValueChange={onTollStatusChange}>
+          <SelectTrigger><SelectValue placeholder="Select" /></SelectTrigger>
+          <SelectContent>
+            <SelectItem value="Authorized">Authorized</SelectItem>
+            <SelectItem value="Unauthorized">Unauthorized</SelectItem>
+            <SelectItem value="Included in Rate">Included in Rate</SelectItem>
+          </SelectContent>
+        </Select>
+      </div>
+    </>
+  );
+
   return (
     <div className="space-y-5">
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
@@ -133,18 +200,6 @@ export default function DispatchForm({ dispatch, companies, accessCodes, onSave,
               {companies.filter((c) => c.status === 'active').map((c) =>
               <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>
               )}
-            </SelectContent>
-          </Select>
-        </div>
-        <div>
-          <Label>Status</Label>
-          <Select value={form.status} onValueChange={(v) => setForm({ ...form, status: v })}>
-            <SelectTrigger><SelectValue /></SelectTrigger>
-            <SelectContent>
-              <SelectItem value="Scheduled">Scheduled (pending dispatch)</SelectItem>
-              <SelectItem value="Dispatch">Dispatch (full details)</SelectItem>
-              <SelectItem value="Amended">Amended</SelectItem>
-              <SelectItem value="Cancelled">Cancelled</SelectItem>
             </SelectContent>
           </Select>
         </div>
@@ -170,10 +225,6 @@ export default function DispatchForm({ dispatch, companies, accessCodes, onSave,
               <Label>Client Name</Label>
               <Input value={form.client_name} onChange={(e) => setForm({ ...form, client_name: e.target.value })} />
             </div>
-            <div>
-              <Label>Job Number</Label>
-              <Input value={form.job_number} onChange={(e) => setForm({ ...form, job_number: e.target.value })} />
-            </div>
           </>
         }
       </div>
@@ -183,35 +234,21 @@ export default function DispatchForm({ dispatch, companies, accessCodes, onSave,
           {/* Assignment 1 — primary */}
           <div className="rounded-lg border border-slate-200 bg-slate-50 p-4 space-y-3">
             <p className="text-xs font-semibold text-slate-500 uppercase tracking-wide">Assignment 1 (Primary)</p>
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-              <div>
-                <Label>Start Time {isFullDispatch && '(recommended)'}</Label>
-                <Input type="time" value={form.start_time} onChange={(e) => setForm({ ...form, start_time: e.target.value })} />
-              </div>
-              <div>
-                <Label>Toll Status</Label>
-                <Select value={form.toll_status} onValueChange={(v) => setForm({ ...form, toll_status: v })}>
-                  <SelectTrigger><SelectValue placeholder="Select" /></SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="Authorized">Authorized</SelectItem>
-                    <SelectItem value="Unauthorized">Unauthorized</SelectItem>
-                    <SelectItem value="Included in Rate">Included in Rate</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-            </div>
-            <div>
-              <Label>Start Location {isFullDispatch && '*'}</Label>
-              <Textarea value={form.start_location} onChange={(e) => setForm({ ...form, start_location: e.target.value })} rows={2} placeholder="Enter address (multi-line supported)" />
-            </div>
-            <div>
-              <Label>Instructions {isFullDispatch && '(recommended)'}</Label>
-              <Textarea value={form.instructions} onChange={(e) => setForm({ ...form, instructions: e.target.value })} rows={2} />
-            </div>
-            <div>
-              <Label>Notes</Label>
-              <Textarea value={form.notes} onChange={(e) => setForm({ ...form, notes: e.target.value })} rows={2} />
-            </div>
+            {renderAssignmentFields({
+              jobNumber: form.job_number,
+              startTime: form.start_time,
+              startLocation: form.start_location,
+              instructions: form.instructions,
+              notes: form.notes,
+              tollStatus: form.toll_status,
+              onJobNumberChange: (e) => setForm({ ...form, job_number: e.target.value }),
+              onStartTimeChange: (e) => setForm({ ...form, start_time: e.target.value }),
+              onStartLocationChange: (e) => setForm({ ...form, start_location: e.target.value }),
+              onInstructionsChange: (e) => setForm({ ...form, instructions: e.target.value }),
+              onNotesChange: (e) => setForm({ ...form, notes: e.target.value }),
+              onTollStatusChange: (v) => setForm({ ...form, toll_status: v }),
+              showStatusAfterInstructions: true
+            })}
 
             {isCanceled &&
           <div>
@@ -264,39 +301,21 @@ export default function DispatchForm({ dispatch, companies, accessCodes, onSave,
                   <Trash2 className="h-3.5 w-3.5" />
                 </Button>
               </div>
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                <div>
-                  <Label className="text-xs">Job Number</Label>
-                  <Input placeholder="Job #" value={a.job_number || ''} onChange={(e) => updateAssignment(i, 'job_number', e.target.value)} />
-                </div>
-                <div>
-                  <Label className="text-xs">Start Time</Label>
-                  <Input type="time" value={a.start_time} onChange={(e) => updateAssignment(i, 'start_time', e.target.value)} />
-                </div>
-              </div>
-              <div>
-                <Label className="text-xs">Start Location</Label>
-                <Textarea placeholder="Enter address (multi-line supported)" value={a.start_location} onChange={(e) => updateAssignment(i, 'start_location', e.target.value)} rows={2} />
-              </div>
-              <div>
-                <Label className="text-xs">Instructions</Label>
-                <Textarea placeholder="Instructions" value={a.instructions} onChange={(e) => updateAssignment(i, 'instructions', e.target.value)} rows={2} />
-              </div>
-              <div>
-                <Label className="text-xs">Notes</Label>
-                <Textarea placeholder="Notes" value={a.notes || ''} onChange={(e) => updateAssignment(i, 'notes', e.target.value)} rows={2} />
-              </div>
-              <div>
-                <Label className="text-xs">Toll Status</Label>
-                <Select value={a.toll_status || ''} onValueChange={(v) => updateAssignment(i, 'toll_status', v)}>
-                  <SelectTrigger><SelectValue placeholder="Select" /></SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="Authorized">Authorized</SelectItem>
-                    <SelectItem value="Unauthorized">Unauthorized</SelectItem>
-                    <SelectItem value="Included in Rate">Included in Rate</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
+              {renderAssignmentFields({
+                assignmentLabelClass: 'text-xs',
+                jobNumber: a.job_number,
+                startTime: a.start_time,
+                startLocation: a.start_location,
+                instructions: a.instructions,
+                notes: a.notes,
+                tollStatus: a.toll_status,
+                onJobNumberChange: (e) => updateAssignment(i, 'job_number', e.target.value),
+                onStartTimeChange: (e) => updateAssignment(i, 'start_time', e.target.value),
+                onStartLocationChange: (e) => updateAssignment(i, 'start_location', e.target.value),
+                onInstructionsChange: (e) => updateAssignment(i, 'instructions', e.target.value),
+                onNotesChange: (e) => updateAssignment(i, 'notes', e.target.value),
+                onTollStatusChange: (v) => updateAssignment(i, 'toll_status', v)
+              })}
             </div>
         )}
         </div>
