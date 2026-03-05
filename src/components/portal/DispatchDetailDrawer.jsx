@@ -16,6 +16,28 @@ const tollColors = {
   'Included in Rate': 'bg-purple-50 text-purple-700',
 };
 
+function formatTimeToAmPm(value) {
+  if (!value) return '';
+  const v = String(value).trim();
+
+  if (/[ap]m$/i.test(v) || /\b[ap]m\b/i.test(v)) {
+    return v.replace(/\s+/g, ' ').toUpperCase();
+  }
+
+  const m = v.match(/^(\d{1,2}):(\d{2})(?::\d{2})?$/);
+  if (!m) return v;
+
+  let hh = parseInt(m[1], 10);
+  const mm = m[2];
+  if (Number.isNaN(hh) || hh < 0 || hh > 23) return v;
+
+  const suffix = hh >= 12 ? 'PM' : 'AM';
+  hh = hh % 12;
+  if (hh === 0) hh = 12;
+
+  return `${hh}:${mm} ${suffix}`;
+}
+
 function TruckTimeRow({ truck, dispatch, timeEntries, onTimeEntry, readOnly }) {
   const existing = timeEntries.find(te =>
     te.dispatch_id === dispatch.id && te.truck_number === truck
@@ -208,7 +230,7 @@ export default function DispatchDetailDrawer({
                   {dispatch.start_time && (
                     <div className="flex items-center gap-2 text-sm text-slate-600">
                       <Clock className="h-4 w-4 text-slate-400 shrink-0" />
-                      <span>{dispatch.start_time}</span>
+                      <span>{formatTimeToAmPm(dispatch.start_time)}</span>
                     </div>
                   )}
                   {dispatch.start_location && (
@@ -254,7 +276,7 @@ export default function DispatchDetailDrawer({
                           {a.start_time && (
                             <div className="flex items-center gap-2 text-slate-600">
                               <Clock className="h-3.5 w-3.5 text-slate-400 shrink-0" />
-                              <span>{a.start_time}</span>
+                              <span>{formatTimeToAmPm(a.start_time)}</span>
                             </div>
                           )}
                           {a.start_location && (
