@@ -21,6 +21,8 @@ export function useOwnerNotifications(session) {
     },
     enabled: !!session,
     refetchInterval: 30000,
+    refetchOnWindowFocus: true,
+    staleTime: 0,
   });
 
   // Unread first, then newest first
