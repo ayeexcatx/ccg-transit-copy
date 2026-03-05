@@ -25,6 +25,19 @@ export default function Notifications() {
     refetchInterval: 30000,
   });
 
+  const { data: dispatches = [] } = useQuery({
+    queryKey: ['dispatches-notif-page', session?.company_id],
+    queryFn: () => base44.entities.Dispatch.filter({ company_id: session.company_id }, '-date', 500),
+    enabled: session?.code_type === 'CompanyOwner' && !!session?.company_id,
+    refetchInterval: 30000,
+  });
+
+  const dispatchMap = React.useMemo(() => {
+    const m = {};
+    dispatches.forEach(d => { m[d.id] = d; });
+    return m;
+  }, [dispatches]);
+
   const handleNotificationClick = (n) => {
     if (n.related_dispatch_id) {
       const targetPage = session?.code_type === 'Admin' ? 'AdminDispatches' : 'Portal';
@@ -89,7 +102,11 @@ export default function Notifications() {
                     <p className="text-sm text-slate-600 whitespace-pre-line">{formatNotificationDetailsMessage(n.message)}</p>
                     {n.required_trucks?.length > 0 && (
                       <div className="mt-1.5">
-                        <NotificationStatusBadge notification={n} confirmations={confirmations} />
+                        <NotificationStatusBadge
+                          notification={n}
+                          confirmations={confirmations}
+                          requiredTrucks={dispatchMap[n.related_dispatch_id]?.trucks_assigned}
+                        />
                       </div>
                     )}
                     <p className="text-xs text-slate-400 mt-2">
