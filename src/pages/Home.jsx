@@ -23,6 +23,34 @@ const statusColors = {
   Cancelled: 'bg-red-50 text-red-700 border-red-200',
 };
 
+const formatDispatchTime = (startTime) => {
+  if (!startTime) return '';
+
+  const time = String(startTime).trim();
+  if (!time) return '';
+
+  const amPmMatch = time.match(/^(\d{1,2}):(\d{2})(?::\d{2})?\s*([AaPp][Mm])$/);
+  if (amPmMatch) {
+    const [, hourRaw, minute, periodRaw] = amPmMatch;
+    let hour = Number(hourRaw);
+    if (!Number.isFinite(hour) || hour < 1) hour = 12;
+    if (hour > 12) hour = hour % 12 || 12;
+    return `${hour}:${minute} ${periodRaw.toUpperCase()}`;
+  }
+
+  const hhMmMatch = time.match(/^(\d{1,2}):(\d{2})(?::\d{2})?$/);
+  if (!hhMmMatch) return '';
+
+  let hour24 = Number(hhMmMatch[1]);
+  const minute = hhMmMatch[2];
+  if (!Number.isFinite(hour24) || hour24 < 0 || hour24 > 23) return '';
+
+  const period = hour24 >= 12 ? 'PM' : 'AM';
+  let hour12 = hour24 % 12;
+  if (hour12 === 0) hour12 = 12;
+  return `${hour12}:${minute} ${period}`;
+};
+
 function MiniDispatchCard({ dispatch }) {
   return (
     <Link to={createPageUrl(`Portal?dispatchId=${dispatch.id}`)}>
@@ -33,15 +61,17 @@ function MiniDispatchCard({ dispatch }) {
             : <Moon className="h-4 w-4 text-slate-400" />}
         </div>
         <div className="flex-1 min-w-0">
-          <div className="flex items-center gap-2 flex-wrap mb-1">
+          <div className="flex items-center gap-2 flex-wrap">
             <Badge className={`${statusColors[dispatch.status]} border text-xs`}>{dispatch.status}</Badge>
-            <span className="text-xs text-slate-500">{dispatch.date && format(parseISO(dispatch.date), 'EEE, MMM d, yyyy')}</span>
+          </div>
+          <div className="flex items-center justify-between text-xs text-slate-500 mb-1">
+            <span>{dispatch.date && format(parseISO(dispatch.date), 'EEE, MMM d, yyyy')}</span>
+            {dispatch.start_time && (
+              <span className="flex items-center gap-1"><Clock className="h-3 w-3" />{formatDispatchTime(dispatch.start_time)}</span>
+            )}
           </div>
           <p className="text-sm font-medium text-slate-700 truncate">{dispatch.client_name || 'Dispatch'}</p>
           <div className="flex items-center gap-2 mt-0.5 text-xs text-slate-500 flex-wrap">
-            {dispatch.start_time && (
-              <span className="flex items-center gap-1"><Clock className="h-3 w-3" />{dispatch.start_time}</span>
-            )}
             {dispatch.start_location && (
               <span className="flex items-center gap-1 truncate max-w-[160px]">
                 <MapPin className="h-3 w-3 shrink-0" />{dispatch.start_location}
