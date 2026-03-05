@@ -435,7 +435,7 @@ export default function AdminDispatches() {
                         {d.shift_time}
                       </span>
                       <span className="text-xs text-slate-500">
-                        {d.date && format(parseISO(d.date), 'MMM d, yyyy')}
+                        {d.date && format(parseISO(d.date), 'EEEE, MMMM d, yyyy')}
                       </span>
                     </div>
                     <div className="flex items-center gap-3 text-sm text-slate-700 flex-wrap">
