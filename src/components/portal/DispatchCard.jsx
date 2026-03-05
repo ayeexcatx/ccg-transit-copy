@@ -58,7 +58,7 @@ const DispatchCard = React.forwardRef(function DispatchCard({
                 </span>
               </div>
               <span className="text-xs text-slate-500 whitespace-nowrap">
-                {dispatch.date && format(parseISO(dispatch.date), 'EEEE, MMM d, yyyy')}
+                {dispatch.date && format(parseISO(dispatch.date), 'EEE, MMM d, yyyy')}
               </span>
             </div>
 

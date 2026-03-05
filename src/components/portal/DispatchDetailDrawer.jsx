@@ -133,7 +133,7 @@ export default function DispatchDetailDrawer({
 
   // Safe date display: use parseISO to avoid timezone shift on YYYY-MM-DD strings
   const displayDate = dispatch.date
-    ? format(parseISO(dispatch.date), 'EEEE, MMM d, yyyy')
+    ? format(parseISO(dispatch.date), 'EEE, MMM d, yyyy')
     : '';
 
   return (
