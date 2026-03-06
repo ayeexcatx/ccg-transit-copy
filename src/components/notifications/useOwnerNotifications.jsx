@@ -32,8 +32,16 @@ export function useOwnerNotifications(session) {
   const unreadCount = rawNotifications.filter(n => !n.read_flag).length;
 
   const markReadMutation = useMutation({
-    mutationFn: (id) => base44.entities.Notification.update(id, { read_flag: true }),
-    onSuccess: () => queryClient.invalidateQueries({ queryKey }),
+    mutationFn: (id) => {
+      console.debug('[notifications] markRead mutationFn', { id });
+      return base44.entities.Notification.update(id, { read_flag: true });
+    },
+    onError: (error, id) => {
+      console.error('[notifications] markRead mutation failed', { id, error });
+    },
+    onSettled: () => {
+      queryClient.invalidateQueries({ queryKey });
+    },
   });
 
   const markAllReadMutation = useMutation({

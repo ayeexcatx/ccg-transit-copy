@@ -31,7 +31,15 @@ export default function NotificationBell({ session }) {
     if (!session) return;
 
     if (n.related_dispatch_id && isInformationalUpdateNotification(n) && !n.read_flag) {
-      await markReadAsync(n.id);
+      console.debug('[NotificationBell] informational notification clicked', { id: n.id });
+      try {
+        console.debug('[NotificationBell] before markReadAsync', { id: n.id });
+        await markReadAsync(n.id);
+        console.debug('[NotificationBell] after markReadAsync success', { id: n.id });
+      } catch (error) {
+        console.error('[NotificationBell] markReadAsync failed', { id: n.id, error });
+        return;
+      }
     }
 
     if (n.related_dispatch_id) {

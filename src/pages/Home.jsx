@@ -186,7 +186,15 @@ export default function Home() {
     if (!session) return;
 
     if (n.related_dispatch_id && isInformationalUpdateNotification(n) && !n.read_flag) {
-      await markReadAsync(n.id);
+      console.debug('[Home] informational notification clicked', { id: n.id });
+      try {
+        console.debug('[Home] before markReadAsync', { id: n.id });
+        await markReadAsync(n.id);
+        console.debug('[Home] after markReadAsync success', { id: n.id });
+      } catch (error) {
+        console.error('[Home] markReadAsync failed', { id: n.id, error });
+        return;
+      }
     }
 
     if (n.related_dispatch_id) {
