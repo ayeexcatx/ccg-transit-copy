@@ -210,6 +210,85 @@ export async function notifyDispatchInformationalUpdate(dispatch, customMessage,
 }
 
 /**
+ * Expand current-status owner confirmation requirements when trucks are added
+ * without a status change.
+ */
+export async function expandCurrentStatusRequiredTrucks(dispatch, addedTrucks = [], accessCodes) {
+  try {
+    if (!dispatch?.id) return;
+
+    const normalizedAdded = [...new Set((addedTrucks || []).filter(Boolean))];
+    if (!normalizedAdded.length) return;
+
+    let ownerCodes = accessCodes
+      ? accessCodes.filter(ac => ac.active_flag && ac.code_type === 'CompanyOwner' && ac.company_id === dispatch.company_id)
+      : null;
+
+    if (!ownerCodes || ownerCodes.length === 0) {
+      ownerCodes = await base44.entities.AccessCode.filter({
+        company_id: dispatch.company_id,
+        active_flag: true,
+        code_type: 'CompanyOwner',
+      });
+    }
+
+    if (!ownerCodes?.length) return;
+
+    const status = dispatch.status;
+    const statusText = statusLabels[status] || status;
+    const confirmations = await base44.entities.Confirmation.filter({
+      dispatch_id: dispatch.id,
+      confirmation_type: status,
+    }, '-confirmed_at', 500);
+    const confirmedTruckSet = new Set((confirmations || []).map(c => c.truck_number));
+
+    for (const ownerCode of ownerCodes) {
+      const ownerAddedTrucks = normalizedAdded.filter(truck =>
+        (ownerCode.allowed_trucks || []).includes(truck)
+      );
+      if (!ownerAddedTrucks.length) continue;
+
+      const dedupKey = `${dispatch.id}:${status}:${ownerCode.id}`;
+      const existing = await base44.entities.Notification.filter({
+        recipient_access_code_id: ownerCode.id,
+        dispatch_status_key: dedupKey,
+      }, '-created_date', 1);
+
+      const existingNotification = existing?.[0];
+      const existingRequired = existingNotification
+        ? reconcileExistingRequiredTrucks(existingNotification, dispatch, ownerCode)
+        : [];
+      const nextRequired = [...new Set([...existingRequired, ...ownerAddedTrucks])];
+      const message = buildOwnerDispatchMessage(dispatch, statusText, nextRequired);
+      const allConfirmed = nextRequired.every(truck => confirmedTruckSet.has(truck));
+
+      if (existingNotification) {
+        await base44.entities.Notification.update(existingNotification.id, {
+          required_trucks: nextRequired,
+          message,
+          read_flag: allConfirmed,
+        });
+      } else {
+        await base44.entities.Notification.create({
+          recipient_type: 'AccessCode',
+          recipient_access_code_id: ownerCode.id,
+          recipient_id: ownerCode.id,
+          recipient_company_id: dispatch.company_id,
+          title: `Status: ${statusText}`,
+          message,
+          related_dispatch_id: dispatch.id,
+          read_flag: allConfirmed,
+          dispatch_status_key: dedupKey,
+          required_trucks: nextRequired,
+        });
+      }
+    }
+  } catch (error) {
+    console.error('Error expanding current-status required trucks:', error);
+  }
+}
+
+/**
  * Reconcile existing owner notifications for a dispatch after dispatch edits.
  * Keeps confirmation history intact while refreshing required_trucks/message/read state.
  */

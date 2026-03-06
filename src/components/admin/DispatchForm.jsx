@@ -10,6 +10,7 @@ import {
   notifyDispatchChange,
   notifyDispatchInformationalUpdate,
   reconcileOwnerNotificationsForDispatch,
+  expandCurrentStatusRequiredTrucks,
 } from '@/components/notifications/createNotifications';
 
 const UPDATE_MESSAGE_MAX_LENGTH = 100;
@@ -87,13 +88,27 @@ export default function DispatchForm({ dispatch, companies, accessCodes, onSave,
     const newStatus = finalForm.status;
     const statusChanged = oldStatus !== newStatus;
 
+    const previousTrucks = dispatch && !dispatch._isCopy
+      ? (dispatch.trucks_assigned || [])
+      : [];
+    const nextTrucks = finalForm.trucks_assigned || [];
+    const addedTrucks = !statusChanged
+      ? nextTrucks.filter(truck => !previousTrucks.includes(truck))
+      : [];
+
     const savedDispatch = await onSave(finalForm);
     const dispatchForNotifications = savedDispatch || finalForm;
 
     if (statusChanged) {
       await notifyDispatchChange(dispatchForNotifications, oldStatus, newStatus, companies, accessCodes);
-    } else if (dispatch && !dispatch._isCopy && customUpdateMessage.trim()) {
-      await notifyDispatchInformationalUpdate(dispatchForNotifications, customUpdateMessage, companies, accessCodes);
+    } else {
+      if (addedTrucks.length > 0) {
+        await expandCurrentStatusRequiredTrucks(dispatchForNotifications, addedTrucks, accessCodes);
+      }
+
+      if (dispatch && !dispatch._isCopy && customUpdateMessage.trim()) {
+        await notifyDispatchInformationalUpdate(dispatchForNotifications, customUpdateMessage, companies, accessCodes);
+      }
     }
 
     await reconcileOwnerNotificationsForDispatch(dispatchForNotifications, accessCodes);
