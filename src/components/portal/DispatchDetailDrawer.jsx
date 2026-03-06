@@ -5,7 +5,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import {
   CheckCircle2, Clock, Truck, Sun, Moon,
-  FileText, AlertTriangle, Save, History
+  FileText, AlertTriangle, Save, History, ArrowLeft
 } from 'lucide-react';
 import { format, parseISO } from 'date-fns';
 import { statusBadgeColors } from './statusConfig';
@@ -164,6 +164,16 @@ export default function DispatchDetailDrawer({
       <SheetContent side="right" className="w-full sm:max-w-lg overflow-y-auto p-0">
         {/* Top bar */}
         <div className="sticky top-0 bg-white border-b border-slate-200 px-5 py-4 z-10">
+          <Button
+            type="button"
+            variant="ghost"
+            size="sm"
+            onClick={onClose}
+            className="mb-2 -ml-2 h-8 px-2 text-slate-600 hover:text-slate-900"
+          >
+            <ArrowLeft className="h-4 w-4 mr-1" />
+            Back
+          </Button>
           <SheetHeader>
             <SheetTitle className="flex items-center gap-2 flex-wrap text-base">
               <Badge className={`${statusBadgeColors[dispatch.status]} border text-xs font-medium`}>

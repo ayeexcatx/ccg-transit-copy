@@ -1,7 +1,7 @@
 import React, { useState, useMemo, useEffect, useRef } from 'react';
 import { base44 } from '@/api/base44Client';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { useLocation } from 'react-router-dom';
+import { useLocation, useNavigate } from 'react-router-dom';
 import { useSession } from '../components/session/SessionContext';
 import DispatchCard from '../components/portal/DispatchCard';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
@@ -21,6 +21,7 @@ export default function Portal() {
   const [tab, setTab] = useState('today');
   const queryClient = useQueryClient();
   const location = useLocation();
+  const navigate = useNavigate();
   const dispatchRefs = useRef({});
   const [drawerDispatchId, setDrawerDispatchId] = useState(null);
   const [drawerMountKey, setDrawerMountKey] = useState('');
@@ -196,6 +197,17 @@ export default function Portal() {
   const dispatchNotFound = targetDispatchId && dispatches.length > 0 &&
     !dispatches.find(d => d.id === targetDispatchId);
 
+
+  const handleDrawerClose = () => {
+    setDrawerDispatchId(null);
+
+    if (!targetDispatchId) return;
+
+    const nextParams = new URLSearchParams(location.search);
+    nextParams.delete('dispatchId');
+    navigate({ search: nextParams.toString() ? `?${nextParams.toString()}` : '' }, { replace: true });
+  };
+
   useEffect(() => {
     const idToOpen = targetDispatchId || pendingOpenIdRef.current;
     if (!idToOpen || dispatches.length === 0) return;
@@ -288,7 +300,7 @@ export default function Portal() {
                 onTimeEntry={handleTimeEntry}
                 companyName={companyMap[d.company_id]}
                 forceOpen={drawerDispatchId === d.id}
-                onDrawerClose={() => setDrawerDispatchId(null)}
+                onDrawerClose={handleDrawerClose}
               />
             </div>
           ))}

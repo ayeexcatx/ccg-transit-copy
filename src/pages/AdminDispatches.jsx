@@ -1,5 +1,5 @@
 import React, { useState, useMemo, useEffect, useRef } from 'react';
-import { useLocation } from 'react-router-dom';
+import { useLocation, useNavigate } from 'react-router-dom';
 import { base44 } from '@/api/base44Client';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { Card, CardContent } from '@/components/ui/card';
@@ -145,6 +145,7 @@ export default function AdminDispatches() {
   const queryClient = useQueryClient();
   const { session } = useSession();
   const location = useLocation();
+  const navigate = useNavigate();
   const [open, setOpen] = useState(false);
   const [editing, setEditing] = useState(null);
   const [previewDispatch, setPreviewDispatch] = useState(null);
@@ -372,6 +373,18 @@ export default function AdminDispatches() {
     });
   }, [location.search, dispatches, tab, upcomingDispatches, todayDispatches]);
 
+
+  const handleDrawerClose = () => {
+    setPreviewDispatch(null);
+
+    if (!targetDispatchId && !targetNotificationId) return;
+
+    const nextParams = new URLSearchParams(location.search);
+    nextParams.delete('dispatchId');
+    nextParams.delete('notificationId');
+    navigate({ search: nextParams.toString() ? `?${nextParams.toString()}` : '' }, { replace: true });
+  };
+
   const handleSave = (formData) => {
     return new Promise((resolve, reject) => {
       saveMutation.mutate(formData, {
@@ -594,7 +607,7 @@ export default function AdminDispatches() {
       <DispatchDetailDrawer
         key={drawerMountKey}
         open={!!previewDispatch}
-        onClose={() => setPreviewDispatch(null)}
+        onClose={handleDrawerClose}
         dispatch={previewDispatch}
         session={{ code_type: 'Admin', allowed_trucks: previewDispatch?.trucks_assigned || [] }}
         confirmations={drawerConfirmations}
