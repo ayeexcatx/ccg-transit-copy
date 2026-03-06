@@ -126,8 +126,6 @@ export default function Home() {
     queryKey: ['portal-dispatches', session?.company_id],
     queryFn: () => base44.entities.Dispatch.filter({ company_id: session.company_id }, '-date', 200),
     enabled: !!session?.company_id,
-    refetchInterval: 30000,
-    refetchOnWindowFocus: true,
   });
 
   const { data: allAnnouncements = [] } = useQuery({
