@@ -17,7 +17,7 @@ function LayoutInner({ children, currentPageName }) {
       return;
     }
     // Admin guard
-    const adminPages = ['AdminDashboard', 'AdminCompanies', 'AdminAccessCodes', 'AdminDispatches', 'AdminTemplateNotes', 'AdminAnnouncements'];
+    const adminPages = ['AdminDashboard', 'AdminCompanies', 'AdminConfirmations', 'AdminAccessCodes', 'AdminDispatches', 'AdminTemplateNotes', 'AdminAnnouncements'];
     if (adminPages.includes(currentPageName) && session.code_type !== 'Admin') {
       window.location.href = createPageUrl('Home');
     }
@@ -69,6 +69,9 @@ function LayoutInner({ children, currentPageName }) {
                 </Link>
                 <Link to={createPageUrl('AdminDispatches')}>
                   <Button variant="ghost" size="sm" className="text-xs">Dispatches</Button>
+                </Link>
+                <Link to={createPageUrl('AdminConfirmations')}>
+                  <Button variant="ghost" size="sm" className="text-xs">Confirmations</Button>
                 </Link>
                 <Link to={createPageUrl('AdminCompanies')}>
                   <Button variant="ghost" size="sm" className="text-xs">Companies</Button>
@@ -140,6 +143,9 @@ function LayoutInner({ children, currentPageName }) {
             </Link>
             <Link to={createPageUrl('AdminDispatches')}>
               <Button variant="ghost" size="sm" className="text-xs whitespace-nowrap">Dispatches</Button>
+            </Link>
+            <Link to={createPageUrl('AdminConfirmations')}>
+              <Button variant="ghost" size="sm" className="text-xs whitespace-nowrap">Confirmations</Button>
             </Link>
             <Link to={createPageUrl('AdminCompanies')}>
               <Button variant="ghost" size="sm" className="text-xs whitespace-nowrap">Companies</Button>

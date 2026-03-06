@@ -51,6 +51,7 @@ import AccessCodeLogin from './pages/AccessCodeLogin';
 import AdminAccessCodes from './pages/AdminAccessCodes';
 import AdminAnnouncements from './pages/AdminAnnouncements';
 import AdminCompanies from './pages/AdminCompanies';
+import AdminConfirmations from './pages/AdminConfirmations';
 import AdminDashboard from './pages/AdminDashboard';
 import AdminDispatches from './pages/AdminDispatches';
 import AdminTemplateNotes from './pages/AdminTemplateNotes';
@@ -65,6 +66,7 @@ export const PAGES = {
     "AdminAccessCodes": AdminAccessCodes,
     "AdminAnnouncements": AdminAnnouncements,
     "AdminCompanies": AdminCompanies,
+    "AdminConfirmations": AdminConfirmations,
     "AdminDashboard": AdminDashboard,
     "AdminDispatches": AdminDispatches,
     "AdminTemplateNotes": AdminTemplateNotes,

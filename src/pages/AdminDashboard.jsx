@@ -1,23 +1,34 @@
-import React from 'react';
+import React, { useMemo } from 'react';
 import { base44 } from '@/api/base44Client';
 import { useQuery } from '@tanstack/react-query';
 import { Card, CardContent } from '@/components/ui/card';
 import { Link } from 'react-router-dom';
 import { createPageUrl } from '../utils';
+import { buildOpenConfirmationRows } from '@/components/notifications/openConfirmations';
 import {
   Building2, Key, FileText, StickyNote,
-  ArrowRight, Clock
+  ArrowRight, Clock, CheckCircle2
 } from 'lucide-react';
 
 export default function AdminDashboard() {
-  const { data: companies = [] } = useQuery({
-    queryKey: ['companies'],
-    queryFn: () => base44.entities.Company.list(),
-  });
-
   const { data: codes = [] } = useQuery({
     queryKey: ['access-codes'],
     queryFn: () => base44.entities.AccessCode.list(),
+  });
+
+  const { data: notifications = [] } = useQuery({
+    queryKey: ['notifications-admin-dashboard'],
+    queryFn: () => base44.entities.Notification.list('-created_date', 1000),
+  });
+
+  const { data: confirmations = [] } = useQuery({
+    queryKey: ['confirmations-admin-dashboard'],
+    queryFn: () => base44.entities.Confirmation.list('-confirmed_at', 1000),
+  });
+
+  const { data: companies = [] } = useQuery({
+    queryKey: ['companies'],
+    queryFn: () => base44.entities.Company.list(),
   });
 
   const { data: dispatches = [] } = useQuery({
@@ -29,10 +40,18 @@ export default function AdminDashboard() {
   const todayStr = new Date().toISOString().split('T')[0];
   const todayDispatches = dispatches.filter(d => d.date === todayStr);
 
+  const openConfirmationCount = useMemo(() => buildOpenConfirmationRows({
+    notifications,
+    confirmations,
+    dispatches,
+    companies,
+    accessCodes: codes,
+  }).length, [notifications, confirmations, dispatches, companies, codes]);
+
   const stats = [
     {
-      label: 'Companies', value: companies.length, icon: Building2,
-      color: 'bg-blue-500', link: 'AdminCompanies'
+      label: 'Confirmations', value: openConfirmationCount, icon: CheckCircle2,
+      color: 'bg-blue-500', link: 'AdminConfirmations'
     },
     {
       label: 'Access Codes', value: codes.filter(c => c.active_flag !== false).length, icon: Key,
