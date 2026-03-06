@@ -151,6 +151,65 @@ export async function notifyDispatchChange(dispatch, oldStatus, newStatus, compa
 }
 
 /**
+ * Create informational (non-confirmation) update notifications for company owners.
+ * Used when a dispatch is edited without changing status and admin opts in with a short custom message.
+ */
+export async function notifyDispatchInformationalUpdate(dispatch, customMessage, companies, accessCodes) {
+  try {
+    if (!dispatch?.id) return;
+
+    const messageText = String(customMessage || '').trim();
+    if (!messageText) return;
+
+    // Fetch company if not provided
+    let company = companies ? companies.find(c => c.id === dispatch.company_id) : null;
+    if (!company) {
+      const fetched = await base44.entities.Company.filter({ id: dispatch.company_id }, '-created_date', 1);
+      company = fetched?.[0];
+    }
+    if (!company) return;
+
+    // Fetch CompanyOwner access codes if not provided
+    let ownerCodes = accessCodes
+      ? accessCodes.filter(ac => ac.active_flag && ac.code_type === 'CompanyOwner' && ac.company_id === company.id)
+      : null;
+    if (!ownerCodes || ownerCodes.length === 0) {
+      ownerCodes = await base44.entities.AccessCode.filter({
+        company_id: dispatch.company_id,
+        active_flag: true,
+        code_type: 'CompanyOwner',
+      });
+    }
+
+    const affectedOwnerCodes = ownerCodes.filter(ac => {
+      const intersection = (dispatch.trucks_assigned || []).filter(t =>
+        (ac.allowed_trucks || []).includes(t)
+      );
+      return intersection.length > 0;
+    });
+
+    if (!affectedOwnerCodes?.length) return;
+
+    await Promise.all(affectedOwnerCodes.map(ac =>
+      base44.entities.Notification.create({
+        recipient_type: 'AccessCode',
+        recipient_access_code_id: ac.id,
+        recipient_id: ac.id,
+        recipient_company_id: company.id,
+        title: 'Dispatch Update',
+        message: messageText,
+        related_dispatch_id: dispatch.id,
+        read_flag: false,
+        notification_category: 'dispatch_update_info',
+        notification_type: 'informational',
+      })
+    ));
+  } catch (err) {
+    console.error('Error creating informational dispatch update notifications:', err);
+  }
+}
+
+/**
  * Reconcile existing owner notifications for a dispatch after dispatch edits.
  * Keeps confirmation history intact while refreshing required_trucks/message/read state.
  */
@@ -202,6 +261,8 @@ export async function reconcileOwnerNotificationsForDispatch(dispatch, accessCod
     }));
 
     for (const notification of ownerNotifications) {
+      if (notification.notification_category === 'dispatch_update_info') continue;
+
       const status = String(notification.dispatch_status_key || '').split(':')[1];
       if (!status) continue;
 

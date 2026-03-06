@@ -4,8 +4,15 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Plus, Trash2 } from 'lucide-react';
-import { notifyDispatchChange, reconcileOwnerNotificationsForDispatch } from '@/components/notifications/createNotifications';
+import {
+  notifyDispatchChange,
+  notifyDispatchInformationalUpdate,
+  reconcileOwnerNotificationsForDispatch,
+} from '@/components/notifications/createNotifications';
+
+const UPDATE_MESSAGE_MAX_LENGTH = 100;
 
 export default function DispatchForm({ dispatch, companies, accessCodes, onSave, onCancel, saving }) {
   const [form, setForm] = useState({
@@ -15,6 +22,10 @@ export default function DispatchForm({ dispatch, companies, accessCodes, onSave,
     status: 'Scheduled', additional_assignments: [],
     amendment_history: [], canceled_reason: ''
   });
+  const [showUpdateNotifyChoice, setShowUpdateNotifyChoice] = useState(false);
+  const [showUpdateMessagePrompt, setShowUpdateMessagePrompt] = useState(false);
+  const [updateMessage, setUpdateMessage] = useState('');
+  const [pendingFinalForm, setPendingFinalForm] = useState(null);
 
   useEffect(() => {
     if (dispatch) {
@@ -71,6 +82,30 @@ export default function DispatchForm({ dispatch, companies, accessCodes, onSave,
     setForm({ ...form, additional_assignments: form.additional_assignments.filter((_, i) => i !== idx) });
   };
 
+  const finalizeSubmit = async (finalForm, customUpdateMessage = '') => {
+    const oldStatus = dispatch && !dispatch._isCopy ? dispatch.status : null;
+    const newStatus = finalForm.status;
+    const statusChanged = oldStatus !== newStatus;
+
+    const savedDispatch = await onSave(finalForm);
+    const dispatchForNotifications = savedDispatch || finalForm;
+
+    if (statusChanged) {
+      await notifyDispatchChange(dispatchForNotifications, oldStatus, newStatus, companies, accessCodes);
+    } else if (dispatch && !dispatch._isCopy && customUpdateMessage.trim()) {
+      await notifyDispatchInformationalUpdate(dispatchForNotifications, customUpdateMessage, companies, accessCodes);
+    }
+
+    await reconcileOwnerNotificationsForDispatch(dispatchForNotifications, accessCodes);
+  };
+
+  const closeUpdateModals = () => {
+    setShowUpdateNotifyChoice(false);
+    setShowUpdateMessagePrompt(false);
+    setPendingFinalForm(null);
+    setUpdateMessage('');
+  };
+
   const handleSubmit = async () => {
     // Base validation
     if (!form.company_id || !form.date || !form.shift_time || form.trucks_assigned.length === 0) {
@@ -115,14 +150,16 @@ export default function DispatchForm({ dispatch, companies, accessCodes, onSave,
     // Ensure date is stored as plain YYYY-MM-DD string (no Date conversion)
     finalForm.date = form.date;
 
-    const oldStatus = dispatch && !dispatch._isCopy ? dispatch.status : null;
-    const newStatus = finalForm.status;
+    const isEdit = !!dispatch && !dispatch._isCopy;
+    const statusChanged = isEdit ? dispatch.status !== finalForm.status : true;
 
-    const savedDispatch = await onSave(finalForm);
-    const dispatchForNotifications = savedDispatch || finalForm;
+    if (isEdit && !statusChanged) {
+      setPendingFinalForm(finalForm);
+      setShowUpdateNotifyChoice(true);
+      return;
+    }
 
-    await notifyDispatchChange(dispatchForNotifications, oldStatus, newStatus, companies, accessCodes);
-    await reconcileOwnerNotificationsForDispatch(dispatchForNotifications, accessCodes);
+    await finalizeSubmit(finalForm);
   };
 
   return (
@@ -311,6 +348,77 @@ export default function DispatchForm({ dispatch, companies, accessCodes, onSave,
           {saving ? 'Saving...' : dispatch ? 'Update Dispatch' : 'Create Dispatch'}
         </Button>
       </div>
+
+      <Dialog open={showUpdateNotifyChoice} onOpenChange={setShowUpdateNotifyChoice}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Would you like to send a notification with this update?</DialogTitle>
+          </DialogHeader>
+          <div className="flex gap-2 pt-2">
+            <Button
+              variant="outline"
+              className="flex-1"
+              onClick={async () => {
+                const formToSave = pendingFinalForm;
+                closeUpdateModals();
+                if (formToSave) await finalizeSubmit(formToSave);
+              }}
+              disabled={saving}
+            >
+              No
+            </Button>
+            <Button
+              className="flex-1 bg-slate-900 hover:bg-slate-800"
+              onClick={() => {
+                setShowUpdateNotifyChoice(false);
+                setShowUpdateMessagePrompt(true);
+              }}
+              disabled={saving}
+            >
+              Yes
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={showUpdateMessagePrompt} onOpenChange={setShowUpdateMessagePrompt}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Please enter message</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-2">
+            <Input
+              value={updateMessage}
+              onChange={(e) => setUpdateMessage(e.target.value.slice(0, UPDATE_MESSAGE_MAX_LENGTH))}
+              maxLength={UPDATE_MESSAGE_MAX_LENGTH}
+              placeholder="Type a short update"
+            />
+            <p className="text-xs text-slate-500 text-right">{updateMessage.length}/{UPDATE_MESSAGE_MAX_LENGTH}</p>
+          </div>
+          <div className="flex gap-2 pt-2">
+            <Button
+              variant="outline"
+              className="flex-1"
+              onClick={closeUpdateModals}
+              disabled={saving}
+            >
+              Cancel
+            </Button>
+            <Button
+              className="flex-1 bg-slate-900 hover:bg-slate-800"
+              disabled={saving || !updateMessage.trim()}
+              onClick={async () => {
+                const formToSave = pendingFinalForm;
+                const messageToSend = updateMessage.trim();
+                closeUpdateModals();
+                if (formToSave) await finalizeSubmit(formToSave, messageToSend);
+              }}
+            >
+              {saving ? 'Saving...' : 'Save & Send'}
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>);
 
 }
