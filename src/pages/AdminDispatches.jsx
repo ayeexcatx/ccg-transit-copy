@@ -15,6 +15,7 @@ import {
 } from 'lucide-react';
 import { format, parseISO } from 'date-fns';
 import { getDispatchBucket } from '../components/portal/dispatchBuckets';
+import { sortTemplateNotesForDispatch } from '@/lib/templateNotes';
 import DispatchForm from '../components/admin/DispatchForm';
 import DispatchDetailDrawer from '../components/portal/DispatchDetailDrawer';
 import { useSession } from '../components/session/SessionContext';
@@ -612,7 +613,7 @@ export default function AdminDispatches() {
         session={{ code_type: 'Admin', allowed_trucks: previewDispatch?.trucks_assigned || [] }}
         confirmations={drawerConfirmations}
         timeEntries={drawerTimeEntries}
-        templateNotes={templateNotes}
+        templateNotes={sortTemplateNotesForDispatch(templateNotes)}
         onConfirm={() => {}}
         onTimeEntry={() => {}}
         companyName={previewDispatch ? companyMap[previewDispatch.company_id] : ''}

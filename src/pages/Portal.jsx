@@ -9,6 +9,7 @@ import { Badge } from '@/components/ui/badge';
 import { Truck, Inbox } from 'lucide-react';
 import { startOfDay, parseISO } from 'date-fns';
 import { getDispatchBucket } from '../components/portal/dispatchBuckets';
+import { sortTemplateNotesForDispatch } from '@/lib/templateNotes';
 import { notifyTruckConfirmation, resolveOwnerNotificationIfComplete } from '../components/notifications/createNotifications';
 
 function myTrucksForHistory(dispatch, timeEntries, session) {
@@ -192,7 +193,7 @@ export default function Portal() {
   };
 
   const currentList = tab === 'upcoming' ? upcomingDispatches : tab === 'today' ? todayDispatches : historyDispatches;
-  const sortedNotes = [...templateNotes].sort((a, b) => (a.priority || 0) - (b.priority || 0));
+  const sortedNotes = sortTemplateNotesForDispatch(templateNotes);
 
   const dispatchNotFound = targetDispatchId && dispatches.length > 0 &&
     !dispatches.find(d => d.id === targetDispatchId);

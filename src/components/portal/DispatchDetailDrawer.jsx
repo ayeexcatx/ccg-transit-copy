@@ -9,6 +9,7 @@ import {
 } from 'lucide-react';
 import { format, parseISO } from 'date-fns';
 import { statusBadgeColors } from './statusConfig';
+import { NOTE_TYPES, normalizeTemplateNote, renderSimpleMarkupToHtml } from '@/lib/templateNotes';
 
 const tollColors = {
   Authorized: 'bg-green-50 text-green-700',
@@ -126,6 +127,10 @@ export default function DispatchDetailDrawer({
   const isAdmin = session.code_type === 'Admin';
   const currentConfType = dispatch.status;
   const hasAdditional = Array.isArray(dispatch.additional_assignments) && dispatch.additional_assignments.length > 0;
+
+  const normalizedTemplateNotes = (templateNotes || []).map(normalizeTemplateNote);
+  const boxNotes = normalizedTemplateNotes.filter(n => n.note_type === NOTE_TYPES.BOX);
+  const generalNotes = normalizedTemplateNotes.filter(n => n.note_type !== NOTE_TYPES.BOX);
 
   const isTruckConfirmedForCurrent = (truck) =>
     confirmations.some(c =>
@@ -322,13 +327,47 @@ export default function DispatchDetailDrawer({
                 </div>
               )}
 
-              {templateNotes?.length > 0 && (
+              {boxNotes.length > 0 && (
+                <div>
+                  <p className="text-xs font-semibold text-slate-500 uppercase tracking-wide mb-2">Box Notes</p>
+                  <div className="space-y-2">
+                    {boxNotes.map(n => (
+                      <div key={n.id} className="rounded-lg border p-3" style={{ borderColor: n.border_color, color: n.text_color }}>
+                        {n.title && <p className="text-sm font-semibold mb-1">{n.title}</p>}
+                        <p
+                          className="text-sm leading-relaxed"
+                          dangerouslySetInnerHTML={{ __html: renderSimpleMarkupToHtml(n.box_content || n.note_text) }}
+                        />
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {generalNotes.length > 0 && (
                 <div>
                   <p className="text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1.5">General Notes</p>
-                  <div className="space-y-1">
-                    {templateNotes.map(n => (
-                      <p key={n.id} className="text-sm text-slate-600">• {n.note_text}</p>
-                    ))}
+                  <div className="space-y-3">
+                    {generalNotes.map(n => {
+                      const bullets = n.bullet_lines?.length > 0
+                        ? n.bullet_lines
+                        : n.note_text
+                          ? [n.note_text]
+                          : [];
+
+                      if (bullets.length === 0 && !n.title) return null;
+
+                      return (
+                        <div key={n.id}>
+                          {n.title && <p className="text-sm text-slate-700 font-semibold underline">{n.title}</p>}
+                          <ul className="mt-1 space-y-1 list-disc ml-4">
+                            {bullets.map((line, idx) => (
+                              <li key={`${n.id}-${idx}`} className="text-sm text-slate-600">{line}</li>
+                            ))}
+                          </ul>
+                        </div>
+                      );
+                    })}
                   </div>
                 </div>
               )}

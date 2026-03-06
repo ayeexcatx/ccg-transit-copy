@@ -1,0 +1,52 @@
+{
+  "name": "DispatchTemplateNotes",
+  "type": "object",
+  "properties": {
+    "note_type": {
+      "type": "string",
+      "enum": [
+        "general",
+        "box"
+      ],
+      "default": "general",
+      "description": "Template note type. Box notes render before general notes on dispatches."
+    },
+    "title": {
+      "type": "string",
+      "description": "Optional section title shown for both general and box notes"
+    },
+    "bullet_lines": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      },
+      "description": "Bullet line items for general notes"
+    },
+    "box_content": {
+      "type": "string",
+      "description": "Body content for box notes. Supports lightweight markup (**bold**, __underline__)."
+    },
+    "border_color": {
+      "type": "string",
+      "description": "CSS color value for box note border"
+    },
+    "text_color": {
+      "type": "string",
+      "description": "CSS color value for box note text"
+    },
+    "note_text": {
+      "type": "string",
+      "description": "Legacy plain note text for backwards compatibility"
+    },
+    "active_flag": {
+      "type": "boolean",
+      "default": true,
+      "description": "Whether this note is active"
+    },
+    "priority": {
+      "type": "number",
+      "description": "Display priority (lower = higher priority within each note type)"
+    }
+  },
+  "required": []
+}
