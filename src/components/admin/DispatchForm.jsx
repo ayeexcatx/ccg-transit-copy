@@ -5,7 +5,7 @@ import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Plus, Trash2 } from 'lucide-react';
-import { notifyDispatchChange } from '@/components/notifications/createNotifications';
+import { notifyDispatchChange, reconcileOwnerNotificationsForDispatch } from '@/components/notifications/createNotifications';
 
 export default function DispatchForm({ dispatch, companies, accessCodes, onSave, onCancel, saving }) {
   const [form, setForm] = useState({
@@ -122,6 +122,7 @@ export default function DispatchForm({ dispatch, companies, accessCodes, onSave,
     const dispatchForNotifications = savedDispatch || finalForm;
 
     await notifyDispatchChange(dispatchForNotifications, oldStatus, newStatus, companies, accessCodes);
+    await reconcileOwnerNotificationsForDispatch(dispatchForNotifications, accessCodes);
   };
 
   return (
