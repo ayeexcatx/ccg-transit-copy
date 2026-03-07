@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useMemo, useState } from 'react';
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sheet';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -10,6 +10,7 @@ import {
 import { format, parseISO } from 'date-fns';
 import { statusBadgeColors } from './statusConfig';
 import { NOTE_TYPES, normalizeTemplateNote, renderSimpleMarkupToHtml } from '@/lib/templateNotes';
+import { formatTruckSwitchSummary, TRUCK_SWITCH_STATUS } from '@/lib/truckSwitch';
 
 const tollColors = {
   Authorized: 'bg-green-50 text-green-700',
@@ -116,12 +117,16 @@ function TruckTimeRow({ truck, dispatch, timeEntries, onTimeEntry, readOnly }) {
 
 export default function DispatchDetailDrawer({
   dispatch, session, confirmations, timeEntries, templateNotes,
-  onConfirm, onTimeEntry, companyName, open, onClose
+  onConfirm, onTimeEntry, companyName, open, onClose,
+  truckSwitchRequest = null,
+  onTruckSwitchRequest = null,
+  onReviewTruckSwitchRequest = null,
+  truckSwitchSubmitting = false,
 }) {
-  if (!dispatch) return null;
+  const safeDispatch = dispatch || {};
 
   const myTrucks = (session.allowed_trucks || []).filter(t =>
-    (dispatch.trucks_assigned || []).includes(t)
+    (safeDispatch.trucks_assigned || []).includes(t)
   );
   const isOwner = session.code_type === 'CompanyOwner';
   const isAdmin = session.code_type === 'Admin';
@@ -131,6 +136,31 @@ export default function DispatchDetailDrawer({
   const normalizedTemplateNotes = (templateNotes || []).map(normalizeTemplateNote);
   const boxNotes = normalizedTemplateNotes.filter(n => n.note_type === NOTE_TYPES.BOX);
   const generalNotes = normalizedTemplateNotes.filter(n => n.note_type !== NOTE_TYPES.BOX);
+
+  const [switchFromTruck, setSwitchFromTruck] = useState('');
+  const [switchToTruck, setSwitchToTruck] = useState('');
+  const [switchError, setSwitchError] = useState('');
+
+  const ownerSelectableCurrentTrucks = myTrucks;
+  const ownerReplacementTrucks = useMemo(() => {
+    const owned = session.allowed_trucks || [];
+    return owned.filter(truck => !((safeDispatch.trucks_assigned || []).includes(truck)));
+  }, [session.allowed_trucks, safeDispatch.trucks_assigned]);
+
+  React.useEffect(() => {
+    const defaultFrom = ownerSelectableCurrentTrucks[0] || '';
+    setSwitchFromTruck(defaultFrom);
+  }, [safeDispatch.id, ownerSelectableCurrentTrucks]);
+
+  React.useEffect(() => {
+    setSwitchToTruck('');
+    setSwitchError('');
+  }, [switchFromTruck, safeDispatch.id]);
+
+  if (!dispatch) return null;
+
+  const switchRequestSummary = formatTruckSwitchSummary(truckSwitchRequest);
+  const isPendingSwitchRequest = truckSwitchRequest?.status === TRUCK_SWITCH_STATUS.PENDING;
 
   const isTruckConfirmedForCurrent = (truck) =>
     confirmations.some(c =>
@@ -157,6 +187,32 @@ export default function DispatchDetailDrawer({
 
   const handleConfirmTruck = (truck) => {
     onConfirm(dispatch, truck, currentConfType);
+  };
+
+
+  const handleSubmitTruckSwitch = async () => {
+    if (!onTruckSwitchRequest) return;
+
+    setSwitchError('');
+    const result = await onTruckSwitchRequest({
+      dispatch,
+      oldTruck: switchFromTruck,
+      newTruck: switchToTruck,
+    });
+
+    if (result?.ok) {
+      setSwitchToTruck('');
+      return;
+    }
+
+    if (result?.error) {
+      setSwitchError(result.error);
+    }
+  };
+
+  const handleReviewTruckSwitch = async (decision) => {
+    if (!onReviewTruckSwitchRequest || !truckSwitchRequest?.id) return;
+    await onReviewTruckSwitchRequest({ request: truckSwitchRequest, decision });
   };
 
   // Safe date display: use parseISO to avoid timezone shift on YYYY-MM-DD strings
@@ -387,6 +443,94 @@ export default function DispatchDetailDrawer({
           {/* Actions */}
           {(isOwner || isAdmin) && (
             <div className="space-y-4 pt-2 border-t border-slate-100">
+
+              {truckSwitchRequest && (
+                <div className={`rounded-lg border p-3 ${isPendingSwitchRequest ? 'border-amber-200 bg-amber-50/60' : truckSwitchRequest.status === TRUCK_SWITCH_STATUS.APPROVED ? 'border-emerald-200 bg-emerald-50/60' : 'border-slate-200 bg-slate-50'}`}>
+                  <p className="text-xs font-semibold text-slate-600 uppercase tracking-wide">Truck Switch Request</p>
+                  <p className="text-sm text-slate-700 mt-1">
+                    {switchRequestSummary}
+                    <span className="ml-2 text-xs text-slate-500">({truckSwitchRequest.status})</span>
+                  </p>
+                  {truckSwitchRequest.requested_at && (
+                    <p className="text-xs text-slate-500 mt-1">
+                      Requested: {format(new Date(truckSwitchRequest.requested_at), 'MMM d, yyyy h:mm a')}
+                    </p>
+                  )}
+                  {isAdmin && (
+                    <>
+                      {truckSwitchRequest.requested_by_name && (
+                        <p className="text-xs text-slate-500 mt-1">Requested by: {truckSwitchRequest.requested_by_name}</p>
+                      )}
+                      {isPendingSwitchRequest && (
+                        <div className="flex gap-2 mt-3">
+                          <Button
+                            size="sm"
+                            className="bg-emerald-700 hover:bg-emerald-800 text-xs"
+                            onClick={() => handleReviewTruckSwitch('approve')}
+                            disabled={truckSwitchSubmitting}
+                          >
+                            Approve
+                          </Button>
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            className="text-xs border-red-200 text-red-700 hover:bg-red-50"
+                            onClick={() => handleReviewTruckSwitch('reject')}
+                            disabled={truckSwitchSubmitting}
+                          >
+                            Reject
+                          </Button>
+                        </div>
+                      )}
+                    </>
+                  )}
+                </div>
+              )}
+
+              {isOwner && !isPendingSwitchRequest && dispatch.status !== 'Cancelled' && (
+                <div className="rounded-lg border border-slate-200 p-3 bg-slate-50/70 space-y-2">
+                  <p className="text-xs font-semibold text-slate-600 uppercase tracking-wide">Request Truck Switch</p>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                    <div>
+                      <p className="text-xs text-slate-500 mb-1">Replace truck</p>
+                      <Input
+                        list={`switch-from-${dispatch.id}`}
+                        value={switchFromTruck}
+                        onChange={(e) => setSwitchFromTruck(e.target.value)}
+                        placeholder="Select current truck"
+                        className="h-8 text-sm"
+                      />
+                      <datalist id={`switch-from-${dispatch.id}`}>
+                        {ownerSelectableCurrentTrucks.map((truck) => <option key={truck} value={truck} />)}
+                      </datalist>
+                    </div>
+                    <div>
+                      <p className="text-xs text-slate-500 mb-1">Requested replacement</p>
+                      <Input
+                        list={`switch-to-${dispatch.id}`}
+                        value={switchToTruck}
+                        onChange={(e) => setSwitchToTruck(e.target.value)}
+                        placeholder="Select replacement truck"
+                        className="h-8 text-sm"
+                      />
+                      <datalist id={`switch-to-${dispatch.id}`}>
+                        {ownerReplacementTrucks.map((truck) => <option key={truck} value={truck} />)}
+                      </datalist>
+                    </div>
+                  </div>
+                  {switchError && <p className="text-xs text-red-600">{switchError}</p>}
+                  <div className="flex justify-end">
+                    <Button
+                      size="sm"
+                      className="h-8 text-xs bg-slate-900 hover:bg-slate-800"
+                      disabled={!switchFromTruck || !switchToTruck || truckSwitchSubmitting}
+                      onClick={handleSubmitTruckSwitch}
+                    >
+                      Switch Truck
+                    </Button>
+                  </div>
+                </div>
+              )}
 
               {/* CompanyOwner confirm */}
               {isOwner && myTrucks.length > 0 && (

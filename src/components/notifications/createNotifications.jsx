@@ -431,3 +431,60 @@ export async function notifyTruckConfirmation(dispatch, truckNumber, companyName
     console.error('Error creating confirmation notification:', err);
   }
 }
+
+export async function notifyAdminTruckSwitchRequest({ dispatch, companyName, request, requester }) {
+  try {
+    if (!dispatch?.id || !request) return;
+
+    await base44.entities.Notification.create({
+      recipient_type: 'Admin',
+      title: 'Truck Switch Request',
+      message: `${companyName || 'Company'} requested ${request.old_truck} → ${request.new_truck}. Please approve or reject the truck change on this dispatch.`,
+      related_dispatch_id: dispatch.id,
+      read_flag: false,
+      notification_category: 'truck_switch_request',
+      notification_type: 'action_required',
+      admin_group_key: `truck-switch:${dispatch.id}`,
+      metadata: {
+        truck_switch_request_id: request.id,
+        requested_by_access_code_id: requester?.id || request.requested_by_access_code_id,
+      },
+    });
+  } catch (error) {
+    console.error('Error creating admin truck-switch notification:', error);
+  }
+}
+
+export async function notifyOwnerTruckSwitchResult({
+  recipientAccessCodeId,
+  dispatch,
+  approved,
+  oldTruck,
+  newTruck,
+  adminNote,
+}) {
+  try {
+    if (!recipientAccessCodeId || !dispatch?.id) return;
+
+    const title = approved ? 'Truck Switch Approved' : 'Truck Switch Denied';
+    const noteText = String(adminNote || '').trim();
+    const baseMessage = approved
+      ? `Your truck switch request was approved: ${oldTruck} → ${newTruck}.`
+      : `Your truck switch request was denied: ${oldTruck} → ${newTruck}.`;
+
+    await base44.entities.Notification.create({
+      recipient_type: 'AccessCode',
+      recipient_access_code_id: recipientAccessCodeId,
+      recipient_id: recipientAccessCodeId,
+      recipient_company_id: dispatch.company_id,
+      title,
+      message: noteText ? `${baseMessage}\nAdmin note: ${noteText}` : baseMessage,
+      related_dispatch_id: dispatch.id,
+      read_flag: false,
+      notification_category: 'truck_switch_result',
+      notification_type: 'informational',
+    });
+  } catch (error) {
+    console.error('Error creating owner truck-switch result notification:', error);
+  }
+}

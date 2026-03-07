@@ -39,7 +39,8 @@ const formatDispatchTime = (startTime) => {
 
 const DispatchCard = React.forwardRef(function DispatchCard({
   dispatch, session, confirmations, timeEntries, templateNotes,
-  onConfirm, onTimeEntry, companyName, forceOpen, onDrawerClose
+  onConfirm, onTimeEntry, companyName, forceOpen, onDrawerClose,
+  truckSwitchRequest, onTruckSwitchRequest, onReviewTruckSwitchRequest, truckSwitchSubmitting
 }, ref) {
   const [drawerOpen, setDrawerOpen] = useState(false);
 
@@ -149,6 +150,10 @@ const DispatchCard = React.forwardRef(function DispatchCard({
         onConfirm={onConfirm}
         onTimeEntry={onTimeEntry}
         companyName={companyName}
+        truckSwitchRequest={truckSwitchRequest}
+        onTruckSwitchRequest={onTruckSwitchRequest}
+        onReviewTruckSwitchRequest={onReviewTruckSwitchRequest}
+        truckSwitchSubmitting={truckSwitchSubmitting}
       />
     </div>
   );

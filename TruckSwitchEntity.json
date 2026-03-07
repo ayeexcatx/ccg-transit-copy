@@ -1,0 +1,17 @@
+{
+  "entity": "TruckSwitch",
+  "label": "Truck Switch Request",
+  "description": "Owner-requested truck assignment switch that requires admin approval.",
+  "fields": [
+    { "name": "dispatch_id", "type": "string", "required": true },
+    { "name": "company_id", "type": "string", "required": true },
+    { "name": "requested_by_access_code_id", "type": "string", "required": true },
+    { "name": "old_truck", "type": "string", "required": true },
+    { "name": "new_truck", "type": "string", "required": true },
+    { "name": "status", "type": "string", "required": true, "enum": ["pending", "approved", "rejected"], "default": "pending" },
+    { "name": "requested_at", "type": "datetime", "required": true },
+    { "name": "reviewed_at", "type": "datetime" },
+    { "name": "reviewed_by", "type": "string" },
+    { "name": "admin_note", "type": "string" }
+  ]
+}

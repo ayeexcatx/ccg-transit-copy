@@ -10,7 +10,16 @@ import { Truck, Inbox } from 'lucide-react';
 import { startOfDay, parseISO } from 'date-fns';
 import { getDispatchBucket } from '../components/portal/dispatchBuckets';
 import { sortTemplateNotesForDispatch } from '@/lib/templateNotes';
-import { notifyTruckConfirmation, resolveOwnerNotificationIfComplete } from '../components/notifications/createNotifications';
+import {
+  notifyAdminTruckSwitchRequest,
+  notifyTruckConfirmation,
+  resolveOwnerNotificationIfComplete,
+} from '../components/notifications/createNotifications';
+import {
+  getPendingTruckSwitchRequest,
+  TRUCK_SWITCH_STATUS,
+  validateTruckSwitchRequest,
+} from '@/lib/truckSwitch';
 
 function myTrucksForHistory(dispatch, timeEntries, session) {
   const trucks = (session?.allowed_trucks || []).filter(t => (dispatch.trucks_assigned || []).includes(t));
@@ -57,9 +66,55 @@ export default function Portal() {
     queryFn: () => base44.entities.DispatchTemplateNotes.filter({ active_flag: true }),
   });
 
+  const { data: truckSwitchRequests = [] } = useQuery({
+    queryKey: ['truck-switch-requests'],
+    queryFn: () => base44.entities.TruckSwitch.list('-requested_at', 500),
+    enabled: !!session,
+  });
+
   const confirmMutation = useMutation({
     mutationFn: (data) => base44.entities.Confirmation.create(data),
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ['confirmations'] }),
+  });
+
+  const switchMutation = useMutation({
+    mutationFn: async ({ dispatch, oldTruck, newTruck }) => {
+      const pendingRequest = getPendingTruckSwitchRequest(truckSwitchRequests, dispatch.id);
+      const validation = validateTruckSwitchRequest({
+        dispatch,
+        session,
+        oldTruck,
+        newTruck,
+        dispatches,
+        pendingRequest,
+      });
+
+      if (!validation.ok) return validation;
+
+      const request = await base44.entities.TruckSwitch.create({
+        dispatch_id: dispatch.id,
+        company_id: dispatch.company_id,
+        requested_by_access_code_id: session.id,
+        requested_by_name: session.label || session.name || 'Company Owner',
+        old_truck: oldTruck,
+        new_truck: newTruck,
+        status: TRUCK_SWITCH_STATUS.PENDING,
+        requested_at: new Date().toISOString(),
+      });
+
+      await notifyAdminTruckSwitchRequest({
+        dispatch,
+        companyName: companyMap[dispatch.company_id] || '',
+        request,
+        requester: session,
+      });
+
+      return { ok: true, request };
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['truck-switch-requests'] });
+      queryClient.invalidateQueries({ queryKey: ['notifications'] });
+    },
   });
 
   const today = startOfDay(new Date());
@@ -143,6 +198,15 @@ export default function Portal() {
   const companyMap = {};
   companies.forEach(c => { companyMap[c.id] = c.name; });
 
+  const pendingTruckSwitchByDispatchId = useMemo(() => {
+    const map = new Map();
+    (truckSwitchRequests || []).forEach((request) => {
+      if (request.status !== TRUCK_SWITCH_STATUS.PENDING) return;
+      map.set(request.dispatch_id, request);
+    });
+    return map;
+  }, [truckSwitchRequests]);
+
   const handleConfirm = (dispatch, truck, confType) => {
     const alreadyConfirmed = confirmations.some(c =>
       c.dispatch_id === dispatch.id &&
@@ -190,6 +254,10 @@ export default function Portal() {
 
   const handleTimeEntry = (dispatch, truck, start, end) => {
     timeEntryMutation.mutate({ dispatch, truck, start, end });
+  };
+
+  const handleTruckSwitchRequest = async ({ dispatch, oldTruck, newTruck }) => {
+    return switchMutation.mutateAsync({ dispatch, oldTruck, newTruck });
   };
 
   const currentList = tab === 'upcoming' ? upcomingDispatches : tab === 'today' ? todayDispatches : historyDispatches;
@@ -302,6 +370,9 @@ export default function Portal() {
                 companyName={companyMap[d.company_id]}
                 forceOpen={drawerDispatchId === d.id}
                 onDrawerClose={handleDrawerClose}
+                truckSwitchRequest={pendingTruckSwitchByDispatchId.get(d.id) || null}
+                onTruckSwitchRequest={session?.code_type === 'CompanyOwner' ? handleTruckSwitchRequest : null}
+                truckSwitchSubmitting={switchMutation.isPending}
               />
             </div>
           ))}

@@ -21,6 +21,13 @@ import { useSession } from '../components/session/SessionContext';
 import { Label } from '@/components/ui/label';
 import { statusBadgeColors, statusBorderAccent } from '../components/portal/statusConfig';
 import { reconcileOwnerNotificationsForDispatch } from '@/components/notifications/createNotifications';
+import {
+  notifyOwnerTruckSwitchResult,
+} from '@/components/notifications/createNotifications';
+import {
+  findTruckConflictForShift,
+  TRUCK_SWITCH_STATUS,
+} from '@/lib/truckSwitch';
 
 const STATUS_ORDER = ['Scheduled', 'Dispatch', 'Amended', 'Cancelled'];
 
@@ -191,6 +198,11 @@ export default function AdminDispatches() {
     queryFn: () => base44.entities.TimeEntry.list('-created_date', 500)
   });
 
+  const { data: truckSwitchRequests = [] } = useQuery({
+    queryKey: ['truck-switch-requests'],
+    queryFn: () => base44.entities.TruckSwitch.list('-requested_at', 500),
+  });
+
   const openDrawer = async (d) => {
     setPreviewDispatch(d);
     const [confs, times, adminNotifs] = await Promise.all([
@@ -260,8 +272,114 @@ export default function AdminDispatches() {
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ['dispatches-admin'] })
   });
 
+  const reviewTruckSwitchMutation = useMutation({
+    mutationFn: async ({ request, decision }) => {
+      const approved = decision === 'approve';
+      const dispatch = dispatches.find((d) => d.id === request.dispatch_id);
+      if (!dispatch) return;
+
+      const truckConflict = approved ? findTruckConflictForShift({
+        dispatches,
+        dispatchId: dispatch.id,
+        date: dispatch.date,
+        shiftTime: dispatch.shift_time,
+        truckNumber: request.new_truck,
+      }) : null;
+
+      if (truckConflict) {
+        throw new Error(`Cannot approve. Truck ${request.new_truck} is assigned on ${dispatch.date} ${dispatch.shift_time}.`);
+      }
+
+      await base44.entities.TruckSwitch.update(request.id, {
+        status: approved ? TRUCK_SWITCH_STATUS.APPROVED : TRUCK_SWITCH_STATUS.REJECTED,
+        reviewed_at: new Date().toISOString(),
+        reviewed_by: session?.id,
+      });
+
+      if (approved) {
+        const currentTrucks = dispatch.trucks_assigned || [];
+        const nextTrucks = currentTrucks
+          .filter((truck) => truck !== request.old_truck)
+          .concat(currentTrucks.includes(request.new_truck) ? [] : [request.new_truck]);
+
+        await base44.entities.Dispatch.update(dispatch.id, { trucks_assigned: nextTrucks });
+
+        const oldCurrentConf = confirmations.find((c) => (
+          c.dispatch_id === dispatch.id &&
+          c.confirmation_type === dispatch.status &&
+          c.truck_number === request.old_truck
+        ));
+
+        if (oldCurrentConf) {
+          const newExists = confirmations.some((c) => (
+            c.dispatch_id === dispatch.id &&
+            c.confirmation_type === dispatch.status &&
+            c.truck_number === request.new_truck
+          ));
+
+          if (!newExists) {
+            await base44.entities.Confirmation.create({
+              dispatch_id: dispatch.id,
+              access_code_id: oldCurrentConf.access_code_id || oldCurrentConf.confirmed_by_access_code_id || request.requested_by_access_code_id,
+              truck_number: request.new_truck,
+              confirmation_type: dispatch.status,
+              confirmed_at: new Date().toISOString(),
+              inherited_from_truck: request.old_truck,
+            });
+          }
+        }
+
+        await reconcileOwnerNotificationsForDispatch({ ...dispatch, trucks_assigned: nextTrucks }, accessCodes);
+      }
+
+      await notifyOwnerTruckSwitchResult({
+        recipientAccessCodeId: request.requested_by_access_code_id,
+        dispatch,
+        approved,
+        oldTruck: request.old_truck,
+        newTruck: request.new_truck,
+      });
+
+      const adminNotifs = await base44.entities.Notification.filter({
+        recipient_type: 'Admin',
+        related_dispatch_id: dispatch.id,
+      }, '-created_date', 100);
+
+      const requestNotifs = (adminNotifs || []).filter((n) => n.notification_category === 'truck_switch_request' && !n.read_flag);
+      if (requestNotifs.length > 0) {
+        await Promise.all(requestNotifs.map((n) => base44.entities.Notification.update(n.id, { read_flag: true })));
+      }
+    },
+    onSuccess: async () => {
+      await queryClient.invalidateQueries({ queryKey: ['dispatches-admin'] });
+      await queryClient.invalidateQueries({ queryKey: ['portal-dispatches'] });
+      await queryClient.invalidateQueries({ queryKey: ['truck-switch-requests'] });
+      await queryClient.invalidateQueries({ queryKey: ['notifications'] });
+      await queryClient.invalidateQueries({ predicate: (query) => String(query.queryKey?.[0] || '').startsWith('confirmations') });
+      if (previewDispatch?.id) {
+        const refreshed = await base44.entities.Dispatch.filter({ id: previewDispatch.id }, '-created_date', 1).then((rows) => rows?.[0]);
+        if (refreshed) {
+          await openDrawer(refreshed);
+        }
+      }
+    },
+  });
+
   const companyMap = {};
   companies.forEach((c) => {companyMap[c.id] = c.name;});
+
+  const pendingTruckSwitchByDispatchId = useMemo(() => {
+    const map = new Map();
+    (truckSwitchRequests || []).forEach((request) => {
+      if (request.status !== TRUCK_SWITCH_STATUS.PENDING) return;
+      map.set(request.dispatch_id, request);
+    });
+    return map;
+  }, [truckSwitchRequests]);
+
+  const handleReviewTruckSwitchRequest = async ({ request, decision }) => {
+    return reviewTruckSwitchMutation.mutateAsync({ request, decision });
+  };
 
   const filtered = useMemo(() => {
     return dispatches.filter((d) => {
@@ -615,7 +733,10 @@ export default function AdminDispatches() {
         templateNotes={templateNotes}
         onConfirm={() => {}}
         onTimeEntry={() => {}}
-        companyName={previewDispatch ? companyMap[previewDispatch.company_id] : ''} />
+        companyName={previewDispatch ? companyMap[previewDispatch.company_id] : ''}
+        truckSwitchRequest={previewDispatch ? (pendingTruckSwitchByDispatchId.get(previewDispatch.id) || null) : null}
+        onReviewTruckSwitchRequest={handleReviewTruckSwitchRequest}
+        truckSwitchSubmitting={reviewTruckSwitchMutation.isPending} />
 
     </div>);
 
