@@ -75,7 +75,7 @@ export default function AdminDashboard() {
   return (
     <div className="space-y-8">
       <div>
-        <h2 className="text-2xl font-bold text-slate-900">Admin Dashboard</h2>
+        <h2 className="text-2xl font-semibold text-slate-900">Admin Dashboard</h2>
         <p className="text-sm text-slate-500 mt-1">Overview of your dispatch operations</p>
       </div>
 
@@ -87,7 +87,7 @@ export default function AdminDashboard() {
                 <div className={`h-10 w-10 rounded-xl ${s.color} bg-opacity-10 flex items-center justify-center mb-3`}>
                   <s.icon className={`h-5 w-5 ${s.color.replace('bg-', 'text-')}`} />
                 </div>
-                <p className="text-2xl font-bold text-slate-900">{s.value}</p>
+                <p className="text-2xl font-semibold text-slate-900">{s.value}</p>
                 <div className="flex items-center justify-between mt-1">
                   <p className={`text-xs ${s.isAction ? 'text-emerald-700 font-semibold' : 'text-slate-500'}`}>{s.label}</p>
                   <ArrowRight className="h-3.5 w-3.5 text-slate-300 group-hover:text-slate-500 transition-colors" />
@@ -100,11 +100,11 @@ export default function AdminDashboard() {
 
       <Card>
         <CardContent className="p-5">
-          <h3 className="font-semibold text-slate-900 mb-4">Dispatch Status Breakdown</h3>
+          <h3 className="text-sm font-semibold text-slate-700 mb-4">Dispatch Status Breakdown</h3>
           <div className="grid grid-cols-2 sm:grid-cols-5 gap-3">
             {['Scheduled', 'Dispatch', 'Amended', 'Cancelled', 'Completed'].map(status => (
               <div key={status} className="text-center p-3 rounded-lg bg-slate-50">
-                <p className="text-xl font-bold text-slate-900">{statusCounts[status] || 0}</p>
+                <p className="text-2xl font-semibold text-slate-900">{statusCounts[status] || 0}</p>
                 <p className="text-xs text-slate-500 mt-0.5">{status}</p>
               </div>
             ))}
@@ -113,7 +113,7 @@ export default function AdminDashboard() {
       </Card>
 
       <div>
-        <h3 className="font-semibold text-slate-900 mb-3">Quick Actions</h3>
+        <h3 className="text-sm font-semibold text-slate-700 mb-3">Quick Actions</h3>
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
           <Link to={createPageUrl('AdminDispatches')}>
             <Card className="hover:shadow-md transition-shadow cursor-pointer">
@@ -122,7 +122,7 @@ export default function AdminDashboard() {
                   <FileText className="h-4 w-4 text-blue-600" />
                 </div>
                 <div>
-                  <p className="text-sm font-medium text-slate-900">Manage Dispatches</p>
+                  <p className="text-sm text-slate-900">Manage Dispatches</p>
                   <p className="text-xs text-slate-500">Create & edit</p>
                 </div>
               </CardContent>
@@ -135,7 +135,7 @@ export default function AdminDashboard() {
                   <Building2 className="h-4 w-4 text-emerald-600" />
                 </div>
                 <div>
-                  <p className="text-sm font-medium text-slate-900">Manage Companies</p>
+                  <p className="text-sm text-slate-900">Manage Companies</p>
                   <p className="text-xs text-slate-500">Add trucks & info</p>
                 </div>
               </CardContent>
@@ -148,7 +148,7 @@ export default function AdminDashboard() {
                   <Key className="h-4 w-4 text-amber-600" />
                 </div>
                 <div>
-                  <p className="text-sm font-medium text-slate-900">Access Codes</p>
+                  <p className="text-sm text-slate-900">Access Codes</p>
                   <p className="text-xs text-slate-500">Create & manage</p>
                 </div>
               </CardContent>
@@ -161,7 +161,7 @@ export default function AdminDashboard() {
                   <StickyNote className="h-4 w-4 text-purple-600" />
                 </div>
                 <div>
-                  <p className="text-sm font-medium text-slate-900">Template Notes</p>
+                  <p className="text-sm text-slate-900">Template Notes</p>
                   <p className="text-xs text-slate-500">Manage notes</p>
                 </div>
               </CardContent>

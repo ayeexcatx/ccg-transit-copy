@@ -103,7 +103,7 @@ export default function InstallPromptBanner() {
       <div className="rounded-xl border border-slate-200 bg-white/95 p-4 shadow-lg backdrop-blur-sm">
         <div className="flex items-start justify-between gap-3">
           <div>
-            <h2 className="text-sm font-semibold text-slate-900">
+            <h2 className="text-sm font-semibold text-slate-700">
               {isIosContent ? 'Install this app on your iPhone or iPad' : 'Install App'}
             </h2>
             <p className="mt-1 text-xs text-slate-600">

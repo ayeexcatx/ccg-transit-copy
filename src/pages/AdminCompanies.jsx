@@ -82,7 +82,7 @@ export default function AdminCompanies() {
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <div>
-          <h2 className="text-xl font-bold text-slate-900">Companies</h2>
+          <h2 className="text-2xl font-semibold text-slate-900">Companies</h2>
           <p className="text-sm text-slate-500">{companies.length} companies</p>
         </div>
         <Button onClick={openNew} className="bg-slate-900 hover:bg-slate-800">
@@ -108,7 +108,7 @@ export default function AdminCompanies() {
                     </div>
                     <div>
                       <div className="flex items-center gap-2">
-                        <h3 className="font-semibold text-slate-900">{c.name}</h3>
+                        <h3 className="text-sm font-semibold text-slate-700">{c.name}</h3>
                         <Badge variant={c.status === 'active' ? 'default' : 'secondary'} className="text-xs">
                           {c.status}
                         </Badge>

@@ -59,7 +59,7 @@ export default function Notifications() {
     <div className="space-y-4">
       <div className="flex items-center justify-between">
         <div>
-          <h2 className="text-xl font-bold text-slate-900">Notifications</h2>
+          <h2 className="text-2xl font-semibold text-slate-900">Notifications</h2>
           <p className="text-sm text-slate-500">
             {unreadCount > 0 ? `${unreadCount} unread` : 'All caught up!'}
           </p>
@@ -100,7 +100,7 @@ export default function Notifications() {
                 <div className="flex items-start justify-between gap-3">
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-2 mb-1">
-                      <h3 className="font-semibold text-sm text-slate-900">{n.title}</h3>
+                      <h3 className="text-sm text-slate-900">{n.title}</h3>
                       {!n.read_flag && <Badge className="bg-blue-500 text-xs">New</Badge>}
                       {n.related_dispatch_id && (
                         <ExternalLink className="h-3.5 w-3.5 text-slate-400 ml-auto shrink-0" />

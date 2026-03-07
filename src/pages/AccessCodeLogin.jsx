@@ -43,7 +43,7 @@ export default function AccessCodeLogin() {
           <div className="inline-flex h-16 w-16 rounded-2xl bg-white/10 items-center justify-center mb-6">
             <Truck className="h-8 w-8 text-white" />
           </div>
-          <h1 className="text-2xl font-bold text-white tracking-tight">CCG Dispatch</h1>
+          <h1 className="text-2xl font-semibold text-white tracking-tight">CCG Dispatch</h1>
           <p className="text-slate-400 text-sm mt-2">Enter your access code to continue</p>
         </div>
 

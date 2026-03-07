@@ -200,13 +200,13 @@ export default function DispatchDetailDrawer({
           {/* Main info */}
           {dispatch.status === 'Scheduled' ? (
             <div>
-              <h2 className="font-semibold text-slate-900 text-lg">Scheduled Dispatch</h2>
+              <h2 className="text-sm font-semibold text-slate-700">Scheduled Dispatch</h2>
               <p className="text-sm text-blue-600 mt-1 italic">Your truck has been scheduled — details will follow</p>
             </div>
           ) : (
             <div className="space-y-3">
               {dispatch.client_name && (
-                <h2 className="font-semibold text-slate-900 text-lg">{dispatch.client_name}</h2>
+                <h2 className="text-sm font-semibold text-slate-700">{dispatch.client_name}</h2>
               )}
               {!hasAdditional && (
                 <div className="grid grid-cols-1 gap-3 text-sm">
@@ -238,7 +238,7 @@ export default function DispatchDetailDrawer({
             <>
               {(hasAdditional || dispatch.instructions || dispatch.notes || dispatch.toll_status || dispatch.start_time || dispatch.start_location) && (
                 <div className="rounded-lg border border-slate-200 bg-slate-50 p-3 space-y-3">
-                  <p className="text-xs font-semibold text-slate-500 uppercase tracking-wide">Assignment 1</p>
+                  <p className="text-xs text-slate-500 uppercase tracking-wide">Assignment 1</p>
                   {hasAdditional && (
                     <div className="flex items-center gap-2 text-sm text-slate-600">
                       <FileText className="h-4 w-4 text-slate-400 shrink-0" />
@@ -279,7 +279,7 @@ export default function DispatchDetailDrawer({
 
               {(dispatch.additional_assignments || []).length > 0 && (
                 <div>
-                  <p className="text-xs font-semibold text-slate-500 uppercase tracking-wide mb-2">Additional Assignments</p>
+                  <p className="text-xs text-slate-500 uppercase tracking-wide mb-2">Additional Assignments</p>
                   <div className="space-y-3">
                     {dispatch.additional_assignments.map((a, i) => (
                       <div key={i} className={`rounded-lg border border-slate-200 p-3 text-sm ${i % 2 === 0 ? 'bg-slate-50' : 'bg-blue-50/40'}`}>
@@ -329,7 +329,7 @@ export default function DispatchDetailDrawer({
 
               {boxNotes.length > 0 && (
                 <div>
-                  <p className="text-xs font-semibold text-slate-500 uppercase tracking-wide mb-2">Box Notes</p>
+                  <p className="text-xs text-slate-500 uppercase tracking-wide mb-2">Box Notes</p>
                   <div className="space-y-2">
                     {boxNotes.map(n => (
                       <div key={n.id} className="rounded-lg border p-3" style={{ borderColor: n.border_color, color: n.text_color }}>
@@ -346,7 +346,7 @@ export default function DispatchDetailDrawer({
 
               {generalNotes.length > 0 && (
                 <div>
-                  <p className="text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1.5">General Notes</p>
+                  <p className="text-xs text-slate-500 uppercase tracking-wide mb-1.5">General Notes</p>
                   <div className="space-y-3">
                     {generalNotes.map(n => {
                       const bullets = n.bullet_lines?.length > 0
@@ -391,7 +391,7 @@ export default function DispatchDetailDrawer({
               {/* CompanyOwner confirm */}
               {isOwner && myTrucks.length > 0 && (
                 <div>
-                  <p className="text-xs font-semibold text-slate-500 uppercase tracking-wide mb-2">
+                  <p className="text-xs text-slate-500 uppercase tracking-wide mb-2">
                     Confirm Receipt — <span className="text-slate-700">{currentConfType}</span>
                   </p>
                   <div className="space-y-2">
@@ -451,7 +451,7 @@ export default function DispatchDetailDrawer({
               {/* Time Log — CompanyOwner (editable) — only for non-canceled */}
               {isOwner && myTrucks.length > 0 && dispatch.status !== 'Cancelled' && (
                 <div>
-                  <p className="text-xs font-semibold text-slate-500 uppercase tracking-wide mb-2">Time Log</p>
+                  <p className="text-xs text-slate-500 uppercase tracking-wide mb-2">Time Log</p>
                   <div className="space-y-2">
                     {myTrucks.map(truck => (
                       <TruckTimeRow
@@ -470,7 +470,7 @@ export default function DispatchDetailDrawer({
               {/* Confirmations — Admin (read-only) */}
               {isAdmin && (dispatch.trucks_assigned || []).length > 0 && (
                 <div>
-                  <p className="text-xs font-semibold text-slate-500 uppercase tracking-wide mb-2 flex items-center gap-1.5">
+                  <p className="text-xs text-slate-500 uppercase tracking-wide mb-2 flex items-center gap-1.5">
                     <History className="h-3.5 w-3.5" />Confirmations
                   </p>
                   <div className="space-y-2">
@@ -511,7 +511,7 @@ export default function DispatchDetailDrawer({
               {/* Time Log — Admin (read-only) */}
               {isAdmin && (dispatch.trucks_assigned || []).length > 0 && (
                 <div>
-                  <p className="text-xs font-semibold text-slate-500 uppercase tracking-wide mb-2">Time Log</p>
+                  <p className="text-xs text-slate-500 uppercase tracking-wide mb-2">Time Log</p>
                   <div className="space-y-1.5">
                     {(dispatch.trucks_assigned || []).map(truck => (
                       <TruckTimeRow

@@ -405,7 +405,7 @@ export default function AdminDispatches() {
     <div className="space-y-6">
       <div className="flex items-center justify-between flex-wrap gap-3">
         <div>
-          <h2 className="text-slate-900 text-2xl font-bold text-left uppercase">Dispatches</h2>
+          <h2 className="text-2xl font-semibold text-slate-900 text-left">Dispatches</h2>
           <p className="text-sm text-slate-500">{currentList.length} dispatches</p>
         </div>
         <div className="flex gap-2">

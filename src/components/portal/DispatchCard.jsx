@@ -88,13 +88,13 @@ const DispatchCard = React.forwardRef(function DispatchCard({
             <div className="space-y-2">
               {dispatch.status === 'Scheduled' ? (
                 <>
-                  <h3 className="font-semibold text-slate-900">Scheduled</h3>
+                  <h3 className="text-sm font-semibold text-slate-700">Scheduled</h3>
                   <p className="text-xs text-blue-600 italic mt-0.5">Your truck has been scheduled — details will follow</p>
                 </>
               ) : (
                 <>
                   {dispatch.client_name && (
-                    <h3 className="font-semibold text-slate-900">{dispatch.client_name}</h3>
+                    <h3 className="text-sm font-semibold text-slate-700">{dispatch.client_name}</h3>
                   )}
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-sm">
                     {dispatch.job_number && (

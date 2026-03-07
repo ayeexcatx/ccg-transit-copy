@@ -127,7 +127,7 @@ export default function AdminAnnouncements() {
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <div>
-          <h2 className="text-xl font-bold text-slate-900">Announcements</h2>
+          <h2 className="text-2xl font-semibold text-slate-900">Announcements</h2>
           <p className="text-sm text-slate-500">{announcements.length} total</p>
         </div>
         <Button onClick={openNew} className="bg-slate-900 hover:bg-slate-800 text-xs">
@@ -163,7 +163,7 @@ export default function AdminAnnouncements() {
                         <span className="text-xs text-slate-400">{format(new Date(a.created_at), 'MMM d, yyyy')}</span>
                       )}
                     </div>
-                    <p className="text-sm font-semibold text-slate-900">{a.title}</p>
+                    <p className="text-sm text-slate-900">{a.title}</p>
                     <p className="text-xs text-slate-500 mt-1 line-clamp-2 whitespace-pre-wrap">{a.message}</p>
                   </div>
                   <div className="flex items-center gap-2 shrink-0">

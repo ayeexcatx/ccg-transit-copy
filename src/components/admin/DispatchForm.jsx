@@ -238,7 +238,7 @@ export default function DispatchForm({ dispatch, companies, accessCodes, onSave,
       <>
           {/* Assignment 1 — primary */}
           <div className="rounded-lg border border-slate-200 bg-slate-50 p-4 space-y-3">
-            <p className="text-xs font-semibold text-slate-500 uppercase tracking-wide">Assignment 1 (Primary)</p>
+            <p className="text-xs text-slate-500 uppercase tracking-wide">Assignment 1 (Primary)</p>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <div>
                 <Label className="text-xs">Job Number</Label>
@@ -319,7 +319,7 @@ export default function DispatchForm({ dispatch, companies, accessCodes, onSave,
           {form.additional_assignments.map((a, i) =>
         <div key={i} className={`rounded-lg border border-slate-200 p-4 space-y-3 ${i % 2 === 0 ? 'bg-slate-50' : 'bg-blue-50/40'}`}>
               <div className="flex items-center justify-between">
-                <p className="text-xs font-semibold text-slate-500 uppercase tracking-wide">Assignment {i + 2}</p>
+                <p className="text-xs text-slate-500 uppercase tracking-wide">Assignment {i + 2}</p>
                 <Button variant="ghost" size="icon" onClick={() => removeAssignment(i)} className="h-7 w-7 text-red-500">
                   <Trash2 className="h-3.5 w-3.5" />
                 </Button>

@@ -253,7 +253,7 @@ export default function Portal() {
       )}
       <div>
         <div className="flex items-center gap-3 mb-1">
-          <h2 className="text-xl font-bold text-slate-900">My Dispatches</h2>
+          <h2 className="text-2xl font-semibold text-slate-900">My Dispatches</h2>
         </div>
         <div className="flex items-center gap-2 flex-wrap">
           <span className="text-sm text-slate-500">Trucks:</span>

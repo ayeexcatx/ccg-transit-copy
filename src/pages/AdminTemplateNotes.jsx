@@ -159,7 +159,7 @@ export default function AdminTemplateNotes() {
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <div>
-          <h2 className="text-xl font-bold text-slate-900">Template Notes</h2>
+          <h2 className="text-2xl font-semibold text-slate-900">Template Notes</h2>
           <p className="text-sm text-slate-500">Shown in dispatch details after assignments (Boxes first, then General Notes)</p>
         </div>
         <Button onClick={openNew} className="bg-slate-900 hover:bg-slate-800">
