@@ -3,7 +3,6 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
-import { Badge } from '@/components/ui/badge';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Copy, Plus, Trash2 } from 'lucide-react';
@@ -31,6 +30,7 @@ export default function DispatchForm({ dispatch, dispatches = [], companies, acc
   const [showCopyPicker, setShowCopyPicker] = useState(false);
   const [copySearch, setCopySearch] = useState('');
   const [copySourceSummary, setCopySourceSummary] = useState('');
+  const [copyTargetAssignmentIndex, setCopyTargetAssignmentIndex] = useState(null);
 
   useEffect(() => {
     if (dispatch) {
@@ -76,8 +76,17 @@ export default function DispatchForm({ dispatch, dispatches = [], companies, acc
     }));
   };
 
+  const formatPickerDate = (dateValue) => {
+    const value = String(dateValue || '').trim();
+    if (!value) return 'No date';
+    const [year, month, day] = value.split('-');
+    if (!year || !month || !day) return value;
+    return `${month}-${day}-${year}`;
+  };
+
   const copyEligibleDispatches = (dispatches || [])
   .filter((candidate) => candidate?.id && candidate.id !== dispatch?.id)
+  .filter((candidate) => String(candidate?.status || '').toLowerCase() !== 'scheduled')
   .sort((a, b) => {
     const dateCompare = String(b.date || '').localeCompare(String(a.date || ''));
     if (dateCompare !== 0) return dateCompare;
@@ -114,6 +123,30 @@ export default function DispatchForm({ dispatch, dispatches = [], companies, acc
 
   const copyDetailsFromDispatch = (sourceDispatch) => {
     if (!sourceDispatch) return;
+
+    if (typeof copyTargetAssignmentIndex === 'number') {
+      setForm((prev) => {
+        const assignments = [...(prev.additional_assignments || [])];
+        const current = assignments[copyTargetAssignmentIndex] || {};
+        assignments[copyTargetAssignmentIndex] = {
+          ...current,
+          job_number: sourceDispatch.job_number || '',
+          start_time: sourceDispatch.start_time || '',
+          start_location: sourceDispatch.start_location || '',
+          instructions: sourceDispatch.instructions || 'Deliver material to / from',
+          notes: sourceDispatch.notes || '',
+          toll_status: sourceDispatch.toll_status || ''
+        };
+        return {
+          ...prev,
+          additional_assignments: assignments
+        };
+      });
+      setShowCopyPicker(false);
+      setCopyTargetAssignmentIndex(null);
+      return;
+    }
+
     setForm((prev) => ({
       ...prev,
       client_name: sourceDispatch.client_name || '',
@@ -131,6 +164,7 @@ export default function DispatchForm({ dispatch, dispatches = [], companies, acc
     .filter(Boolean);
     setCopySourceSummary(summaryBits.join(' • '));
     setShowCopyPicker(false);
+    setCopyTargetAssignmentIndex(null);
   };
 
   const toggleTruck = (t) => {
@@ -316,7 +350,15 @@ export default function DispatchForm({ dispatch, dispatches = [], companies, acc
             <p className="text-sm font-medium text-slate-800">Reuse dispatch details</p>
             <p className="text-xs text-slate-500">Copy operational fields from a previous dispatch into this form.</p>
           </div>
-          <Button type="button" variant="outline" onClick={() => setShowCopyPicker(true)} className="shrink-0">
+          <Button
+            type="button"
+            variant="outline"
+            onClick={() => {
+              setCopyTargetAssignmentIndex(null);
+              setShowCopyPicker(true);
+            }}
+            className="shrink-0"
+          >
             <Copy className="h-4 w-4 mr-1" />Copy Details From...
           </Button>
         </div>
@@ -413,9 +455,23 @@ export default function DispatchForm({ dispatch, dispatches = [], companies, acc
         <div key={i} className={`rounded-lg border border-slate-200 p-4 space-y-3 ${i % 2 === 0 ? 'bg-slate-50' : 'bg-blue-50/40'}`}>
               <div className="flex items-center justify-between">
                 <p className="text-xs text-slate-500 uppercase tracking-wide">Assignment {i + 2}</p>
-                <Button variant="ghost" size="icon" onClick={() => removeAssignment(i)} className="h-7 w-7 text-red-500">
-                  <Trash2 className="h-3.5 w-3.5" />
-                </Button>
+                <div className="flex items-center gap-1">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    className="text-xs h-7 px-2"
+                    onClick={() => {
+                      setCopyTargetAssignmentIndex(i);
+                      setShowCopyPicker(true);
+                    }}
+                  >
+                    <Copy className="h-3.5 w-3.5 mr-1" />Copy Details From...
+                  </Button>
+                  <Button variant="ghost" size="icon" onClick={() => removeAssignment(i)} className="h-7 w-7 text-red-500">
+                    <Trash2 className="h-3.5 w-3.5" />
+                  </Button>
+                </div>
               </div>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div>
@@ -540,7 +596,7 @@ export default function DispatchForm({ dispatch, dispatches = [], companies, acc
           </DialogHeader>
           <div className="space-y-3 overflow-hidden flex flex-col">
             <Input
-              placeholder="Search date, company, client, job #, or status"
+              placeholder="Search date, client, job #, start, instructions, or status"
               value={copySearch}
               onChange={(e) => setCopySearch(e.target.value)}
             />
@@ -549,7 +605,6 @@ export default function DispatchForm({ dispatch, dispatches = [], companies, acc
               <p className="text-sm text-slate-500 px-3 py-4">No matching dispatches found.</p>
               }
               {copyEligibleDispatches.map((candidate) => {
-                const sourceCompany = companyMap[candidate.company_id] || '—';
                 return (
                   <button
                     type="button"
@@ -557,15 +612,11 @@ export default function DispatchForm({ dispatch, dispatches = [], companies, acc
                     onClick={() => copyDetailsFromDispatch(candidate)}
                     className="w-full text-left px-3 py-2 border-b last:border-b-0 hover:bg-slate-50 transition-colors"
                   >
-                    <div className="flex items-center justify-between gap-2">
-                      <p className="text-sm font-medium text-slate-800">{candidate.date || 'No date'} • {sourceCompany}</p>
-                      <div className="flex items-center gap-1.5">
-                        <Badge variant="outline" className="text-[10px]">{candidate.status || 'Unknown'}</Badge>
-                      </div>
-                    </div>
-                    <p className="text-xs text-slate-600 mt-0.5">Client: {candidate.client_name || '—'} • Job: {candidate.job_number || '—'}</p>
-                    <p className="text-xs text-slate-600 truncate">Start: {candidate.start_location || '—'}</p>
-                    <p className="text-xs text-slate-600 truncate">Instructions: {candidate.instructions || '—'}</p>
+                    <p className="text-sm font-semibold text-slate-800 leading-tight truncate">
+                      {formatPickerDate(candidate.date)} • {candidate.client_name || '—'} • Job #{candidate.job_number || '—'}
+                    </p>
+                    <p className="text-xs text-slate-600 leading-tight mt-1 truncate">Start: {candidate.start_location || '—'}</p>
+                    <p className="text-xs text-slate-600 leading-tight mt-0.5 truncate">Instructions: {candidate.instructions || '—'}</p>
                   </button>);
 
               })}
