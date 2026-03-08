@@ -3,9 +3,10 @@ import { base44 } from '@/api/base44Client';
 import { useQuery } from '@tanstack/react-query';
 import { useSession } from '../components/session/SessionContext';
 import { Card, CardContent } from '@/components/ui/card';
+import AnnouncementCard from '@/components/announcements/AnnouncementCard';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { Bell, Clock, Sun, Moon, ArrowRight, AlertCircle, Megaphone, Truck } from 'lucide-react';
+import { Bell, Clock, Sun, Moon, ArrowRight, AlertCircle, Truck } from 'lucide-react';
 import { format, parseISO } from 'date-fns';
 import { getDispatchBucket } from '../components/portal/dispatchBuckets';
 import { createPageUrl } from '@/utils';
@@ -214,9 +215,6 @@ export default function Home() {
     navigateFromAction(n);
   };
 
-  const priorityBg = { 1: 'bg-red-50 border-red-200', 2: 'bg-orange-50 border-orange-200', 3: 'bg-yellow-50 border-yellow-200', 4: 'bg-blue-50 border-blue-200', 5: 'bg-slate-50 border-slate-200' };
-  const priorityText = { 1: 'text-red-800', 2: 'text-orange-800', 3: 'text-yellow-800', 4: 'text-blue-800', 5: 'text-slate-700' };
-
   return (
     <div className="space-y-6 max-w-2xl mx-auto">
       <div>
@@ -230,27 +228,7 @@ export default function Home() {
       {announcements.length > 0 && (
         <section className="space-y-3">
           {announcements.map(a => (
-            <Card
-              key={a.id}
-              className={`rounded-lg border border-l-4 ${priorityBg[a.priority] || priorityBg[3]}`}
-            >
-              <CardContent className="p-3 sm:p-4">
-                <div className="flex items-start gap-3">
-                  <div className={`rounded-md p-1.5 ${priorityBg[a.priority] || priorityBg[3]}`}>
-                    <Megaphone className={`h-4 w-4 shrink-0 ${priorityText[a.priority] || priorityText[3]}`} />
-                  </div>
-                  <div className="min-w-0 flex-1">
-                    <p className={`text-sm font-semibold leading-tight ${priorityText[a.priority] || priorityText[3]}`}>{a.title}</p>
-                    <p className="mt-1 text-sm text-slate-700 whitespace-pre-wrap break-words">{a.message}</p>
-                    {a.created_at && (
-                      <p className="mt-2 text-[11px] text-slate-500">
-                        {format(new Date(a.created_at), 'MMM d, yyyy · h:mm a')}
-                      </p>
-                    )}
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
+            <AnnouncementCard key={a.id} announcement={a} />
           ))}
         </section>
       )}

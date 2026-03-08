@@ -2,6 +2,7 @@ import React, { useMemo } from 'react';
 import { base44 } from '@/api/base44Client';
 import { useQuery } from '@tanstack/react-query';
 import { Card, CardContent } from '@/components/ui/card';
+import AnnouncementCard from '@/components/announcements/AnnouncementCard';
 import { Link } from 'react-router-dom';
 import { createPageUrl } from '../utils';
 import { buildOpenConfirmationRows } from '@/components/notifications/openConfirmations';
@@ -9,6 +10,7 @@ import {
   Building2, Key, FileText, StickyNote,
   ArrowRight, Clock, CheckCircle2
 } from 'lucide-react';
+import { format } from 'date-fns';
 
 export default function AdminDashboard() {
   const { data: codes = [] } = useQuery({
@@ -29,6 +31,11 @@ export default function AdminDashboard() {
   const { data: companies = [] } = useQuery({
     queryKey: ['companies'],
     queryFn: () => base44.entities.Company.list(),
+  });
+
+  const { data: announcements = [] } = useQuery({
+    queryKey: ['announcements'],
+    queryFn: () => base44.entities.Announcement.filter({ active_flag: true }, 'priority', 100),
   });
 
   const { data: dispatches = [] } = useQuery({
@@ -67,10 +74,60 @@ export default function AdminDashboard() {
     },
   ];
 
-  const statusCounts = {};
-  dispatches.forEach(d => {
-    statusCounts[d.status] = (statusCounts[d.status] || 0) + 1;
-  });
+
+  const companyMap = useMemo(
+    () => Object.fromEntries(companies.map(company => [company.id, company.name])),
+    [companies]
+  );
+
+  const accessCodeMap = useMemo(
+    () => Object.fromEntries(codes.map(code => [code.id, code])),
+    [codes]
+  );
+
+  const activeAnnouncements = useMemo(
+    () => announcements.filter((announcement) => announcement.active_flag !== false)
+      .sort((a, b) => (a.priority || 3) - (b.priority || 3)),
+    [announcements]
+  );
+
+  const formatAudience = (announcement) => {
+    if (announcement.target_type === 'All') return 'All';
+
+    if (announcement.target_type === 'Companies') {
+      const names = (announcement.target_company_ids || [])
+        .map((id) => companyMap[id])
+        .filter(Boolean);
+
+      if (names.length > 0) return `Specific Companies: ${names.join(', ')}`;
+      return 'Specific Companies';
+    }
+
+    const targetedCodes = (announcement.target_access_code_ids || [])
+      .map((id) => accessCodeMap[id])
+      .filter(Boolean);
+
+    if (targetedCodes.length === 0) return 'Specific Access Codes';
+
+    const truckCodes = targetedCodes.filter((code) => code.code_type === 'Truck');
+    if (truckCodes.length === targetedCodes.length) {
+      const trucks = [...new Set(truckCodes.flatMap((code) => code.allowed_trucks || []))];
+      if (trucks.length > 0) return `Specific Trucks: ${trucks.join(', ')}`;
+    }
+
+    const ownerCodes = targetedCodes.filter((code) => code.code_type === 'CompanyOwner');
+    if (ownerCodes.length === targetedCodes.length) {
+      const ownerLabels = ownerCodes
+        .map((code) => code.label || code.code)
+        .filter(Boolean);
+
+      if (ownerLabels.length > 0) return `Company Owners: ${ownerLabels.join(', ')}`;
+      return 'Company Owners';
+    }
+
+    const labels = targetedCodes.map((code) => code.label || code.code).filter(Boolean);
+    return labels.length > 0 ? `Specific Access Codes: ${labels.join(', ')}` : 'Specific Access Codes';
+  };
 
   return (
     <div className="space-y-8">
@@ -100,15 +157,33 @@ export default function AdminDashboard() {
 
       <Card>
         <CardContent className="p-5">
-          <h3 className="text-sm font-semibold text-slate-700 mb-4">Dispatch Status Breakdown</h3>
-          <div className="grid grid-cols-2 sm:grid-cols-5 gap-3">
-            {['Scheduled', 'Dispatch', 'Amended', 'Cancelled', 'Completed'].map(status => (
-              <div key={status} className="text-center p-3 rounded-lg bg-slate-50">
-                <p className="text-2xl font-semibold text-slate-900">{statusCounts[status] || 0}</p>
-                <p className="text-xs text-slate-500 mt-0.5">{status}</p>
-              </div>
-            ))}
-          </div>
+          <h3 className="text-sm font-semibold text-slate-700 mb-4">Active Announcements</h3>
+          {activeAnnouncements.length === 0 ? (
+            <p className="text-sm text-slate-500">No active announcements.</p>
+          ) : (
+            <div className="space-y-3">
+              {activeAnnouncements.map((announcement) => (
+                <AnnouncementCard
+                  key={announcement.id}
+                  announcement={announcement}
+                  footer={(
+                    <div className="mt-2 pt-2 border-t border-slate-200/80 text-xs text-slate-600 space-y-0.5">
+                      <p>
+                        <span className="font-medium text-slate-700">Added:</span>{' '}
+                        {announcement.created_at
+                          ? format(new Date(announcement.created_at), 'MMM d, yyyy · h:mm a')
+                          : '—'}
+                      </p>
+                      <p>
+                        <span className="font-medium text-slate-700">Audience:</span>{' '}
+                        {formatAudience(announcement)}
+                      </p>
+                    </div>
+                  )}
+                />
+              ))}
+            </div>
+          )}
         </CardContent>
       </Card>
 
