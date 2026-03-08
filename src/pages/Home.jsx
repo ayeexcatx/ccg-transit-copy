@@ -211,8 +211,6 @@ export default function Home() {
     await handleNotificationClick(n);
   };
 
-  const priorityText = { 1: 'text-red-800', 2: 'text-orange-800', 3: 'text-yellow-800', 4: 'text-blue-800', 5: 'text-slate-700' };
-
   return (
     <div className="space-y-6 max-w-2xl mx-auto">
       <div>
@@ -233,12 +231,9 @@ export default function Home() {
               </div>
             </div>
             <CardContent className="p-0">
-              <div className="divide-y divide-slate-100">
+              <div className="space-y-2 p-3 sm:p-4">
                 {announcements.map(a => (
-                  <div key={a.id} className="px-4 py-3">
-                    <p className={`text-sm font-semibold leading-tight ${priorityText[a.priority] || priorityText[3]}`}>{a.title}</p>
-                    <p className="mt-1 text-sm text-slate-700 whitespace-pre-wrap break-words">{a.message}</p>
-                  </div>
+                  <AnnouncementCard key={a.id} announcement={a} />
                 ))}
               </div>
             </CardContent>

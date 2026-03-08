@@ -8,7 +8,7 @@ import { createPageUrl } from '../utils';
 import { buildOpenConfirmationRows } from '@/components/notifications/openConfirmations';
 import {
   Building2, Key, FileText, StickyNote,
-  ArrowRight, Clock, CheckCircle2
+  ArrowRight, Clock, CheckCircle2, Megaphone
 } from 'lucide-react';
 import { format } from 'date-fns';
 
@@ -155,29 +155,36 @@ export default function AdminDashboard() {
         ))}
       </div>
 
-      <Card>
-        <CardContent className="p-5">
-          <h3 className="text-sm font-semibold text-slate-700 mb-4">Active Announcements</h3>
+      <Card className="rounded-lg border bg-white shadow-sm">
+        <div className="border-b border-slate-100 bg-blue-700 px-4 py-3">
+          <div className="inline-flex items-center gap-2 rounded-full bg-white px-3 py-1">
+            <Megaphone className="h-4 w-4 text-blue-700" />
+            <h3 className="text-sm font-semibold text-blue-700">Active Announcements</h3>
+          </div>
+        </div>
+        <CardContent className="p-0">
           {activeAnnouncements.length === 0 ? (
-            <p className="text-sm text-slate-500">No active announcements.</p>
+            <p className="p-5 text-sm text-slate-500">No active announcements.</p>
           ) : (
-            <div className="space-y-3">
+            <div className="space-y-2 p-3 sm:p-4">
               {activeAnnouncements.map((announcement) => (
                 <AnnouncementCard
                   key={announcement.id}
                   announcement={announcement}
                   footer={(
-                    <div className="mt-2 pt-2 border-t border-slate-200/80 text-xs text-slate-600 space-y-0.5">
-                      <p>
-                        <span className="font-medium text-slate-700">Added:</span>{' '}
-                        {announcement.created_at
-                          ? format(new Date(announcement.created_at), 'MMM d, yyyy · h:mm a')
-                          : '—'}
-                      </p>
-                      <p>
-                        <span className="font-medium text-slate-700">Audience:</span>{' '}
-                        {formatAudience(announcement)}
-                      </p>
+                    <div className="mt-3 border-t border-slate-200/80 pt-2 text-xs text-slate-600">
+                      <div className="flex flex-wrap items-center gap-x-4 gap-y-1">
+                        <p>
+                          <span className="font-medium text-slate-700">Added:</span>{' '}
+                          {announcement.created_at
+                            ? format(new Date(announcement.created_at), 'MMM d, yyyy · h:mm a')
+                            : '—'}
+                        </p>
+                        <p>
+                          <span className="font-medium text-slate-700">Audience:</span>{' '}
+                          {formatAudience(announcement)}
+                        </p>
+                      </div>
                     </div>
                   )}
                 />
