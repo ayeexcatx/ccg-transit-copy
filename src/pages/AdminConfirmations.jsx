@@ -115,7 +115,7 @@ export default function AdminConfirmations() {
   return (
     <div className="space-y-6">
       <div>
-        <h2 className="text-2xl font-bold text-slate-900">Confirmations</h2>
+        <h2 className="text-2xl font-semibold text-slate-900">Confirmations</h2>
         <p className="text-sm text-slate-500 mt-1">Review outstanding truck confirmations and recent confirmation history.</p>
       </div>
 
@@ -123,7 +123,7 @@ export default function AdminConfirmations() {
         <CardContent className="p-5 space-y-4">
           <div className="flex items-center justify-between gap-2">
             <div>
-              <h3 className="font-semibold text-slate-900">Open Confirmations</h3>
+              <h3 className="text-sm font-semibold text-slate-700">Open Confirmations</h3>
               <p className="text-xs text-slate-500">Outstanding truck confirmations derived from unresolved owner notifications.</p>
             </div>
             <Badge className="bg-amber-100 text-amber-800 hover:bg-amber-100">{openRows.length} open</Badge>
@@ -180,7 +180,7 @@ export default function AdminConfirmations() {
         <CardContent className="p-5 space-y-4">
           <div className="flex items-center justify-between gap-2">
             <div>
-              <h3 className="font-semibold text-slate-900">Confirmation Log / History</h3>
+              <h3 className="text-sm font-semibold text-slate-700">Confirmation Log / History</h3>
               <p className="text-xs text-slate-500">Completed confirmations from confirmation records.</p>
             </div>
             <Badge variant="secondary">{historyRows.length} records</Badge>
