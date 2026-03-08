@@ -36,6 +36,8 @@ const statusLabels = {
   Cancelled: 'Cancelled',
 };
 
+const NON_CONFIRMATION_CATEGORIES = new Set(['dispatch_update_info']);
+
 function getRelevantTrucks(dispatch, accessCode) {
   return (dispatch?.trucks_assigned || []).filter(t =>
     (accessCode?.allowed_trucks || []).includes(t)
@@ -71,6 +73,34 @@ function buildOwnerDispatchMessage(dispatch, statusText, relevantTrucks) {
   ].filter(Boolean);
 
   return `${dateTimeText}\n${secondLineParts.join(' • ')}`;
+}
+
+function parseStatusFromDedupKey(notification) {
+  const parts = String(notification?.dispatch_status_key || '').split(':');
+  return parts.length >= 2 ? parts[1] : '';
+}
+
+async function resolveStaleOwnerStatusNotifications(dispatchId, ownerAccessCodeId, currentStatus) {
+  const ownerNotifications = await base44.entities.Notification.filter({
+    recipient_type: 'AccessCode',
+    related_dispatch_id: dispatchId,
+  }, '-created_date', 500);
+
+  const staleNotifications = (ownerNotifications || []).filter((notification) => {
+    if (notification.read_flag) return false;
+    if (NON_CONFIRMATION_CATEGORIES.has(notification.notification_category)) return false;
+
+    const recipientId = notification.recipient_access_code_id || notification.recipient_id;
+    if (recipientId !== ownerAccessCodeId) return false;
+
+    const notificationStatus = parseStatusFromDedupKey(notification);
+    if (!notificationStatus) return false;
+    return notificationStatus !== currentStatus;
+  });
+
+  await Promise.all(staleNotifications.map((notification) =>
+    base44.entities.Notification.update(notification.id, { read_flag: true })
+  ));
 }
 
 /**
@@ -119,6 +149,8 @@ export async function notifyDispatchChange(dispatch, oldStatus, newStatus, compa
     const titlePrefix = `Status: ${statusText}`;
 
     for (const ac of affectedOwnerCodes) {
+      await resolveStaleOwnerStatusNotifications(dispatch.id, ac.id, newStatus);
+
       const dedupKey = `${dispatch.id}:${newStatus}:${ac.id}`;
 
       // Check for existing notification with this dedup key for this recipient
@@ -325,25 +357,26 @@ export async function reconcileOwnerNotificationsForDispatch(dispatch, accessCod
       }));
     }
 
-    const statusSet = new Set();
-    ownerNotifications.forEach(n => {
-      const parts = String(n.dispatch_status_key || '').split(':');
-      if (parts.length >= 2 && parts[1]) statusSet.add(parts[1]);
-    });
-
-    const confirmationsByStatus = {};
-    await Promise.all([...statusSet].map(async (status) => {
-      confirmationsByStatus[status] = await base44.entities.Confirmation.filter({
+    const currentStatus = dispatch.status;
+    const confirmationsByStatus = {
+      [currentStatus]: await base44.entities.Confirmation.filter({
         dispatch_id: dispatch.id,
-        confirmation_type: status,
-      }, '-confirmed_at', 500);
-    }));
+        confirmation_type: currentStatus,
+      }, '-confirmed_at', 500),
+    };
 
     for (const notification of ownerNotifications) {
       if (notification.notification_category === 'dispatch_update_info') continue;
 
-      const status = String(notification.dispatch_status_key || '').split(':')[1];
+      const status = parseStatusFromDedupKey(notification);
       if (!status) continue;
+
+      if (status !== currentStatus) {
+        if (!notification.read_flag) {
+          await base44.entities.Notification.update(notification.id, { read_flag: true });
+        }
+        continue;
+      }
 
       const ownerCode = ownerCodeMap.get(notification.recipient_access_code_id || notification.recipient_id);
       if (!ownerCode) continue;
