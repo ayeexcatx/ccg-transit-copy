@@ -6,13 +6,14 @@ import { Input } from '@/components/ui/input';
 import { Checkbox } from '@/components/ui/checkbox';
 import {
   CheckCircle2, Clock, Truck, Sun, Moon,
-  FileText, AlertTriangle, Save, History, ArrowLeft, Pencil
+  FileText, AlertTriangle, Save, History, ArrowLeft, Pencil, Camera
 } from 'lucide-react';
 import { format, parseISO } from 'date-fns';
 import { statusBadgeColors } from './statusConfig';
 import { NOTE_TYPES, normalizeTemplateNote, renderSimpleMarkupToHtml } from '@/lib/templateNotes';
 import { calculateWorkedHours, formatTime24h, formatWorkedHours } from '@/lib/timeLogs';
 import { toast } from 'sonner';
+import html2canvas from 'html2canvas';
 
 const tollColors = {
   Authorized: 'bg-green-50 text-green-700',
@@ -220,6 +221,8 @@ export default function DispatchDetailDrawer({
   const [draftTrucks, setDraftTrucks] = useState([]);
   const [isSavingTrucks, setIsSavingTrucks] = useState(false);
   const [truckEditMessage, setTruckEditMessage] = useState(null);
+  const [isCreatingScreenshot, setIsCreatingScreenshot] = useState(false);
+  const screenshotSectionRef = React.useRef(null);
 
   useEffect(() => {
     setDraftTimeEntries({});
@@ -430,8 +433,61 @@ export default function DispatchDetailDrawer({
     try {
       await navigator.clipboard.writeText(copyText);
       toast.success('Dispatch copied to clipboard.');
-    } catch (error) {
+    } catch {
       toast.error('Unable to copy dispatch details.');
+    }
+  };
+
+  const handleScreenshotDispatch = async () => {
+    if (isEditingTrucks) {
+      toast.error('Finish editing trucks before creating a screenshot.');
+      return;
+    }
+
+    const target = screenshotSectionRef.current;
+    if (!target) {
+      toast.error('Dispatch details are not ready to capture yet.');
+      return;
+    }
+
+    setIsCreatingScreenshot(true);
+    try {
+      const canvas = await html2canvas(target, {
+        backgroundColor: '#ffffff',
+        scale: Math.min(window.devicePixelRatio || 1, 2),
+        useCORS: true,
+      });
+
+      const blob = await new Promise((resolve) => canvas.toBlob(resolve, 'image/png'));
+      if (!blob) throw new Error('Failed to generate screenshot image.');
+
+      const fileNameDate = dispatch?.date || format(new Date(), 'yyyy-MM-dd');
+      const fileName = `dispatch-${fileNameDate}.png`;
+      const file = new File([blob], fileName, { type: 'image/png' });
+
+      const canShareFile = typeof navigator !== 'undefined'
+        && typeof navigator.share === 'function'
+        && typeof navigator.canShare === 'function'
+        && navigator.canShare({ files: [file] });
+
+      if (canShareFile) {
+        await navigator.share({ files: [file], title: 'Dispatch Screenshot' });
+      } else {
+        const objectUrl = URL.createObjectURL(blob);
+        const link = document.createElement('a');
+        link.href = objectUrl;
+        link.download = fileName;
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        URL.revokeObjectURL(objectUrl);
+      }
+
+      toast.success('Dispatch screenshot created.');
+    } catch (error) {
+      toast.error(error?.message || 'Unable to create dispatch screenshot on this device/browser.');
+    } finally {
+      setIsCreatingScreenshot(false);
     }
   };
 
@@ -469,7 +525,7 @@ export default function DispatchDetailDrawer({
         <div className="px-5 py-5 space-y-6">
 
           {isOwner && (
-            <div>
+            <div className="flex items-center gap-2">
               <Button
                 type="button"
                 variant="outline"
@@ -479,17 +535,44 @@ export default function DispatchDetailDrawer({
               >
                 Copy Dispatch
               </Button>
+              <Button
+                type="button"
+                variant="ghost"
+                size="sm"
+                className="h-8 text-xs"
+                disabled={isCreatingScreenshot || isEditingTrucks}
+                onClick={handleScreenshotDispatch}
+              >
+                <Camera className="h-3.5 w-3.5 mr-1" />
+                {isCreatingScreenshot ? 'Creating…' : 'Screenshot Dispatch'}
+              </Button>
             </div>
           )}
 
-          {/* Main info */}
-          {dispatch.status === 'Scheduled' ? (
-            <div>
-              <h2 className="text-sm font-semibold text-slate-700">Scheduled Dispatch</h2>
-              <p className="text-sm text-blue-600 mt-1 italic">Your truck has been scheduled — details will follow</p>
+          <div ref={screenshotSectionRef} className="space-y-6 bg-white">
+            <div className="rounded-lg border border-slate-200 bg-slate-50 p-3 grid grid-cols-3 gap-2 text-xs">
+              <div>
+                <p className="font-semibold text-slate-500">Date</p>
+                <p className="text-slate-700">{displayDate || '—'}</p>
+              </div>
+              <div>
+                <p className="font-semibold text-slate-500">Shift</p>
+                <p className="text-slate-700">{dispatch.shift_time || '—'}</p>
+              </div>
+              <div>
+                <p className="font-semibold text-slate-500">Status</p>
+                <p className="text-slate-700">{dispatch.status || '—'}</p>
+              </div>
             </div>
-          ) : (
-            <div className="space-y-3">
+
+            {/* Main info */}
+            {dispatch.status === 'Scheduled' ? (
+              <div>
+                <h2 className="text-sm font-semibold text-slate-700">Scheduled Dispatch</h2>
+                <p className="text-sm text-blue-600 mt-1 italic">Your truck has been scheduled — details will follow</p>
+              </div>
+            ) : (
+              <div className="space-y-3">
               {dispatch.client_name && (
                 <h2 className="text-sm font-semibold text-slate-700">{dispatch.client_name}</h2>
               )}
@@ -727,17 +810,18 @@ export default function DispatchDetailDrawer({
                 </div>
               )}
 
-              {dispatch.canceled_reason && (
-                <div className="flex items-start gap-2 bg-red-50 rounded-lg p-4">
-                  <AlertTriangle className="h-4 w-4 text-red-500 mt-0.5 shrink-0" />
-                  <div>
-                    <p className="text-xs font-semibold text-red-700 mb-0.5">Cancellation Reason</p>
-                    <p className="text-sm text-red-600">{dispatch.canceled_reason}</p>
+                {dispatch.canceled_reason && (
+                  <div className="flex items-start gap-2 bg-red-50 rounded-lg p-4">
+                    <AlertTriangle className="h-4 w-4 text-red-500 mt-0.5 shrink-0" />
+                    <div>
+                      <p className="text-xs font-semibold text-red-700 mb-0.5">Cancellation Reason</p>
+                      <p className="text-sm text-red-600">{dispatch.canceled_reason}</p>
+                    </div>
                   </div>
-                </div>
-              )}
-            </>
-          )}
+                )}
+              </>
+            )}
+          </div>
 
           {/* Actions */}
           {(isOwner || isAdmin) && (
