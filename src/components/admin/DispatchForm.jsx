@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react'; 
+import React, { useState, useEffect, useMemo } from 'react'; 
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -56,6 +56,24 @@ export default function DispatchForm({ dispatch, dispatches = [], companies, acc
 
   const selectedCompany = companies.find((c) => c.id === form.company_id);
   const availableTrucks = selectedCompany?.trucks || [];
+  const unavailableTrucks = useMemo(() => {
+    if (!form.company_id || !form.date || !form.shift_time) return new Set();
+
+    const blockedStatuses = new Set(['scheduled', 'dispatch', 'amended']);
+
+    return (dispatches || []).reduce((set, candidate) => {
+      if (!candidate || !Array.isArray(candidate.trucks_assigned)) return set;
+      if (dispatch?.id && candidate.id === dispatch.id) return set;
+      if (candidate.archived_flag) return set;
+      if (!blockedStatuses.has(String(candidate.status || '').toLowerCase())) return set;
+      if (candidate.company_id !== form.company_id) return set;
+      if (candidate.date !== form.date) return set;
+      if (candidate.shift_time !== form.shift_time) return set;
+
+      candidate.trucks_assigned.forEach((truckNumber) => set.add(truckNumber));
+      return set;
+    }, new Set());
+  }, [dispatch?.id, dispatches, form.company_id, form.date, form.shift_time]);
 
   const companyMap = {};
   companies.forEach((c) => {companyMap[c.id] = c.name;});
@@ -168,6 +186,7 @@ export default function DispatchForm({ dispatch, dispatches = [], companies, acc
   };
 
   const toggleTruck = (t) => {
+    if (unavailableTrucks.has(t)) return;
     setForm((prev) => ({
       ...prev,
       trucks_assigned: prev.trucks_assigned.includes(t) ?
@@ -235,6 +254,11 @@ export default function DispatchForm({ dispatch, dispatches = [], companies, acc
     // Base validation
     if (!form.company_id || !form.date || !form.shift_time || form.trucks_assigned.length === 0) {
       alert('Please fill in Company, Date, Shift Time, and assign at least one truck');
+      return;
+    }
+
+    if (form.trucks_assigned.some((truckNumber) => unavailableTrucks.has(truckNumber))) {
+      alert('One or more selected trucks are already assigned for this company, date, and shift.');
       return;
     }
 
@@ -423,18 +447,29 @@ export default function DispatchForm({ dispatch, dispatches = [], companies, acc
         <Label>Trucks Assigned * {!form.company_id && <span className="text-xs text-slate-400 ml-1">(select company first)</span>}</Label>
         <div className="flex gap-2 flex-wrap mt-1">
           {availableTrucks.map((t) =>
-          <button
-            key={t}
-            onClick={() => toggleTruck(t)}
-            disabled={!form.company_id}
-            className={`px-3 py-1.5 rounded-lg border text-sm font-mono transition-colors ${
-            form.trucks_assigned.includes(t) ?
-            'bg-slate-900 text-white border-slate-900' :
-            'bg-white text-slate-700 border-slate-200 hover:border-slate-400'} disabled:opacity-40`
-            }>
+          (() => {
+            const isUnavailable = unavailableTrucks.has(t);
 
-              {t}
-            </button>
+            return (
+              <button
+                key={t}
+                onClick={() => toggleTruck(t)}
+                disabled={!form.company_id || isUnavailable}
+                className={`relative px-3 py-1.5 rounded-lg border text-sm font-mono transition-colors ${
+                  form.trucks_assigned.includes(t)
+                    ? 'bg-slate-900 text-white border-slate-900'
+                    : 'bg-white text-slate-700 border-slate-200 hover:border-slate-400'
+                } ${isUnavailable ? 'opacity-50 cursor-not-allowed' : ''} disabled:opacity-40`}
+              >
+                {isUnavailable && (
+                  <span className="pointer-events-none absolute inset-0">
+                    <span className="absolute left-0 top-1/2 h-px w-[140%] -translate-y-1/2 -rotate-45 bg-slate-500/80 origin-left" />
+                  </span>
+                )}
+                {t}
+              </button>
+            );
+          })()
           )}
           {form.company_id && availableTrucks.length === 0 &&
           <span className="text-xs text-slate-400">No trucks on this company</span>
