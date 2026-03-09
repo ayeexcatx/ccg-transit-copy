@@ -46,59 +46,28 @@ const appendAdminActivityLog = (existingLog, entries) => {
   return [...nextEntries, ...current];
 };
 
-const normalizeTrucks = (trucks) => (Array.isArray(trucks) ? [...trucks].sort() : []);
-
 const buildDispatchUpdateActivityEntries = (previousDispatch, nextDispatch, session) => {
   const adminName = getAdminDisplayName(session);
-  const specificEntries = [];
-
   if (previousDispatch.status !== nextDispatch.status) {
-    specificEntries.push(createAdminActivityEntry(
+    if (nextDispatch.status === 'Cancelled') {
+      return [createAdminActivityEntry(session, 'cancelled_dispatch', `${adminName} cancelled this dispatch`)];
+    }
+
+    return [createAdminActivityEntry(
       session,
       'changed_status',
       `${adminName} changed status from ${previousDispatch.status} to ${nextDispatch.status}`
-    ));
-
-    if (nextDispatch.status === 'Amended') {
-      specificEntries.push(createAdminActivityEntry(session, 'amended_dispatch', `${adminName} amended this dispatch`));
-    }
-    if (nextDispatch.status === 'Cancelled') {
-      specificEntries.push(createAdminActivityEntry(session, 'cancelled_dispatch', `${adminName} cancelled this dispatch`));
-    }
+    )];
   }
 
-  if (previousDispatch.date !== nextDispatch.date) {
-    specificEntries.push(createAdminActivityEntry(
-      session,
-      'updated_dispatch_date',
-      `${adminName} changed dispatch date from ${previousDispatch.date || '—'} to ${nextDispatch.date || '—'}`
-    ));
-  }
+  return [createAdminActivityEntry(session, 'updated_dispatch', `${adminName} updated this dispatch`)];
+};
 
-  if (JSON.stringify(normalizeTrucks(previousDispatch.trucks_assigned)) !== JSON.stringify(normalizeTrucks(nextDispatch.trucks_assigned))) {
-    specificEntries.push(createAdminActivityEntry(session, 'updated_trucks', `${adminName} updated truck assignments`));
-  }
-
-  if (previousDispatch.instructions !== nextDispatch.instructions) {
-    specificEntries.push(createAdminActivityEntry(session, 'updated_instructions', `${adminName} updated instructions`));
-  }
-
-  const detailFieldsChanged = [
-  'shift_time',
-  'client_name',
-  'job_number',
-  'start_time',
-  'start_location',
-  'canceled_reason']
-  .some((field) => previousDispatch[field] !== nextDispatch[field]);
-
-  if (detailFieldsChanged) {
-    specificEntries.push(createAdminActivityEntry(session, 'updated_dispatch_details', `${adminName} updated dispatch details`));
-  }
-
-  const cappedSpecificEntries = specificEntries.slice(0, 2);
-  const generalEntry = createAdminActivityEntry(session, 'updated_dispatch', `${adminName} updated this dispatch`);
-  return [...cappedSpecificEntries, generalEntry];
+const formatActivityPreviewTimestamp = (value) => {
+  if (!value) return '';
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return '';
+  return format(date, 'M/d/yyyy h:mm a');
 };
 
 const formatDispatchTime = (startTime) => {
@@ -707,6 +676,9 @@ export default function AdminDispatches() {
           const firstAssignmentStartTime = assignmentList[0]?.start_time || assignmentList[0]?.startTime;
           const firstLineTimeText = formatDispatchTime(firstAssignmentStartTime || d.start_time);
 
+          const latestActivity = d.admin_activity_log?.[0];
+          const latestActivityTimestamp = formatActivityPreviewTimestamp(latestActivity?.timestamp);
+
           return (
             <div key={d.id} ref={(el) => dispatchRefs.current[d.id] = el} className="rounded-lg transition-all duration-500">
               <Card
@@ -748,12 +720,9 @@ export default function AdminDispatches() {
                           <Badge key={t} variant="outline" className="text-xs font-mono">{t}</Badge>
                           )}
                       </div>
-                      <div className="text-[11px] text-slate-500 mt-1.5 truncate">
-                        {d.admin_activity_log?.[0]?.message || 'No activity yet.'}
-                      </div>
                     </div>
                   </div>
-                  <div className="flex flex-col items-end gap-1 shrink-0" onClick={(e) => e.stopPropagation()}>
+                  <div className="flex flex-col items-end justify-between gap-2 shrink-0" onClick={(e) => e.stopPropagation()}>
                     {d.edit_locked && d.edit_locked_by_session_id && d.edit_locked_by_session_id !== session?.id &&
                     <div className="inline-flex items-center gap-1 rounded-full border border-amber-200 bg-amber-50 px-2 py-0.5 text-[10px] font-medium text-amber-700">
                         <Lock className="h-3 w-3" />
@@ -781,6 +750,17 @@ export default function AdminDispatches() {
                     <Button variant="ghost" size="icon" onClick={() => openDelete(d)} className="h-8 w-8 text-red-500 hover:text-red-600">
                       <Trash2 className="h-3.5 w-3.5" />
                     </Button>
+                    </div>
+
+                    <div className="text-right max-w-[220px]">
+                      {latestActivity?.message ? (
+                        <>
+                          <p className="text-[11px] text-slate-500 leading-tight line-clamp-2">{latestActivity.message}</p>
+                          {latestActivityTimestamp && <p className="text-[10px] text-slate-400 mt-0.5">{latestActivityTimestamp}</p>}
+                        </>
+                      ) : (
+                        <p className="text-[11px] text-slate-400 italic">No activity yet.</p>
+                      )}
                     </div>
                   </div>
                 </div>
