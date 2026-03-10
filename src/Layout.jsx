@@ -47,11 +47,13 @@ function LayoutInner({ children, currentPageName }) {
       <header className="bg-white border-b border-slate-200 sticky top-0 z-50">
         <div className="bg-yellow-300 mx-auto px-4 max-w-7xl sm:px-6 h-16 flex items-center justify-between">
           <div className="flex items-center gap-3">
-            <div className="h-9 w-9 rounded-lg bg-slate-900 flex items-center justify-center">
-              <Truck className="h-5 w-5 text-white" />
-            </div>
+            <img
+              src="/transitlogo.png"
+              alt="CCG Transit logo"
+              className="h-7 w-7 object-contain"
+            />
             <div>
-              <h1 className="text-sm font-semibold text-slate-900 tracking-tight">CCG Dispatch</h1>
+              <h1 className="text-sm font-semibold text-slate-900 tracking-tight">CCG Transit</h1>
               <p className="text-xs text-slate-500 flex items-center gap-1">
                 {session.code_type === 'Admin' && <Shield className="h-3 w-3" />}
                 {session.code_type === 'CompanyOwner' && <Building2 className="h-3 w-3" />}
