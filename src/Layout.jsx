@@ -58,7 +58,7 @@ function LayoutInner({ children, currentPageName }) {
             <img
               src="/transitlogo.png"
               alt="CCG Transit logo"
-              className="h-9 w-9 object-contain" />
+              className="h-13 w-13 object-contain" />
 
             <div>
               <h1 className="text-sm font-semibold text-slate-900 tracking-tight">CCG Transit</h1>
