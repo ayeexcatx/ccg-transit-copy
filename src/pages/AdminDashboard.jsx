@@ -211,24 +211,25 @@ export default function AdminDashboard() {
         ))}
       </div>
 
-      <Card className="rounded-lg border bg-white shadow-sm">
+      <Card className="rounded-lg border bg-white shadow-sm overflow-hidden">
         <div className="border-b border-slate-100 bg-blue-700 px-4 py-3">
-          <div className="inline-flex items-center gap-2 rounded-full bg-white px-3 py-1">
-            <Megaphone className="h-4 w-4 text-blue-700" />
-            <h3 className="text-sm font-semibold text-blue-700">Active Announcements</h3>
+          <div className="flex items-center gap-2">
+            <Megaphone className="h-4 w-4 text-white" />
+            <h3 className="text-sm font-semibold text-white">Active Announcements</h3>
           </div>
         </div>
-        <CardContent className="p-0">
+        <CardContent className="bg-white p-0">
           {activeAnnouncements.length === 0 ? (
             <p className="p-5 text-sm text-slate-500">No active announcements.</p>
           ) : (
-            <div className="space-y-2 p-3 sm:p-4">
+            <div className="divide-y divide-slate-100 bg-white">
               {activeAnnouncements.map((announcement) => (
                 <AnnouncementCard
                   key={announcement.id}
                   announcement={announcement}
+                  variant="plain"
                   footer={(
-                    <div className="mt-3 border-t border-slate-200/80 pt-2 text-xs text-slate-600">
+                    <div className="mt-2 text-xs text-slate-600">
                       <div className="flex flex-wrap items-center gap-x-4 gap-y-1">
                         <p>
                           <span className="font-medium text-slate-700">Added:</span>{' '}
