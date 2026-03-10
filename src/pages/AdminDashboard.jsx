@@ -1,8 +1,11 @@
-import React, { useMemo } from 'react';
+import React, { useMemo, useState } from 'react';
 import { base44 } from '@/api/base44Client';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
 import AnnouncementCard from '@/components/announcements/AnnouncementCard';
 import { Link } from 'react-router-dom';
 import { createPageUrl } from '../utils';
@@ -11,12 +14,15 @@ import { createRuntimeVersionToken, APP_RUNTIME_VERSION_CONFIG_KEY } from '@/lib
 import { toast } from 'sonner';
 import {
   Building2, Key, FileText, StickyNote,
-  ArrowRight, Clock, CheckCircle2, Megaphone
+  ArrowRight, Clock, CheckCircle2, Megaphone, AlertTriangle
 } from 'lucide-react';
 import { format } from 'date-fns';
 
 export default function AdminDashboard() {
   const queryClient = useQueryClient();
+  const [isRefreshConfirmOpen, setIsRefreshConfirmOpen] = useState(false);
+  const [refreshAdminCode, setRefreshAdminCode] = useState('');
+  const [refreshConfirmError, setRefreshConfirmError] = useState('');
   const { data: codes = [] } = useQuery({
     queryKey: ['access-codes'],
     queryFn: () => base44.entities.AccessCode.list(),
@@ -156,6 +162,29 @@ export default function AdminDashboard() {
     return labels.length > 0 ? `Specific Access Codes: ${labels.join(', ')}` : 'Specific Access Codes';
   };
 
+
+  const handleForceRefreshConfirm = () => {
+    const trimmedCode = refreshAdminCode.trim();
+    if (!trimmedCode) {
+      setRefreshConfirmError('Enter an admin access code to continue.');
+      return;
+    }
+
+    const match = codes.find((code) => code.code === trimmedCode && code.code_type === 'Admin' && code.active_flag !== false);
+    if (!match) {
+      setRefreshConfirmError('Invalid admin access code.');
+      return;
+    }
+
+    setRefreshConfirmError('');
+    refreshTriggerMutation.mutate(undefined, {
+      onSuccess: () => {
+        setIsRefreshConfirmOpen(false);
+        setRefreshAdminCode('');
+      },
+    });
+  };
+
   return (
     <div className="space-y-8">
       <div>
@@ -288,6 +317,75 @@ export default function AdminDashboard() {
           </Link>
         </div>
       </div>
+
+      <div className="rounded-lg border border-amber-200 bg-amber-50/60 p-4">
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+          <div>
+            <h3 className="text-sm font-semibold text-amber-900">Maintenance</h3>
+            <p className="text-xs text-amber-800">Force all active sessions to reload and pick up the latest runtime version.</p>
+          </div>
+          <Button
+            variant="outline"
+            className="border-amber-300 bg-white text-amber-900 hover:bg-amber-100"
+            onClick={() => {
+              setRefreshConfirmError('');
+              setRefreshAdminCode('');
+              setIsRefreshConfirmOpen(true);
+            }}
+          >
+            Force App Refresh
+          </Button>
+        </div>
+      </div>
+
+      <Dialog open={isRefreshConfirmOpen} onOpenChange={setIsRefreshConfirmOpen}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2 text-base">
+              <AlertTriangle className="h-4 w-4 text-amber-600" />
+              Confirm Forced Refresh
+            </DialogTitle>
+            <DialogDescription>
+              Are you sure you want to force app refresh now?
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-2">
+            <Label htmlFor="refresh-admin-code">Enter an admin access code to confirm</Label>
+            <Input
+              id="refresh-admin-code"
+              value={refreshAdminCode}
+              onChange={(event) => {
+                setRefreshAdminCode(event.target.value);
+                setRefreshConfirmError('');
+              }}
+              placeholder="Admin access code"
+              autoComplete="off"
+            />
+            {refreshConfirmError && <p className="text-sm text-red-600">{refreshConfirmError}</p>}
+          </div>
+
+          <DialogFooter className="gap-2">
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => {
+                setIsRefreshConfirmOpen(false);
+                setRefreshConfirmError('');
+              }}
+            >
+              Cancel
+            </Button>
+            <Button
+              type="button"
+              onClick={handleForceRefreshConfirm}
+              disabled={refreshTriggerMutation.isPending || !refreshAdminCode.trim()}
+            >
+              {refreshTriggerMutation.isPending ? 'Continuing…' : 'Continue'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

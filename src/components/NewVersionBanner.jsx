@@ -67,7 +67,7 @@ export default function NewVersionBanner() {
   return (
     <Dialog open={showRefreshModal}>
       <DialogContent
-        className="max-w-md [&>button]:hidden"
+        className="max-w-md [&>button.absolute.right-4.top-4]:hidden"
         onEscapeKeyDown={(event) => event.preventDefault()}
         onPointerDownOutside={(event) => event.preventDefault()}
       >
@@ -77,12 +77,14 @@ export default function NewVersionBanner() {
             A new version of the app is available. Please refresh to continue.
           </DialogDescription>
         </DialogHeader>
-        <Button
-          onClick={() => window.location.reload()}
-          className="w-full"
-        >
-          Refresh
-        </Button>
+        <div className="pt-1">
+          <Button
+            onClick={() => window.location.reload()}
+            className="h-11 w-full bg-slate-900 text-base font-semibold text-white hover:bg-slate-800"
+          >
+            Refresh App
+          </Button>
+        </div>
       </DialogContent>
     </Dialog>
   );
