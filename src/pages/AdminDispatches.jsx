@@ -764,7 +764,7 @@ export default function AdminDispatches() {
                         </Badge>
                         }
                       <span className="text-slate-400 text-sm text-left normal-case flex items-center gap-1">
-                        {d.shift_time === 'Day Shift' ? <Sun className="h-3 w-3" /> : <Moon className="h-3 w-3" />}
+                        {d.shift_time === 'Day Shift' ? <Sun className="h-3 w-3 text-amber-400" /> : <Moon className="h-3 w-3 text-slate-400" />}
                         {d.shift_time}
                       </span>
                       <span className="text-slate-500 text-sm font-semibold">

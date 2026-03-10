@@ -70,7 +70,7 @@ const DispatchCard = React.forwardRef(function DispatchCard({
                   {dispatch.status}
                 </Badge>
                 <span className="text-xs text-slate-400 flex items-center gap-1">
-                  {dispatch.shift_time === 'Day Shift' ? <Sun className="h-3 w-3" /> : <Moon className="h-3 w-3" />}
+                  {dispatch.shift_time === 'Day Shift' ? <Sun className="h-4 w-4 text-amber-400" /> : <Moon className="h-4 w-4 text-slate-400" />}
                   {dispatch.shift_time}
                 </span>
               </div>
