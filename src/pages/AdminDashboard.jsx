@@ -190,16 +190,6 @@ export default function AdminDashboard() {
       <div>
         <h2 className="text-2xl font-semibold text-slate-900">Admin Dashboard</h2>
         <p className="text-sm text-slate-500 mt-1">Overview of your dispatch operations</p>
-        <div className="mt-4 inline-flex w-full max-w-md flex-col rounded-lg border border-slate-200 bg-white p-3 sm:flex-row sm:items-center sm:justify-between sm:gap-3">
-          <p className="text-xs text-slate-600">Need everyone to reload now?</p>
-          <Button
-            size="sm"
-            onClick={() => refreshTriggerMutation.mutate()}
-            disabled={refreshTriggerMutation.isPending}
-          >
-            {refreshTriggerMutation.isPending ? 'Triggering…' : 'Force App Refresh'}
-          </Button>
-        </div>
       </div>
 
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
