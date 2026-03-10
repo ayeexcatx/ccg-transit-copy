@@ -308,7 +308,7 @@ export default function DispatchDetailDrawer({
     if (nextTrucks.length !== requiredTruckCount) {
       setTruckEditMessage({
         type: 'error',
-        text: `Truck count must remain ${requiredTruckCount}. Replace trucks one-for-one before saving.`,
+        text: `Truckzz count must remain ${requiredTruckCount}. Replace trucks one-for-one before saving.`,
       });
       resetDraftTrucksToCurrentDispatch();
       return;
