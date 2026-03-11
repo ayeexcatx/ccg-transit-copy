@@ -2,7 +2,7 @@ import React, { useEffect } from 'react';
 import { SessionProvider, useSession } from './components/session/SessionContext';
 import { createPageUrl } from './utils';
 import { Link, useLocation } from 'react-router-dom';
-import { LogOut, Truck, Shield, Building2, Megaphone, TriangleAlert, CalendarDays, Home, CheckCircle2, FileText } from 'lucide-react';
+import { LogOut, Truck, Shield, Building2, Megaphone, TriangleAlert, CalendarDays, Home, CheckCircle2, FileText, UserRound } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import NotificationBell from '@/components/notifications/NotificationBell';
 
@@ -24,7 +24,7 @@ function LayoutInner({ children, currentPageName }) {
       return;
     }
 
-    const ownerPages = ['Availability'];
+    const ownerPages = ['Availability', 'Drivers'];
     if (ownerPages.includes(currentPageName) && session.code_type !== 'CompanyOwner') {
       window.location.href = createPageUrl('Home');
     }
@@ -47,7 +47,8 @@ function LayoutInner({ children, currentPageName }) {
   const isAdmin = session.code_type === 'Admin';
   const isOwner = session.code_type === 'CompanyOwner';
   const isTruck = session.code_type === 'Truck';
-  const canUsePortalTabs = isOwner || isTruck;
+  const isDriver = session.code_type === 'Driver';
+  const canUsePortalTabs = isOwner || isTruck || isDriver;
   const isActive = (pageName) => location.pathname === createPageUrl(pageName);
 
   return (
@@ -67,6 +68,7 @@ function LayoutInner({ children, currentPageName }) {
                   {session.code_type === 'Admin' && <Shield className="h-3 w-3 shrink-0" />}
                   {session.code_type === 'CompanyOwner' && <Building2 className="h-3 w-3 shrink-0" />}
                   {session.code_type === 'Truck' && <Truck className="h-3 w-3 shrink-0" />}
+                  {session.code_type === 'Driver' && <UserRound className="h-3 w-3 shrink-0" />}
                   <span className="truncate">{session.label || session.code_type}</span>
                 </p>
               </div>
@@ -142,6 +144,9 @@ function LayoutInner({ children, currentPageName }) {
                 {isOwner && <Link to={createPageUrl('Availability')}>
                   <Button variant={isActive('Availability') ? 'secondary' : 'ghost'} size="sm" className="text-xs flex items-center gap-1"><CalendarDays className="h-3 w-3" />Availability</Button>
                 </Link>}
+                {isOwner && <Link to={createPageUrl('Drivers')}>
+                  <Button variant={isActive('Drivers') ? 'secondary' : 'ghost'} size="sm" className="text-xs flex items-center gap-1"><UserRound className="h-3 w-3" />Drivers</Button>
+                </Link>}
                 {isOwner && <Link to={createPageUrl('Notifications')}>
                   <Button variant={isActive('Notifications') ? 'secondary' : 'ghost'} size="sm" className="text-xs">Notifications</Button>
                 </Link>}
@@ -166,6 +171,9 @@ function LayoutInner({ children, currentPageName }) {
             </Link>
             {isOwner && <Link to={createPageUrl('Availability')}>
               <Button variant={isActive('Availability') ? 'secondary' : 'ghost'} size="sm" className="text-xs whitespace-nowrap">Availability</Button>
+            </Link>}
+            {isOwner && <Link to={createPageUrl('Drivers')}>
+              <Button variant={isActive('Drivers') ? 'secondary' : 'ghost'} size="sm" className="text-xs whitespace-nowrap">Drivers</Button>
             </Link>}
             {isOwner && <Link to={createPageUrl('Notifications')}>
               <Button variant={isActive('Notifications') ? 'secondary' : 'ghost'} size="sm" className="text-xs whitespace-nowrap">Notifications</Button>

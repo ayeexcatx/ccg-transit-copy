@@ -28,7 +28,8 @@
  *
  *   import Home from './pages/Home';
  *   import Settings from './pages/Settings';
- *   import __Layout from './Layout.jsx';
+ *   import Drivers from './pages/Drivers';
+import __Layout from './Layout.jsx';
  *
  *   export const PAGES = {
  *       "Home": Home,
@@ -61,6 +62,7 @@ import Home from './pages/Home';
 import Incidents from './pages/Incidents';
 import Notifications from './pages/Notifications';
 import Portal from './pages/Portal';
+import Drivers from './pages/Drivers';
 import __Layout from './Layout.jsx';
 
 
@@ -75,6 +77,7 @@ export const PAGES = {
     "AdminDispatches": AdminDispatches,
     "AdminTemplateNotes": AdminTemplateNotes,
     "Availability": Availability,
+    "Drivers": Drivers,
     "Home": Home,
     "Incidents": Incidents,
     "Notifications": Notifications,

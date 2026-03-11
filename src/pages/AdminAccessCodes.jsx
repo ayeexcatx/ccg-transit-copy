@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useMemo, useState } from 'react';
 import { base44 } from '@/api/base44Client';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { Card, CardContent } from '@/components/ui/card';
@@ -9,7 +9,7 @@ import { Badge } from '@/components/ui/badge';
 import { Switch } from '@/components/ui/switch';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
-import { Key, Plus, Pencil, Trash2, Truck, Building2, Shield, Copy } from 'lucide-react';
+import { Key, Plus, Pencil, Trash2, Truck, Building2, Shield, Copy, UserRound } from 'lucide-react';
 import { toast } from 'sonner';
 
 function generateCode(len = 8) {
@@ -24,8 +24,13 @@ export default function AdminAccessCodes() {
   const [open, setOpen] = useState(false);
   const [editing, setEditing] = useState(null);
   const [form, setForm] = useState({
-    code: '', label: '', active_flag: true, code_type: 'Truck',
-    company_id: '', allowed_trucks: []
+    code: '',
+    label: '',
+    active_flag: true,
+    code_type: 'Truck',
+    company_id: '',
+    allowed_trucks: [],
+    driver_id: '',
   });
 
   const { data: codes = [], isLoading } = useQuery({
@@ -38,12 +43,36 @@ export default function AdminAccessCodes() {
     queryFn: () => base44.entities.Company.list(),
   });
 
+  const { data: drivers = [] } = useQuery({
+    queryKey: ['drivers-all'],
+    queryFn: () => base44.entities.Driver.list('-created_date', 500),
+  });
+
   const saveMutation = useMutation({
-    mutationFn: (data) => editing
-      ? base44.entities.AccessCode.update(editing.id, data)
-      : base44.entities.AccessCode.create(data),
+    mutationFn: async (data) => {
+      if (editing) {
+        const updated = await base44.entities.AccessCode.update(editing.id, data);
+        if (data.code_type === 'Driver' && data.driver_id) {
+          await base44.entities.Driver.update(data.driver_id, {
+            access_code_id: updated.id,
+            access_code_status: 'Created',
+          });
+        }
+        return updated;
+      }
+
+      const created = await base44.entities.AccessCode.create(data);
+      if (data.code_type === 'Driver' && data.driver_id) {
+        await base44.entities.Driver.update(data.driver_id, {
+          access_code_id: created.id,
+          access_code_status: 'Created',
+        });
+      }
+      return created;
+    },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['access-codes'] });
+      queryClient.invalidateQueries({ queryKey: ['drivers-all'] });
       setOpen(false);
       setEditing(null);
     },
@@ -54,14 +83,28 @@ export default function AdminAccessCodes() {
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ['access-codes'] }),
   });
 
-  const selectedCompany = companies.find(c => c.id === form.company_id);
+  const selectedCompany = companies.find((c) => c.id === form.company_id);
   const companyTrucks = selectedCompany?.trucks || [];
+  const driversForCompany = useMemo(
+    () => drivers.filter((d) => d.company_id === form.company_id),
+    [drivers, form.company_id],
+  );
+
+  const pendingDrivers = useMemo(
+    () => drivers.filter((d) => d.access_code_status === 'Pending'),
+    [drivers],
+  );
 
   const openNew = (type) => {
     setEditing(null);
     setForm({
-      code: generateCode(), label: '', active_flag: true, code_type: type || 'Truck',
-      company_id: '', allowed_trucks: []
+      code: generateCode(),
+      label: '',
+      active_flag: true,
+      code_type: type || 'Truck',
+      company_id: '',
+      allowed_trucks: [],
+      driver_id: '',
     });
     setOpen(true);
   };
@@ -69,8 +112,27 @@ export default function AdminAccessCodes() {
   const openEdit = (code) => {
     setEditing(code);
     setForm({
-      code: code.code, label: code.label || '', active_flag: code.active_flag !== false,
-      code_type: code.code_type, company_id: code.company_id || '', allowed_trucks: code.allowed_trucks || []
+      code: code.code,
+      label: code.label || '',
+      active_flag: code.active_flag !== false,
+      code_type: code.code_type,
+      company_id: code.company_id || '',
+      allowed_trucks: code.allowed_trucks || [],
+      driver_id: code.driver_id || '',
+    });
+    setOpen(true);
+  };
+
+  const openNewDriverCode = (driver) => {
+    setEditing(null);
+    setForm({
+      code: generateCode(),
+      label: driver.driver_name || '',
+      active_flag: true,
+      code_type: 'Driver',
+      company_id: driver.company_id || '',
+      allowed_trucks: [],
+      driver_id: driver.id,
     });
     setOpen(true);
   };
@@ -78,19 +140,35 @@ export default function AdminAccessCodes() {
   const toggleTruck = (t) => {
     if (form.code_type === 'Truck') {
       setForm({ ...form, allowed_trucks: [t] });
-    } else {
-      const has = form.allowed_trucks.includes(t);
-      setForm({
-        ...form,
-        allowed_trucks: has
-          ? form.allowed_trucks.filter(x => x !== t)
-          : [...form.allowed_trucks, t]
-      });
+      return;
     }
+
+    const has = form.allowed_trucks.includes(t);
+    setForm({
+      ...form,
+      allowed_trucks: has
+        ? form.allowed_trucks.filter((x) => x !== t)
+        : [...form.allowed_trucks, t],
+    });
   };
 
   const handleSave = () => {
     if (!form.code.trim()) return;
+
+    if (form.code_type === 'Driver') {
+      if (!form.company_id || !form.driver_id) return;
+      saveMutation.mutate({
+        code: form.code,
+        label: form.label || drivers.find((d) => d.id === form.driver_id)?.driver_name || '',
+        active_flag: form.active_flag,
+        code_type: 'Driver',
+        company_id: form.company_id,
+        driver_id: form.driver_id,
+        allowed_trucks: [],
+      });
+      return;
+    }
+
     saveMutation.mutate(form);
   };
 
@@ -99,7 +177,7 @@ export default function AdminAccessCodes() {
     toast.success('Code copied');
   };
 
-  const codeTypeIcons = { Truck, CompanyOwner: Building2, Admin: Shield };
+  const codeTypeIcons = { Truck, CompanyOwner: Building2, Admin: Shield, Driver: UserRound };
 
   return (
     <div className="space-y-6">
@@ -115,11 +193,41 @@ export default function AdminAccessCodes() {
           <Button variant="outline" onClick={() => openNew('CompanyOwner')} className="text-xs">
             <Building2 className="h-3.5 w-3.5 mr-1" />Owner Code
           </Button>
+          <Button variant="outline" onClick={() => openNew('Driver')} className="text-xs">
+            <UserRound className="h-3.5 w-3.5 mr-1" />Driver Code
+          </Button>
           <Button onClick={() => openNew('Admin')} className="bg-slate-900 hover:bg-slate-800 text-xs">
             <Shield className="h-3.5 w-3.5 mr-1" />Admin Code
           </Button>
         </div>
       </div>
+
+      {pendingDrivers.length > 0 && (
+        <Card className="border-amber-300 bg-amber-50">
+          <CardContent className="p-4 space-y-3">
+            <div>
+              <h3 className="text-sm font-semibold text-amber-900">Pending Driver Access Code Requests</h3>
+              <p className="text-xs text-amber-700">Create a Driver code for requested drivers.</p>
+            </div>
+            <div className="space-y-2">
+              {pendingDrivers.map((driver) => {
+                const company = companies.find((c) => c.id === driver.company_id);
+                return (
+                  <div key={driver.id} className="flex items-center justify-between bg-white rounded-lg border p-3 gap-2">
+                    <div className="min-w-0">
+                      <p className="text-sm font-medium text-slate-900 truncate">{driver.driver_name || 'Unnamed driver'}</p>
+                      <p className="text-xs text-slate-500 truncate">{company?.name || 'Unknown company'}</p>
+                    </div>
+                    <Button size="sm" className="text-xs" onClick={() => openNewDriverCode(driver)}>
+                      <Plus className="h-3.5 w-3.5 mr-1" />Create Code
+                    </Button>
+                  </div>
+                );
+              })}
+            </div>
+          </CardContent>
+        </Card>
+      )}
 
       {isLoading ? (
         <div className="flex justify-center py-12">
@@ -129,9 +237,10 @@ export default function AdminAccessCodes() {
         <div className="text-center py-16 text-slate-500 text-sm">No access codes yet</div>
       ) : (
         <div className="grid gap-3">
-          {codes.map(c => {
+          {codes.map((c) => {
             const Icon = codeTypeIcons[c.code_type] || Key;
-            const comp = companies.find(co => co.id === c.company_id);
+            const comp = companies.find((co) => co.id === c.company_id);
+            const driver = drivers.find((d) => d.id === c.driver_id);
             return (
               <Card key={c.id} className={`transition-shadow hover:shadow-sm ${c.active_flag === false ? 'opacity-50' : ''}`}>
                 <CardContent className="p-4 sm:p-5">
@@ -154,7 +263,8 @@ export default function AdminAccessCodes() {
                         {c.label && <p className="text-sm text-slate-600 mt-0.5">{c.label}</p>}
                         <div className="flex items-center gap-2 mt-1 text-xs text-slate-500 flex-wrap">
                           {comp && <span>Company: {comp.name}</span>}
-                          {(c.allowed_trucks || []).length > 0 && (
+                          {driver && <span>Driver: {driver.driver_name || driver.id}</span>}
+                          {c.code_type !== 'Driver' && (c.allowed_trucks || []).length > 0 && (
                             <span>Trucks: {c.allowed_trucks.join(', ')}</span>
                           )}
                         </div>
@@ -185,7 +295,7 @@ export default function AdminAccessCodes() {
             <div>
               <Label>Code *</Label>
               <div className="flex gap-2">
-                <Input value={form.code} onChange={e => setForm({ ...form, code: e.target.value })} className="font-mono tracking-wide" />
+                <Input value={form.code} onChange={(e) => setForm({ ...form, code: e.target.value })} className="font-mono tracking-wide" />
                 <Button type="button" variant="outline" onClick={() => setForm({ ...form, code: generateCode() })}>
                   Generate
                 </Button>
@@ -193,15 +303,19 @@ export default function AdminAccessCodes() {
             </div>
             <div>
               <Label>Label</Label>
-              <Input value={form.label} onChange={e => setForm({ ...form, label: e.target.value })} placeholder="e.g., Truck 401, Owner ABC" />
+              <Input value={form.label} onChange={(e) => setForm({ ...form, label: e.target.value })} placeholder="e.g., Truck 401, Owner ABC" />
             </div>
             <div>
               <Label>Code Type</Label>
-              <Select value={form.code_type} onValueChange={v => setForm({ ...form, code_type: v, allowed_trucks: [], company_id: '' })}>
+              <Select
+                value={form.code_type}
+                onValueChange={(v) => setForm({ ...form, code_type: v, allowed_trucks: [], company_id: '', driver_id: '' })}
+              >
                 <SelectTrigger><SelectValue /></SelectTrigger>
                 <SelectContent>
                   <SelectItem value="Truck">Truck</SelectItem>
                   <SelectItem value="CompanyOwner">Company Owner</SelectItem>
+                  <SelectItem value="Driver">Driver</SelectItem>
                   <SelectItem value="Admin">Admin</SelectItem>
                 </SelectContent>
               </Select>
@@ -211,21 +325,45 @@ export default function AdminAccessCodes() {
               <>
                 <div>
                   <Label>Company *</Label>
-                  <Select value={form.company_id} onValueChange={v => setForm({ ...form, company_id: v, allowed_trucks: [] })}>
+                  <Select value={form.company_id} onValueChange={(v) => setForm({ ...form, company_id: v, allowed_trucks: [], driver_id: '' })}>
                     <SelectTrigger><SelectValue placeholder="Select company" /></SelectTrigger>
                     <SelectContent>
-                      {companies.map(c => (
+                      {companies.map((c) => (
                         <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>
                       ))}
                     </SelectContent>
                   </Select>
                 </div>
 
-                {form.company_id && companyTrucks.length > 0 && (
+                {form.code_type === 'Driver' && form.company_id && (
+                  <div>
+                    <Label>Driver *</Label>
+                    <Select
+                      value={form.driver_id}
+                      onValueChange={(v) => {
+                        const selectedDriver = drivers.find((d) => d.id === v);
+                        setForm({
+                          ...form,
+                          driver_id: v,
+                          label: form.label || selectedDriver?.driver_name || '',
+                        });
+                      }}
+                    >
+                      <SelectTrigger><SelectValue placeholder="Select driver" /></SelectTrigger>
+                      <SelectContent>
+                        {driversForCompany.map((driver) => (
+                          <SelectItem key={driver.id} value={driver.id}>{driver.driver_name || driver.id}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                )}
+
+                {form.code_type !== 'Driver' && form.company_id && companyTrucks.length > 0 && (
                   <div>
                     <Label>{form.code_type === 'Truck' ? 'Select Truck' : 'Select Trucks'}</Label>
                     <div className="flex gap-2 flex-wrap mt-1">
-                      {companyTrucks.map(t => (
+                      {companyTrucks.map((t) => (
                         <button
                           key={t}
                           onClick={() => toggleTruck(t)}
@@ -246,7 +384,7 @@ export default function AdminAccessCodes() {
 
             <div className="flex items-center justify-between">
               <Label>Active</Label>
-              <Switch checked={form.active_flag} onCheckedChange={v => setForm({ ...form, active_flag: v })} />
+              <Switch checked={form.active_flag} onCheckedChange={(v) => setForm({ ...form, active_flag: v })} />
             </div>
 
             <Button onClick={handleSave} disabled={saveMutation.isPending} className="w-full bg-slate-900 hover:bg-slate-800">
