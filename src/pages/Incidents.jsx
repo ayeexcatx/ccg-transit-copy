@@ -17,28 +17,21 @@ import { createPageUrl } from '@/utils';
 import { toast } from 'sonner';
 
 const INCIDENT_TYPES = [
-  'Breakdown',
-  'Flat Tire',
-  'DOT Inspection',
-  'Pulled Over',
+  'Mechanical Issue',
+  'Damage / Non-Mechanical Issue',
+  'DOT Inspection / Pulled Over',
   'Accident',
   'Delay',
-  'Mechanical Issue',
+  'DPF Regen',
   'Other',
 ];
 
-const getNowLocalInputValue = () => {
-  const now = new Date();
-  const adjusted = new Date(now.getTime() - now.getTimezoneOffset() * 60000);
-  return adjusted.toISOString().slice(0, 16);
-};
 
 const INITIAL_FORM = {
   dispatch_id: '',
   company_id: '',
   truck_number: '',
-  incident_type: 'Breakdown',
-  incident_datetime: getNowLocalInputValue(),
+  incident_type: 'Mechanical Issue',
   time_stopped_from: '',
   time_stopped_to: '',
   location: '',
@@ -77,6 +70,7 @@ export default function Incidents() {
   const [createOpen, setCreateOpen] = useState(false);
   const [form, setForm] = useState(INITIAL_FORM);
   const [filters, setFilters] = useState({ status: 'all', truck: '', type: 'all' });
+  const [draftUpdates, setDraftUpdates] = useState({});
 
   const isAdmin = session?.code_type === 'Admin';
   const isOwner = session?.code_type === 'CompanyOwner';
@@ -166,7 +160,6 @@ export default function Incidents() {
       dispatch_id: queryDispatchId || '',
       company_id: queryCompanyId || prefillDispatch?.company_id || session?.company_id || '',
       truck_number: prefillTruck || prev.truck_number,
-      incident_datetime: prev.incident_datetime || getNowLocalInputValue(),
     }));
     setCreateOpen(true);
   }, [
@@ -202,6 +195,43 @@ export default function Incidents() {
     },
     onError: (error) => {
       toast.error(error?.message || 'Failed to create incident report.');
+    },
+  });
+
+  const addUpdateMutation = useMutation({
+    mutationFn: async ({ incident, note }) => {
+      const trimmed = note.trim();
+      const existingUpdates = Array.isArray(incident.updates) ? incident.updates : [];
+      return base44.entities.IncidentReport.update(incident.id, {
+        updates: [
+          ...existingUpdates,
+          {
+            note: trimmed,
+            created_at: new Date().toISOString(),
+            created_by_access_code_id: session?.id || null,
+            created_by_code_type: session?.code_type || null,
+          },
+        ],
+      });
+    },
+    onSuccess: (_, variables) => {
+      setDraftUpdates((prev) => ({ ...prev, [variables.incident.id]: '' }));
+      queryClient.invalidateQueries({ queryKey: ['incidents'] });
+      toast.success('Incident update added.');
+    },
+    onError: (error) => {
+      toast.error(error?.message || 'Failed to add incident update.');
+    },
+  });
+
+  const reopenMutation = useMutation({
+    mutationFn: (incidentId) => base44.entities.IncidentReport.update(incidentId, { status: 'Open' }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['incidents'] });
+      toast.success('Incident reopened.');
+    },
+    onError: (error) => {
+      toast.error(error?.message || 'Failed to reopen incident.');
     },
   });
 
@@ -257,8 +287,8 @@ export default function Incidents() {
   const handleCreate = (e) => {
     e.preventDefault();
 
-    if (!form.truck_number || !form.incident_type || !form.summary || !form.incident_datetime) {
-      toast.error('Please complete truck, incident type, date/time, and summary.');
+    if (!form.truck_number || !form.incident_type || !form.summary) {
+      toast.error('Please complete truck, incident type, and summary.');
       return;
     }
 
@@ -270,7 +300,7 @@ export default function Incidents() {
       reported_by_code_type: session?.code_type,
       incident_type: form.incident_type,
       status: 'Open',
-      incident_datetime: toIsoOrNull(form.incident_datetime),
+      incident_datetime: new Date().toISOString(),
       time_stopped_from: toIsoOrNull(form.time_stopped_from),
       time_stopped_to: toIsoOrNull(form.time_stopped_to),
       location: form.location || null,
@@ -305,6 +335,7 @@ export default function Incidents() {
               <SelectContent>
                 <SelectItem value="all">All statuses</SelectItem>
                 <SelectItem value="Open">Open</SelectItem>
+                <SelectItem value="Completed">Completed</SelectItem>
               </SelectContent>
             </Select>
           </div>
@@ -359,7 +390,13 @@ export default function Incidents() {
                         <Truck className="h-3 w-3 mr-1" />
                         {incident.truck_number || 'N/A'}
                       </Badge>
-                      <Badge variant="secondary">{incident.status || 'Open'}</Badge>
+                      <Badge
+                        className={incident.status === 'Completed'
+                          ? 'bg-emerald-100 text-emerald-800 border border-emerald-200'
+                          : 'bg-amber-100 text-amber-800 border border-amber-200'}
+                      >
+                        {incident.status || 'Open'}
+                      </Badge>
                     </div>
                     <p className="text-sm text-slate-900 font-medium mt-2">{incident.summary || 'No summary'}</p>
                     <p className="text-xs text-slate-500 mt-1">{formatDateTime(incident.incident_datetime)}</p>
@@ -376,6 +413,49 @@ export default function Incidents() {
                           {dispatch.start_time ? ` • ${dispatch.start_time}` : ''}
                           {dispatch.status ? ` • ${dispatch.status}` : ''}
                         </p>
+                      </div>
+                    )}
+
+                    <div className="mt-4 space-y-2">
+                      <Label className="text-xs text-slate-600">Add update / note</Label>
+                      <Textarea
+                        rows={2}
+                        placeholder="Add a note to this incident..."
+                        value={draftUpdates[incident.id] || ''}
+                        onChange={(e) => setDraftUpdates((prev) => ({ ...prev, [incident.id]: e.target.value }))}
+                      />
+                      <div className="flex flex-wrap gap-2">
+                        <Button
+                          type="button"
+                          size="sm"
+                          variant="outline"
+                          onClick={() => addUpdateMutation.mutate({ incident, note: draftUpdates[incident.id] || '' })}
+                          disabled={addUpdateMutation.isPending || !(draftUpdates[incident.id] || '').trim()}
+                        >
+                          Add Update
+                        </Button>
+                        {incident.status === 'Completed' && (
+                          <Button
+                            type="button"
+                            size="sm"
+                            onClick={() => reopenMutation.mutate(incident.id)}
+                            disabled={reopenMutation.isPending}
+                          >
+                            Reopen Incident
+                          </Button>
+                        )}
+                      </div>
+                    </div>
+
+                    {Array.isArray(incident.updates) && incident.updates.length > 0 && (
+                      <div className="mt-4 rounded-md border border-slate-200 bg-slate-50 p-3 space-y-2">
+                        <p className="text-xs font-medium text-slate-700">Incident Updates</p>
+                        {incident.updates.map((update, idx) => (
+                          <div key={`${incident.id}-update-${idx}`} className="text-xs text-slate-700">
+                            <p>{update?.note || '—'}</p>
+                            <p className="text-slate-500 mt-0.5">{formatDateTime(update?.created_at)}</p>
+                          </div>
+                        ))}
                       </div>
                     )}
                   </div>
@@ -439,15 +519,6 @@ export default function Incidents() {
               </div>
 
               <div>
-                <Label>Incident Date & Time</Label>
-                <Input
-                  type="datetime-local"
-                  value={form.incident_datetime}
-                  onChange={(e) => setForm((p) => ({ ...p, incident_datetime: e.target.value }))}
-                />
-              </div>
-
-              <div>
                 <Label>Location</Label>
                 <Input value={form.location} onChange={(e) => setForm((p) => ({ ...p, location: e.target.value }))} />
               </div>
@@ -473,16 +544,19 @@ export default function Incidents() {
 
             <div>
               <Label>Summary</Label>
+              <p className="text-xs text-slate-500 mb-1">Use this field for the specific issue.</p>
               <Input value={form.summary} onChange={(e) => setForm((p) => ({ ...p, summary: e.target.value }))} />
             </div>
 
             <div>
               <Label>Details</Label>
+              <p className="text-xs text-slate-500 mb-1">Use this field for the full explanation.</p>
               <Textarea rows={4} value={form.details} onChange={(e) => setForm((p) => ({ ...p, details: e.target.value }))} />
             </div>
 
             <div>
-              <Label>Photos (one URL per line)</Label>
+              <Label>Photos / Documents Link</Label>
+              <p className="text-xs text-slate-500 mb-1">Please submit any photos or documents (.jpg, .png, .pdf) to alex@ccgnj.com and reference the incident.</p>
               <Textarea
                 rows={3}
                 placeholder="https://..."
