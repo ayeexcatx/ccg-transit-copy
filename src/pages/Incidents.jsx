@@ -70,6 +70,7 @@ export default function Incidents() {
   const [form, setForm] = useState(INITIAL_FORM);
   const [filters, setFilters] = useState({ status: 'all', truck: '', type: 'all' });
   const [draftUpdates, setDraftUpdates] = useState({});
+  const [draftTimeStoppedTo, setDraftTimeStoppedTo] = useState({});
   const [selectedIncident, setSelectedIncident] = useState(null);
 
   const isAdmin = session?.code_type === 'Admin';
@@ -88,6 +89,18 @@ export default function Incidents() {
     enabled: !!session,
   });
 
+  const { data: accessCodes = [] } = useQuery({
+    queryKey: ['incident-access-codes'],
+    queryFn: () => base44.entities.AccessCode.list('-created_date', 500),
+    enabled: !!session,
+  });
+
+  const { data: companies = [] } = useQuery({
+    queryKey: ['incident-companies'],
+    queryFn: () => base44.entities.Company.list('-created_date', 500),
+    enabled: !!session,
+  });
+
   const { data: dispatches = [] } = useQuery({
     queryKey: ['incident-dispatches', session?.company_id],
     queryFn: () => (isAdmin
@@ -103,6 +116,78 @@ export default function Incidents() {
     });
     return map;
   }, [dispatches]);
+
+  const accessCodeMap = useMemo(
+    () => Object.fromEntries(accessCodes.map((code) => [code.id, code])),
+    [accessCodes]
+  );
+
+  const companyMap = useMemo(
+    () => Object.fromEntries(companies.map((company) => [company.id, company])),
+    [companies]
+  );
+
+  const getBestReadableName = (person = {}, companyId = null, fallbackCodeType = null) => {
+    const readable = [
+      person.full_name,
+      person.display_name,
+      person.label,
+      person.name,
+      person.owner_name,
+      person.company_owner_name,
+      person.company_name,
+      companyId ? companyMap[companyId]?.name : null,
+      fallbackCodeType,
+    ].find((value) => typeof value === 'string' && value.trim());
+
+    return readable || null;
+  };
+
+  const getIncidentReporterName = (incident) => {
+    const reportedByCode = incident.reported_by_access_code_id
+      ? accessCodeMap[incident.reported_by_access_code_id]
+      : null;
+
+    return getBestReadableName(
+      {
+        full_name: incident.reported_by_name,
+        display_name: incident.reported_by_display_name,
+        ...reportedByCode,
+      },
+      incident.company_id,
+      incident.reported_by_code_type
+    ) || incident.reported_by_access_code_id || '—';
+  };
+
+
+  const getIncidentUpdates = (incident) => {
+    if (Array.isArray(incident?.updates)) return incident.updates;
+    if (typeof incident?.updates === 'string') {
+      try {
+        const parsed = JSON.parse(incident.updates);
+        return Array.isArray(parsed) ? parsed : [];
+      } catch {
+        return [];
+      }
+    }
+    return [];
+  };
+
+  const getUpdateAuthorName = (incident, update) => {
+    const updateCode = update?.created_by_access_code_id
+      ? accessCodeMap[update.created_by_access_code_id]
+      : null;
+
+    return getBestReadableName(
+      {
+        full_name: update?.created_by_name,
+        display_name: update?.created_by_display_name,
+        ...updateCode,
+      },
+      incident.company_id,
+      update?.created_by_code_type
+    ) || update?.created_by_access_code_id || null;
+  };
 
   const visibleDispatches = useMemo(() => {
     if (isAdmin || isOwner) return dispatches;
@@ -201,7 +286,8 @@ export default function Incidents() {
   const addUpdateMutation = useMutation({
     mutationFn: async ({ incident, note }) => {
       const trimmed = note.trim();
-      const existingUpdates = Array.isArray(incident.updates) ? incident.updates : [];
+      const existingUpdates = getIncidentUpdates(incident);
+
       return base44.entities.IncidentReport.update(incident.id, {
         updates: [
           ...existingUpdates,
@@ -210,13 +296,15 @@ export default function Incidents() {
             created_at: new Date().toISOString(),
             created_by_access_code_id: session?.id || null,
             created_by_code_type: session?.code_type || null,
+            created_by_name: getBestReadableName(session, session?.company_id, session?.code_type),
           },
         ],
       });
     },
-    onSuccess: (_, variables) => {
+    onSuccess: async (_, variables) => {
       setDraftUpdates((prev) => ({ ...prev, [variables.incident.id]: '' }));
-      queryClient.invalidateQueries({ queryKey: ['incidents'] });
+      await queryClient.invalidateQueries({ queryKey: ['incidents'] });
+      await queryClient.refetchQueries({ queryKey: ['incidents'] });
       toast.success('Incident update added.');
     },
     onError: (error) => {
@@ -224,10 +312,26 @@ export default function Incidents() {
     },
   });
 
+  const updateTimeStoppedToMutation = useMutation({
+    mutationFn: ({ incidentId, timeStoppedTo }) => base44.entities.IncidentReport.update(incidentId, {
+      time_stopped_to: toIsoOrNull(timeStoppedTo),
+    }),
+    onSuccess: async (_, variables) => {
+      await queryClient.invalidateQueries({ queryKey: ['incidents'] });
+      await queryClient.refetchQueries({ queryKey: ['incidents'] });
+      setDraftTimeStoppedTo((prev) => ({ ...prev, [variables.incidentId]: '' }));
+      toast.success('Time Stopped To saved.');
+    },
+    onError: (error) => {
+      toast.error(error?.message || 'Failed to save Time Stopped To.');
+    },
+  });
+
   const updateStatusMutation = useMutation({
     mutationFn: ({ incidentId, status }) => base44.entities.IncidentReport.update(incidentId, { status }),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['incidents'] });
+    onSuccess: async () => {
+      await queryClient.invalidateQueries({ queryKey: ['incidents'] });
+      await queryClient.refetchQueries({ queryKey: ['incidents'] });
       toast.success('Incident status updated.');
     },
     onError: (error) => {
@@ -297,6 +401,7 @@ export default function Incidents() {
       company_id: form.company_id || session?.company_id || null,
       truck_number: form.truck_number,
       reported_by_access_code_id: session?.id,
+      reported_by_name: getBestReadableName(session, form.company_id || session?.company_id, session?.code_type),
       reported_by_code_type: session?.code_type,
       incident_type: form.incident_type,
       status: 'Open',
@@ -589,9 +694,31 @@ export default function Incidents() {
                     </div>
                     <div>
                       <p className="text-slate-500">Reported By</p>
-                      <p className="text-slate-900">{incident.reported_by_access_code_id || incident.reported_by_code_type || '—'}</p>
+                      <p className="text-slate-900">{getIncidentReporterName(incident)}</p>
                     </div>
                   </div>
+
+                  {!incident.time_stopped_to && (
+                    <div className="space-y-2 rounded-md border border-slate-200 p-3">
+                      <Label className="text-sm text-slate-700">Enter Time Stopped To</Label>
+                      <Input
+                        type="datetime-local"
+                        value={draftTimeStoppedTo[incident.id] || ''}
+                        onChange={(e) => setDraftTimeStoppedTo((prev) => ({ ...prev, [incident.id]: e.target.value }))}
+                      />
+                      <Button
+                        type="button"
+                        variant="outline"
+                        onClick={() => updateTimeStoppedToMutation.mutate({
+                          incidentId: incident.id,
+                          timeStoppedTo: draftTimeStoppedTo[incident.id] || '',
+                        })}
+                        disabled={updateTimeStoppedToMutation.isPending || !draftTimeStoppedTo[incident.id]}
+                      >
+                        Save Time Stopped To
+                      </Button>
+                    </div>
+                  )}
 
                   <div className="flex gap-2">
                     {incident.status === 'Completed' ? (
@@ -638,16 +765,16 @@ export default function Incidents() {
                       <p className="whitespace-pre-wrap">{incident.details || incident.summary || '—'}</p>
                       <p className="text-xs text-slate-500 mt-1">
                         {formatDateTime(incident.created_date || incident.incident_datetime)}
-                        {incident.reported_by_access_code_id ? ` • ${incident.reported_by_access_code_id}` : ''}
+                        {getIncidentReporterName(incident) ? ` • ${getIncidentReporterName(incident)}` : ''}
                       </p>
                     </div>
-                    {Array.isArray(incident.updates) && incident.updates.length > 0 ? (
-                      incident.updates.map((update, idx) => (
+                    {getIncidentUpdates(incident).length > 0 ? (
+                      getIncidentUpdates(incident).map((update, idx) => (
                         <div key={`${incident.id}-update-${idx}`} className="text-sm text-slate-700 border-t border-slate-200 pt-2">
                           <p className="whitespace-pre-wrap">{update?.note || '—'}</p>
                           <p className="text-xs text-slate-500 mt-1">
                             {formatDateTime(update?.created_at)}
-                            {update?.created_by_access_code_id ? ` • ${update.created_by_access_code_id}` : ''}
+                            {getUpdateAuthorName(incident, update) ? ` • ${getUpdateAuthorName(incident, update)}` : ''}
                           </p>
                         </div>
                       ))
