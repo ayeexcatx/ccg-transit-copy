@@ -57,20 +57,20 @@ export function getAvailabilitySummaryTargets(today = new Date()) {
     const sunday = addDays(today, 2);
     const monday = addDays(today, 3);
     return [
-      { label: 'Today Day', date: today, shift: 'Day' },
-      { label: 'Today Night', date: today, shift: 'Night' },
-      { label: 'Sunday Night', date: sunday, shift: 'Night' },
-      { label: 'Monday Day', date: monday, shift: 'Day' },
-      { label: 'Monday Night', date: monday, shift: 'Night' },
+      { label: "Today's Day Shift", date: today, shift: 'Day' },
+      { label: "Today's Night Shift", date: today, shift: 'Night' },
+      { label: "Sunday's Night Shift", date: sunday, shift: 'Night' },
+      { label: "Monday's Day Shift", date: monday, shift: 'Day' },
+      { label: "Monday's Night Shift", date: monday, shift: 'Night' },
     ];
   }
 
   const tomorrow = addDays(today, 1);
   return [
-    { label: 'Today Day', date: today, shift: 'Day' },
-    { label: 'Today Night', date: today, shift: 'Night' },
-    { label: 'Tomorrow Day', date: tomorrow, shift: 'Day' },
-    { label: 'Tomorrow Night', date: tomorrow, shift: 'Night' },
+    { label: "Today's Day Shift", date: today, shift: 'Day' },
+    { label: "Today's Night Shift", date: today, shift: 'Night' },
+    { label: "Tomorrow's Day Shift", date: tomorrow, shift: 'Day' },
+    { label: "Tomorrow's Night Shift", date: tomorrow, shift: 'Night' },
   ];
 }
 
