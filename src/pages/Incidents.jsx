@@ -160,33 +160,26 @@ export default function Incidents() {
   };
 
 
-  const getIncidentUpdates = (incident) => {
-    if (Array.isArray(incident?.updates)) return incident.updates;
-    if (typeof incident?.updates === 'string') {
-      try {
-        const parsed = JSON.parse(incident.updates);
-        return Array.isArray(parsed) ? parsed : [];
-      } catch {
-        return [];
-      }
-    }
-    return [];
-  };
+  const { data: incidentUpdates = [] } = useQuery({
+    queryKey: ['incident-updates', selectedIncident?.id],
+    queryFn: () => base44.entities.IncidentUpdate.filter({ incident_report_id: selectedIncident?.id }, 'update_datetime', 1000),
+    enabled: !!session && !!selectedIncident?.id,
+  });
 
   const getUpdateAuthorName = (incident, update) => {
-    const updateCode = update?.created_by_access_code_id
-      ? accessCodeMap[update.created_by_access_code_id]
+    const updateCode = update?.added_by_access_code_id
+      ? accessCodeMap[update.added_by_access_code_id]
       : null;
 
     return getBestReadableName(
       {
-        full_name: update?.created_by_name,
-        display_name: update?.created_by_display_name,
+        full_name: update?.added_by_name,
+        display_name: update?.added_by_display_name,
         ...updateCode,
       },
       incident.company_id,
-      update?.created_by_code_type
-    ) || update?.created_by_access_code_id || null;
+      update?.added_by_code_type
+    ) || update?.added_by_access_code_id || null;
   };
 
   const visibleDispatches = useMemo(() => {
@@ -284,27 +277,27 @@ export default function Incidents() {
   });
 
   const addUpdateMutation = useMutation({
-    mutationFn: async ({ incident, note }) => {
+    mutationFn: ({ incident, note }) => {
       const trimmed = note.trim();
-      const existingUpdates = getIncidentUpdates(incident);
+      if (!trimmed) {
+        throw new Error('Update text is required.');
+      }
 
-      return base44.entities.IncidentReport.update(incident.id, {
-        updates: [
-          ...existingUpdates,
-          {
-            note: trimmed,
-            created_at: new Date().toISOString(),
-            created_by_access_code_id: session?.id || null,
-            created_by_code_type: session?.code_type || null,
-            created_by_name: getBestReadableName(session, session?.company_id, session?.code_type),
-          },
-        ],
+      return base44.entities.IncidentUpdate.create({
+        incident_report_id: incident.id,
+        dispatch_id: incident.dispatch_id || null,
+        company_id: incident.company_id || null,
+        truck_number: incident.truck_number || null,
+        added_by_access_code_id: session?.id || null,
+        added_by_code_type: session?.code_type || null,
+        update_datetime: new Date().toISOString(),
+        update_text: trimmed,
       });
     },
     onSuccess: async (_, variables) => {
       setDraftUpdates((prev) => ({ ...prev, [variables.incident.id]: '' }));
-      await queryClient.invalidateQueries({ queryKey: ['incidents'] });
-      await queryClient.refetchQueries({ queryKey: ['incidents'] });
+      await queryClient.invalidateQueries({ queryKey: ['incident-updates', variables.incident.id] });
+      await queryClient.refetchQueries({ queryKey: ['incident-updates', variables.incident.id] });
       toast.success('Incident update added.');
     },
     onError: (error) => {
@@ -768,12 +761,12 @@ export default function Incidents() {
                         {getIncidentReporterName(incident) ? ` • ${getIncidentReporterName(incident)}` : ''}
                       </p>
                     </div>
-                    {getIncidentUpdates(incident).length > 0 ? (
-                      getIncidentUpdates(incident).map((update, idx) => (
-                        <div key={`${incident.id}-update-${idx}`} className="text-sm text-slate-700 border-t border-slate-200 pt-2">
-                          <p className="whitespace-pre-wrap">{update?.note || '—'}</p>
+                    {incidentUpdates.length > 0 ? (
+                      incidentUpdates.map((update) => (
+                        <div key={update.id} className="text-sm text-slate-700 border-t border-slate-200 pt-2">
+                          <p className="whitespace-pre-wrap">{update?.update_text || '—'}</p>
                           <p className="text-xs text-slate-500 mt-1">
-                            {formatDateTime(update?.created_at)}
+                            {formatDateTime(update?.update_datetime)}
                             {getUpdateAuthorName(incident, update) ? ` • ${getUpdateAuthorName(incident, update)}` : ''}
                           </p>
                         </div>
