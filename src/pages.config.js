@@ -58,9 +58,9 @@ import AdminDispatches from './pages/AdminDispatches';
 import AdminTemplateNotes from './pages/AdminTemplateNotes';
 import Availability from './pages/Availability';
 import Home from './pages/Home';
+import Incidents from './pages/Incidents';
 import Notifications from './pages/Notifications';
 import Portal from './pages/Portal';
-import Incidents from './pages/Incidents';
 import __Layout from './Layout.jsx';
 
 
@@ -76,13 +76,13 @@ export const PAGES = {
     "AdminTemplateNotes": AdminTemplateNotes,
     "Availability": Availability,
     "Home": Home,
+    "Incidents": Incidents,
     "Notifications": Notifications,
     "Portal": Portal,
-    "Incidents": Incidents,
 }
 
 export const pagesConfig = {
-    mainPage: "Home",
+    mainPage: "AdminDashboard",
     Pages: PAGES,
     Layout: __Layout,
 };
