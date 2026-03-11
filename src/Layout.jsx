@@ -53,27 +53,48 @@ function LayoutInner({ children, currentPageName }) {
   return (
     <div className="bg-zinc-50 min-h-screen">
       <header className="bg-white border-b border-slate-200 sticky top-0 z-50">
-        <div className="bg-slate-50 mx-auto px-4 max-w-7xl sm:px-6 h-16 flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <img
-              src="/transitlogo.png"
-              alt="CCG Transit logo"
-              className="h-12 w-12 object-contain" />
+        <div className="bg-slate-50 mx-auto max-w-7xl px-4 sm:px-6">
+          <div className="h-16 flex items-center justify-between gap-3">
+            <div className="flex items-center gap-3 min-w-0">
+              <img
+                src="/transitlogo.png"
+                alt="CCG Transit logo"
+                className="h-12 w-12 object-contain" />
 
-            <div>
-              <h1 className="text-sm font-semibold text-slate-900 tracking-tight">CCG Transit</h1>
-              <p className="text-xs text-slate-500 flex items-center gap-1">
-                {session.code_type === 'Admin' && <Shield className="h-3 w-3" />}
-                {session.code_type === 'CompanyOwner' && <Building2 className="h-3 w-3" />}
-                {session.code_type === 'Truck' && <Truck className="h-3 w-3" />}
-                {session.label || session.code_type}
-              </p>
+              <div className="min-w-0">
+                <h1 className="text-sm font-semibold text-slate-900 tracking-tight">CCG Transit</h1>
+                <p className="text-xs text-slate-500 flex items-center gap-1 truncate">
+                  {session.code_type === 'Admin' && <Shield className="h-3 w-3 shrink-0" />}
+                  {session.code_type === 'CompanyOwner' && <Building2 className="h-3 w-3 shrink-0" />}
+                  {session.code_type === 'Truck' && <Truck className="h-3 w-3 shrink-0" />}
+                  <span className="truncate">{session.label || session.code_type}</span>
+                </p>
+              </div>
+            </div>
+
+            <div className="flex items-center gap-2 shrink-0">
+              {(isAdmin || session.code_type === 'CompanyOwner') &&
+              <NotificationBell session={session} />
+              }
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => {
+                  logout();
+                  window.location.href = createPageUrl('AccessCodeLogin');
+                }}
+                className="text-slate-500 hover:text-slate-700">
+
+                <LogOut className="h-4 w-4 mr-1" />
+                <span className="bg-transparent text-xs">Log out</span>
+              </Button>
             </div>
           </div>
 
-          <div className="bg-yellow-300 flex items-center gap-2">
-            {isAdmin &&
-            <nav className="hidden md:flex items-center gap-1 mr-4">
+          {(isAdmin || canUsePortalTabs) &&
+          <div className="hidden md:flex items-center gap-1 border-t border-slate-200 py-2 overflow-x-auto">
+              {isAdmin &&
+              <nav className="flex items-center gap-1 mr-4">
                 <Link to={createPageUrl('AdminDashboard')}>
                   <Button variant="ghost" size="sm" className="text-xs flex items-center gap-1"><Home className="h-3 w-3" />Dashboard</Button>
                 </Link>
@@ -108,9 +129,9 @@ function LayoutInner({ children, currentPageName }) {
                   <Button variant="ghost" size="sm" className="text-xs flex items-center gap-1"><FileText className="h-3 w-3" />Notes</Button>
                 </Link>
               </nav>
-            }
-            {canUsePortalTabs &&
-            <nav className="hidden md:flex items-center gap-1 mr-4">
+              }
+              {canUsePortalTabs &&
+              <nav className="flex items-center gap-1 mr-4">
                 <Link to={createPageUrl('Home')}>
                   <Button variant={isActive('Home') ? 'secondary' : 'ghost'} size="sm" className="text-xs">Home</Button>
                 </Link>
@@ -127,23 +148,9 @@ function LayoutInner({ children, currentPageName }) {
                   <Button variant={isActive('Incidents') ? 'secondary' : 'ghost'} size="sm" className="text-xs">Incidents</Button>
                 </Link>
               </nav>
-            }
-            {(isAdmin || session.code_type === 'CompanyOwner') &&
-            <NotificationBell session={session} />
-            }
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={() => {
-                logout();
-                window.location.href = createPageUrl('AccessCodeLogin');
-              }}
-              className="text-slate-500 hover:text-slate-700">
-
-              <LogOut className="h-4 w-4 mr-1" />
-              <span className="bg-transparent text-xs">Log out</span>
-            </Button>
+              }
           </div>
+          }
         </div>
 
         {/* Mobile nav for company owner */}
