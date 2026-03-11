@@ -7,15 +7,14 @@ import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Input } from '@/components/ui/input';
-import { Badge } from '@/components/ui/badge';
-import { Moon, Sun } from 'lucide-react';
+import { Checkbox } from '@/components/ui/checkbox';
+import { ChevronLeft, ChevronRight } from 'lucide-react';
 import {
   VIEW_MODES,
   STATUS_AVAILABLE,
   STATUS_UNAVAILABLE,
   WEEKDAY_LABELS,
   getOperationalShifts,
-  buildShiftLabel,
   getStatusClass,
   normalizeCount,
   toDateKey,
@@ -27,9 +26,8 @@ export default function AvailabilityManager({ companyId, canSelectCompany = fals
   const queryClient = useQueryClient();
   const [viewMode, setViewMode] = useState('week');
   const [activeDate, setActiveDate] = useState(new Date());
-  const [defaultEditing, setDefaultEditing] = useState(null);
-  const [defaultEditStatus, setDefaultEditStatus] = useState(STATUS_AVAILABLE);
-  const [defaultEditCount, setDefaultEditCount] = useState('');
+  const [defaultsEditorOpen, setDefaultsEditorOpen] = useState(false);
+  const [defaultsEditorForm, setDefaultsEditorForm] = useState(null);
   const [overrideEditingDate, setOverrideEditingDate] = useState(null);
   const [dateOverrideForm, setDateOverrideForm] = useState(null);
   const [formError, setFormError] = useState('');
@@ -110,15 +108,6 @@ export default function AvailabilityManager({ companyId, canSelectCompany = fals
     return { status: STATUS_AVAILABLE, available_truck_count: null };
   };
 
-  const openDefaultEditor = (date, shift) => {
-    const initial = defaultMap.get(`${date.getDay()}-${shift}`) || { status: STATUS_AVAILABLE, available_truck_count: null };
-
-    setDefaultEditing({ date, shift });
-    setDefaultEditStatus(initial.status || STATUS_AVAILABLE);
-    setDefaultEditCount(initial.available_truck_count ? String(initial.available_truck_count) : '');
-    setFormError('');
-  };
-
   const getDateEditInitialState = (date) => {
     const operationalShifts = getOperationalShifts(date.getDay());
     const createShiftState = (shift) => {
@@ -142,25 +131,51 @@ export default function AvailabilityManager({ companyId, canSelectCompany = fals
     setFormError('');
   };
 
-  const saveDefaultEdit = async () => {
-    if (!defaultEditing || !selectedCompanyId) return;
+  const openDefaultsEditor = () => {
+    const form = {};
+    for (let weekday = 0; weekday < 7; weekday += 1) {
+      const operationalShifts = getOperationalShifts(weekday);
+      form[weekday] = {
+        Day: {
+          operational: operationalShifts.includes('Day'),
+          checked: (defaultMap.get(`${weekday}-Day`)?.status || STATUS_AVAILABLE) === STATUS_AVAILABLE,
+        },
+        Night: {
+          operational: operationalShifts.includes('Night'),
+          checked: (defaultMap.get(`${weekday}-Night`)?.status || STATUS_AVAILABLE) === STATUS_AVAILABLE,
+        },
+      };
+    }
+    setDefaultsEditorForm(form);
+    setDefaultsEditorOpen(true);
+    setFormError('');
+  };
 
-    const count = defaultEditStatus === STATUS_AVAILABLE ? normalizeCount(defaultEditCount) : null;
-    if (defaultEditStatus === STATUS_AVAILABLE && defaultEditCount !== '' && count === null) {
-      setFormError('Available truck count must be a whole number greater than 0.');
-      return;
+  const saveWeeklyDefaults = async () => {
+    if (!selectedCompanyId || !defaultsEditorForm) return;
+
+    const jobs = [];
+    for (let weekday = 0; weekday < 7; weekday += 1) {
+      for (const shift of ['Day', 'Night']) {
+        const shiftState = defaultsEditorForm[weekday]?.[shift];
+        if (!shiftState?.operational) continue;
+
+        const existing = defaultMap.get(`${weekday}-${shift}`);
+        jobs.push(
+          upsertDefaultMutation.mutateAsync({
+            company_id: selectedCompanyId,
+            weekday,
+            shift,
+            status: shiftState.checked ? STATUS_AVAILABLE : STATUS_UNAVAILABLE,
+            available_truck_count: shiftState.checked ? existing?.available_truck_count ?? null : null,
+          })
+        );
+      }
     }
 
-    const payload = {
-      company_id: selectedCompanyId,
-      status: defaultEditStatus,
-      available_truck_count: defaultEditStatus === STATUS_UNAVAILABLE ? null : count,
-      weekday: defaultEditing.date.getDay(),
-      shift: defaultEditing.shift,
-    };
-
-    await upsertDefaultMutation.mutateAsync(payload);
-    setDefaultEditing(null);
+    await Promise.all(jobs);
+    setDefaultsEditorOpen(false);
+    setDefaultsEditorForm(null);
   };
 
   const saveDateOverride = async () => {
@@ -222,7 +237,7 @@ export default function AvailabilityManager({ companyId, canSelectCompany = fals
 
     const availability = resolveAvailability(date, shift);
     if (availability.status === STATUS_UNAVAILABLE) {
-      return { label: 'Unavail', className: getStatusClass(availability.status) };
+      return { label: 'None', className: getStatusClass(availability.status) };
     }
 
     if (availability.available_truck_count) {
@@ -230,6 +245,14 @@ export default function AvailabilityManager({ companyId, canSelectCompany = fals
     }
 
     return { label: 'Avail', className: getStatusClass(availability.status) };
+  };
+
+  const getDefaultMatrixDisplay = (weekday, shift) => {
+    if (!getOperationalShifts(weekday).includes(shift)) return { label: 'N/A', className: 'text-slate-400' };
+    const availability = defaultMap.get(`${weekday}-${shift}`) || { status: STATUS_AVAILABLE, available_truck_count: null };
+    if (availability.status === STATUS_UNAVAILABLE) return { label: 'No', className: 'text-red-700' };
+    if (availability.available_truck_count) return { label: String(availability.available_truck_count), className: 'text-green-700' };
+    return { label: 'Yes', className: 'text-green-700' };
   };
 
   const shiftActiveDate = (direction) => {
@@ -266,82 +289,96 @@ export default function AvailabilityManager({ companyId, canSelectCompany = fals
     return eachDayOfInterval({ start: gridStart, end: gridEnd });
   }, [activeDate, viewMode]);
 
-  const renderCompactCalendarDayCell = (date, weekIndex) => {
-    const key = `${toDateKey(date)}-${weekIndex}`;
-    const isOutsideActiveMonth = viewMode === 'month' && !isSameMonth(date, activeDate);
-    const dayDisplay = getCompactShiftDisplay(date, 'Day');
-    const nightDisplay = getCompactShiftDisplay(date, 'Night');
-
-    return (
-      <button
-        key={key}
-        type="button"
-        onClick={() => openOverrideEditorForDate(date)}
-        className={`min-w-0 rounded border p-1 text-left transition-colors ${
-          isOutsideActiveMonth ? 'bg-slate-50/70 border-slate-200' : 'bg-white border-slate-300'
-        } hover:bg-slate-50`}
-      >
-        <p className={`text-[10px] font-semibold leading-tight ${isOutsideActiveMonth ? 'text-slate-400' : 'text-slate-700'}`}>
-          {format(date, 'd')}
-        </p>
-        <div className="mt-1 space-y-0.5 text-[10px] leading-tight">
-          <p className={dayDisplay.className}>{dayDisplay.label}</p>
-          <p className={nightDisplay.className}>{nightDisplay.label}</p>
-        </div>
-      </button>
-    );
-  };
-
-  const renderCalendarWeekRow = (weekDates, weekIndex) => (
-    <div key={`week-${weekIndex}`} className="grid grid-cols-[24px_repeat(7,minmax(0,1fr))] gap-1">
-      <div className="flex flex-col items-center justify-center text-slate-500">
-        <Sun className="h-3 w-3 text-amber-500" />
-        <Moon className="mt-2 h-3 w-3 text-slate-500" />
+  const renderCompactCalendarSection = (dates, keyPrefix, outsideMonth = false) => (
+    <div className="space-y-1" key={keyPrefix}>
+      <div className={`grid gap-1 ${viewMode === 'day' ? 'grid-cols-[16px_repeat(3,minmax(0,1fr))]' : 'grid-cols-[16px_repeat(7,minmax(0,1fr))]'}`}>
+        <div />
+        {dates.map((date) => (
+          <p key={`${keyPrefix}-head-${toDateKey(date)}`} className="text-[10px] text-center font-semibold text-slate-500">
+            {WEEKDAY_SHORT_LABELS[date.getDay()]}
+          </p>
+        ))}
       </div>
-      {weekDates.map((date) => renderCompactCalendarDayCell(date, weekIndex))}
-    </div>
-  );
+      <div className={`grid gap-1 ${viewMode === 'day' ? 'grid-cols-[16px_repeat(3,minmax(0,1fr))]' : 'grid-cols-[16px_repeat(7,minmax(0,1fr))]'}`}>
+        <div />
+        {dates.map((date) => (
+          <p
+            key={`${keyPrefix}-date-${toDateKey(date)}`}
+            className={`text-[10px] text-center font-semibold ${outsideMonth && !isSameMonth(date, activeDate) ? 'text-slate-400' : 'text-slate-700'}`}
+          >
+            {format(date, 'd')}
+          </p>
+        ))}
+      </div>
 
-  const renderDayCardCell = (date) => {
-    const shifts = getOperationalShifts(date.getDay());
-
-    if (!shifts.length) {
-      return (
-        <Card key={toDateKey(date)}>
-          <CardContent className="p-3">
-            <p className="font-medium text-sm">{format(date, 'EEE, MMM d')}</p>
-            <p className="text-xs text-slate-400 mt-2">Non-operational day</p>
-          </CardContent>
-        </Card>
-      );
-    }
-
-    return (
-      <Card key={toDateKey(date)}>
-        <CardContent className="p-3 space-y-2">
-          <p className="font-medium text-sm">{format(date, 'EEE, MMM d')}</p>
-          {shifts.map((shift) => {
-            const availability = resolveAvailability(date, shift);
+      {['Day', 'Night'].map((shift) => (
+        <div key={`${keyPrefix}-${shift}`} className={`grid gap-1 ${viewMode === 'day' ? 'grid-cols-[16px_repeat(3,minmax(0,1fr))]' : 'grid-cols-[16px_repeat(7,minmax(0,1fr))]'}`}>
+          <p className="text-[10px] font-semibold text-slate-500 self-center">{shift === 'Day' ? 'D' : 'N'}</p>
+          {dates.map((date) => {
+            const shiftDisplay = getCompactShiftDisplay(date, shift);
+            const faded = outsideMonth && !isSameMonth(date, activeDate);
             return (
               <button
-                key={shift}
+                key={`${keyPrefix}-${shift}-${toDateKey(date)}`}
                 type="button"
                 onClick={() => openOverrideEditorForDate(date)}
-                className="w-full rounded border border-slate-200 px-3 py-2 text-left hover:bg-slate-50"
+                className={`rounded border p-1 text-[10px] font-semibold ${faded ? 'bg-slate-50/70 border-slate-200' : 'bg-white border-slate-300'} hover:bg-slate-50`}
               >
-                <div className="flex items-center justify-between gap-2">
-                  <span className="text-xs font-medium text-slate-600">{shift}</span>
-                  <span className={`text-xs font-semibold ${getStatusClass(availability.status)}`}>
-                    {buildShiftLabel(availability)}
-                  </span>
-                </div>
+                <span className={shiftDisplay.className}>{shiftDisplay.label}</span>
               </button>
             );
           })}
-        </CardContent>
-      </Card>
+        </div>
+      ))}
+    </div>
+  );
+
+  const renderCompactCalendarView = () => {
+    if (viewMode === 'day') return renderCompactCalendarSection(visibleDates, 'day');
+    if (viewMode === 'week') return renderCompactCalendarSection(visibleDates, 'week');
+
+    return (
+      <div className="space-y-2">
+        {Array.from({ length: Math.ceil(visibleDates.length / 7) }).map((_, weekIndex) => {
+          const start = weekIndex * 7;
+          const weekDates = visibleDates.slice(start, start + 7);
+          return renderCompactCalendarSection(weekDates, `month-${weekIndex}`, true);
+        })}
+      </div>
     );
   };
+
+  const renderWeeklyDefaultsMatrix = () => (
+    <Card>
+      <CardContent className="p-4 space-y-3">
+        <h3 className="text-sm font-semibold text-slate-800">Recurring Weekly Defaults</h3>
+        <p className="text-xs text-slate-500">Defaults apply when no date-specific override exists.</p>
+        <div className="overflow-x-auto">
+          <div className="min-w-[320px] divide-y divide-slate-200 rounded border border-slate-200">
+            <div className="grid grid-cols-[1.6fr_1fr_1fr] bg-slate-50 px-3 py-2 text-xs font-semibold text-slate-600">
+              <span>Weekday</span>
+              <span className="text-center">Day</span>
+              <span className="text-center">Night</span>
+            </div>
+            {[1, 2, 3, 4, 5, 6, 0].map((weekday) => {
+              const dayDisplay = getDefaultMatrixDisplay(weekday, 'Day');
+              const nightDisplay = getDefaultMatrixDisplay(weekday, 'Night');
+              return (
+                <div key={`default-${weekday}`} className="grid grid-cols-[1.6fr_1fr_1fr] px-3 py-2 text-sm">
+                  <span className="text-slate-700">{WEEKDAY_LABELS[weekday]}</span>
+                  <span className={`text-center font-semibold ${dayDisplay.className}`}>{dayDisplay.label}</span>
+                  <span className={`text-center font-semibold ${nightDisplay.className}`}>{nightDisplay.label}</span>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+        <div className="flex justify-end">
+          <Button size="sm" variant="outline" onClick={openDefaultsEditor}>Edit Defaults</Button>
+        </div>
+      </CardContent>
+    </Card>
+  );
 
   return (
     <div className="space-y-6">
@@ -392,134 +429,47 @@ export default function AvailabilityManager({ companyId, canSelectCompany = fals
         <>
           <Card>
             <CardContent className="p-3 space-y-3">
-              <div className="flex flex-wrap items-center justify-between gap-2">
-                <div className="text-sm font-medium text-slate-700">{dateRangeLabel}</div>
-                <div className="flex items-center gap-2">
-                  <Button size="sm" variant="outline" onClick={() => shiftActiveDate(-1)}>Prev</Button>
+              <div className="text-center text-xs font-medium text-slate-600">{dateRangeLabel}</div>
+              <div className="grid grid-cols-3 items-center">
+                <div className="justify-self-start">
+                  <Button size="icon" variant="outline" onClick={() => shiftActiveDate(-1)} aria-label="Previous period">
+                    <ChevronLeft className="h-4 w-4" />
+                  </Button>
+                </div>
+                <div className="justify-self-center">
                   <Button size="sm" variant="outline" onClick={() => setActiveDate(new Date())}>Today</Button>
-                  <Button size="sm" variant="outline" onClick={() => shiftActiveDate(1)}>Next</Button>
+                </div>
+                <div className="justify-self-end">
+                  <Button size="icon" variant="outline" onClick={() => shiftActiveDate(1)} aria-label="Next period">
+                    <ChevronRight className="h-4 w-4" />
+                  </Button>
                 </div>
               </div>
 
-              <div className="overflow-x-auto">
-                {(viewMode === 'week' || viewMode === 'month') && (
-                  <div className="space-y-1 min-w-0">
-                    <div className="grid grid-cols-[24px_repeat(7,minmax(0,1fr))] gap-1">
-                      <div />
-                      {WEEKDAY_SHORT_LABELS.map((weekday, index) => (
-                        <p key={`${weekday}-${index}`} className="text-[10px] text-center font-semibold text-slate-500">{weekday}</p>
-                      ))}
-                    </div>
-
-                    {viewMode === 'week' && renderCalendarWeekRow(visibleDates, 0)}
-                    {viewMode === 'month' && Array.from({ length: Math.ceil(visibleDates.length / 7) }).map((_, weekIndex) => {
-                      const start = weekIndex * 7;
-                      const weekDates = visibleDates.slice(start, start + 7);
-                      return renderCalendarWeekRow(weekDates, weekIndex);
-                    })}
-                  </div>
-                )}
-
-                {viewMode === 'day' && (
-                  <div className="grid gap-3 grid-cols-1 sm:grid-cols-3">
-                    {visibleDates.map(renderDayCardCell)}
-                  </div>
-                )}
-              </div>
+              <div className="overflow-x-auto">{renderCompactCalendarView()}</div>
             </CardContent>
           </Card>
 
-          <div className="text-xs text-slate-500">
-            <Badge variant="outline" className="mr-2 text-green-700 border-green-300">Available</Badge>
-            <Badge variant="outline" className="text-red-700 border-red-300">Unavailable</Badge>
-          </div>
-
-          <Card>
-            <CardContent className="p-4 space-y-3">
-              <h3 className="text-sm font-semibold text-slate-800">Recurring Weekly Defaults</h3>
-              <p className="text-xs text-slate-500">Defaults apply when no date-specific override exists.</p>
-              <div className="grid gap-2 md:grid-cols-2">
-                {[1, 2, 3, 4, 5, 0].map((weekday) => (
-                  getOperationalShifts(weekday).map((shift) => {
-                    const date = addDays(startOfWeek(new Date(), { weekStartsOn: 1 }), weekday === 0 ? 6 : weekday - 1);
-                    const availability = defaultMap.get(`${weekday}-${shift}`) || { status: STATUS_AVAILABLE, available_truck_count: null };
-                    return (
-                      <button
-                        key={`${weekday}-${shift}`}
-                        type="button"
-                        onClick={() => openDefaultEditor(date, shift)}
-                        className="rounded border border-slate-200 p-2 text-left hover:bg-slate-50"
-                      >
-                        <p className="text-xs text-slate-500">{WEEKDAY_LABELS[weekday]} · {shift}</p>
-                        <p className={`text-sm font-semibold ${getStatusClass(availability.status)}`}>{buildShiftLabel(availability)}</p>
-                      </button>
-                    );
-                  })
-                ))}
-              </div>
-            </CardContent>
-          </Card>
+          {renderWeeklyDefaultsMatrix()}
         </>
       )}
 
       <Dialog
-        open={!!defaultEditing || !!overrideEditingDate}
+        open={!!overrideEditingDate}
         onOpenChange={(open) => {
           if (!open) {
-            setDefaultEditing(null);
             setOverrideEditingDate(null);
             setDateOverrideForm(null);
+            setFormError('');
           }
         }}
       >
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>{defaultEditing ? 'Edit weekly default' : 'Edit day override'}</DialogTitle>
+            <DialogTitle>Edit day override</DialogTitle>
           </DialogHeader>
 
-          {defaultEditing && (
-            <div className="space-y-4">
-              <p className="text-sm text-slate-600">{format(defaultEditing.date, 'EEE, MMM d, yyyy')} · {defaultEditing.shift} Shift</p>
-              <div>
-                <p className="text-xs text-slate-500 mb-1">Status</p>
-                <Select
-                  value={defaultEditStatus}
-                  onValueChange={(value) => {
-                    setDefaultEditStatus(value);
-                    if (value === STATUS_UNAVAILABLE) setDefaultEditCount('');
-                  }}
-                >
-                  <SelectTrigger><SelectValue /></SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value={STATUS_AVAILABLE}>Available</SelectItem>
-                    <SelectItem value={STATUS_UNAVAILABLE}>Unavailable</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-
-              {defaultEditStatus === STATUS_AVAILABLE && (
-                <div>
-                  <p className="text-xs text-slate-500 mb-1">Available Trucks (optional)</p>
-                  <Input
-                    type="number"
-                    min="1"
-                    value={defaultEditCount}
-                    onChange={(e) => setDefaultEditCount(e.target.value)}
-                    placeholder="Leave blank for general availability"
-                  />
-                </div>
-              )}
-
-              {formError && <p className="text-xs text-red-600">{formError}</p>}
-
-              <div className="flex flex-wrap justify-end gap-2">
-                <Button variant="outline" onClick={() => { setDefaultEditing(null); setFormError(''); }}>Cancel</Button>
-                <Button onClick={saveDefaultEdit}>Save</Button>
-              </div>
-            </div>
-          )}
-
-          {!defaultEditing && overrideEditingDate && dateOverrideForm && (
+          {overrideEditingDate && dateOverrideForm && (
             <div className="space-y-4">
               <p className="text-sm text-slate-600">{format(overrideEditingDate, 'EEE, MMM d, yyyy')}</p>
 
@@ -570,6 +520,74 @@ export default function AvailabilityManager({ companyId, canSelectCompany = fals
                 <Button variant="outline" onClick={() => clearDateOverrides(overrideEditingDate)}>Use Weekly Default</Button>
                 <Button variant="outline" onClick={() => { setOverrideEditingDate(null); setDateOverrideForm(null); setFormError(''); }}>Cancel</Button>
                 <Button onClick={saveDateOverride}>Save</Button>
+              </div>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
+
+      <Dialog
+        open={defaultsEditorOpen}
+        onOpenChange={(open) => {
+          setDefaultsEditorOpen(open);
+          if (!open) {
+            setDefaultsEditorForm(null);
+            setFormError('');
+          }
+        }}
+      >
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Edit weekly defaults</DialogTitle>
+          </DialogHeader>
+
+          {defaultsEditorForm && (
+            <div className="space-y-4">
+              <div className="divide-y divide-slate-200 rounded border border-slate-200">
+                <div className="grid grid-cols-[1.5fr_1fr_1fr] bg-slate-50 px-3 py-2 text-xs font-semibold text-slate-600">
+                  <span>Weekday</span>
+                  <span className="text-center">Day</span>
+                  <span className="text-center">Night</span>
+                </div>
+                {[1, 2, 3, 4, 5, 6, 0].map((weekday) => (
+                  <div key={`edit-default-${weekday}`} className="grid grid-cols-[1.5fr_1fr_1fr] items-center px-3 py-2 text-sm">
+                    <span className="text-slate-700">{WEEKDAY_LABELS[weekday]}</span>
+                    {['Day', 'Night'].map((shift) => {
+                      const shiftState = defaultsEditorForm[weekday][shift];
+                      if (!shiftState.operational) {
+                        return <span key={`${weekday}-${shift}`} className="text-center text-xs text-slate-400">N/A</span>;
+                      }
+
+                      return (
+                        <label key={`${weekday}-${shift}`} className="mx-auto flex items-center gap-2 text-xs text-slate-700">
+                          <Checkbox
+                            checked={shiftState.checked}
+                            onCheckedChange={(checked) => {
+                              setDefaultsEditorForm((prev) => ({
+                                ...prev,
+                                [weekday]: {
+                                  ...prev[weekday],
+                                  [shift]: {
+                                    ...prev[weekday][shift],
+                                    checked: !!checked,
+                                  },
+                                },
+                              }));
+                            }}
+                          />
+                          {shift}
+                        </label>
+                      );
+                    })}
+                  </div>
+                ))}
+              </div>
+
+              {formError && <p className="text-xs text-red-600">{formError}</p>}
+
+              <div className="flex flex-wrap justify-end gap-2">
+                <Button variant="outline" onClick={() => { setDefaultsEditorOpen(false); setDefaultsEditorForm(null); setFormError(''); }}>Cancel</Button>
+                <Button onClick={saveWeeklyDefaults}>Save</Button>
               </div>
             </div>
           )}
