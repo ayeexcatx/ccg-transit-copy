@@ -92,9 +92,10 @@ function LayoutInner({ children, currentPageName }) {
           </div>
 
           {(isAdmin || canUsePortalTabs) &&
-          <div className="hidden md:flex items-center gap-1 border-t border-slate-200 py-2 overflow-x-auto">
+          <div className="hidden md:flex border-t border-slate-200 py-2 justify-center">
+              <div className="flex items-center gap-4 overflow-x-auto whitespace-nowrap">
               {isAdmin &&
-              <nav className="flex items-center gap-1 mr-4">
+              <nav className="flex items-center gap-1">
                 <Link to={createPageUrl('AdminDashboard')}>
                   <Button variant="ghost" size="sm" className="text-xs flex items-center gap-1"><Home className="h-3 w-3" />Dashboard</Button>
                 </Link>
@@ -131,7 +132,7 @@ function LayoutInner({ children, currentPageName }) {
               </nav>
               }
               {canUsePortalTabs &&
-              <nav className="flex items-center gap-1 mr-4">
+              <nav className="flex items-center gap-1">
                 <Link to={createPageUrl('Home')}>
                   <Button variant={isActive('Home') ? 'secondary' : 'ghost'} size="sm" className="text-xs">Home</Button>
                 </Link>
@@ -149,6 +150,7 @@ function LayoutInner({ children, currentPageName }) {
                 </Link>
               </nav>
               }
+              </div>
           </div>
           }
         </div>
