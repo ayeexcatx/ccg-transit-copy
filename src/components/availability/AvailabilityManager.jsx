@@ -20,6 +20,8 @@ import {
   toDateKey,
 } from './availabilityRules';
 
+const WEEKDAY_SHORT_LABELS = ['S', 'M', 'T', 'W', 'T', 'F', 'S'];
+
 export default function AvailabilityManager({ companyId, canSelectCompany = false }) {
   const queryClient = useQueryClient();
   const [viewMode, setViewMode] = useState('week');
@@ -174,15 +176,71 @@ export default function AvailabilityManager({ companyId, canSelectCompany = fals
     return eachDayOfInterval({ start: gridStart, end: gridEnd });
   }, [activeDate, viewMode]);
 
-  const renderDayCell = (date) => {
+  const getShiftDisplayValue = (availability) => {
+    if (availability.status === STATUS_UNAVAILABLE) return 'Unavailable';
+    if (availability.available_truck_count) return String(availability.available_truck_count);
+    return 'Available';
+  };
+
+  const getPrimaryEditableShift = (date) => {
+    const shifts = getOperationalShifts(date.getDay());
+    if (!shifts.length) return null;
+    return shifts.includes('Day') ? 'Day' : shifts[0];
+  };
+
+  const renderCompactCalendarDayCell = (date, weekIndex) => {
+    const key = `${toDateKey(date)}-${weekIndex}`;
     const shifts = getOperationalShifts(date.getDay());
     const isOutsideActiveMonth = viewMode === 'month' && !isSameMonth(date, activeDate);
+    const dayAvailability = shifts.includes('Day') ? resolveAvailability(date, 'Day') : null;
+    const nightAvailability = shifts.includes('Night') ? resolveAvailability(date, 'Night') : null;
+    const primaryShift = getPrimaryEditableShift(date);
+
+    return (
+      <button
+        key={key}
+        type="button"
+        disabled={!primaryShift}
+        onClick={() => primaryShift && openEditor('override', date, primaryShift)}
+        className={`min-w-0 rounded border p-1 text-left transition-colors ${
+          isOutsideActiveMonth ? 'bg-slate-50/70 border-slate-200' : 'bg-white border-slate-300'
+        } ${
+          primaryShift ? 'hover:bg-slate-50' : 'cursor-default'
+        }`}
+      >
+        <p className={`text-[10px] font-semibold leading-tight ${isOutsideActiveMonth ? 'text-slate-400' : 'text-slate-700'}`}>
+          {format(date, 'd')}
+        </p>
+        <div className="mt-1 space-y-0.5 text-[10px] leading-tight">
+          <p className={dayAvailability ? getStatusClass(dayAvailability.status) : 'text-slate-400'}>
+            {dayAvailability ? getShiftDisplayValue(dayAvailability) : '—'}
+          </p>
+          <p className={nightAvailability ? getStatusClass(nightAvailability.status) : 'text-slate-400'}>
+            {nightAvailability ? getShiftDisplayValue(nightAvailability) : '—'}
+          </p>
+        </div>
+      </button>
+    );
+  };
+
+  const renderCalendarWeekRow = (weekDates, weekIndex) => (
+    <div key={`week-${weekIndex}`} className="grid grid-cols-[48px_repeat(7,minmax(0,1fr))] gap-1">
+      <div className="flex flex-col justify-center text-[10px] leading-tight text-slate-500">
+        <span>Day Shift</span>
+        <span className="mt-2">Night Shift</span>
+      </div>
+      {weekDates.map((date) => renderCompactCalendarDayCell(date, weekIndex))}
+    </div>
+  );
+
+  const renderDayCardCell = (date) => {
+    const shifts = getOperationalShifts(date.getDay());
 
     if (!shifts.length) {
       return (
-        <Card key={toDateKey(date)} className={isOutsideActiveMonth ? 'bg-slate-50/60' : ''}>
+        <Card key={toDateKey(date)}>
           <CardContent className="p-3">
-            <p className={`font-medium text-sm ${isOutsideActiveMonth ? 'text-slate-400' : ''}`}>{format(date, 'EEE, MMM d')}</p>
+            <p className="font-medium text-sm">{format(date, 'EEE, MMM d')}</p>
             <p className="text-xs text-slate-400 mt-2">Non-operational day</p>
           </CardContent>
         </Card>
@@ -190,9 +248,9 @@ export default function AvailabilityManager({ companyId, canSelectCompany = fals
     }
 
     return (
-      <Card key={toDateKey(date)} className={isOutsideActiveMonth ? 'bg-slate-50/60' : ''}>
+      <Card key={toDateKey(date)}>
         <CardContent className="p-3 space-y-2">
-          <p className={`font-medium text-sm ${isOutsideActiveMonth ? 'text-slate-400' : ''}`}>{format(date, 'EEE, MMM d')}</p>
+          <p className="font-medium text-sm">{format(date, 'EEE, MMM d')}</p>
           {shifts.map((shift) => {
             const availability = resolveAvailability(date, shift);
             return (
@@ -276,16 +334,28 @@ export default function AvailabilityManager({ companyId, canSelectCompany = fals
 
               <div className="overflow-x-auto">
                 {(viewMode === 'week' || viewMode === 'month') && (
-                  <div className="grid grid-cols-7 gap-3 min-w-[980px] mb-2">
-                    {['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'].map((weekday) => (
-                      <p key={weekday} className="text-xs font-semibold uppercase tracking-wide text-slate-500">{weekday}</p>
-                    ))}
+                  <div className="space-y-1 min-w-0">
+                    <div className="grid grid-cols-[48px_repeat(7,minmax(0,1fr))] gap-1">
+                      <div />
+                      {WEEKDAY_SHORT_LABELS.map((weekday, index) => (
+                        <p key={`${weekday}-${index}`} className="text-[10px] text-center font-semibold text-slate-500">{weekday}</p>
+                      ))}
+                    </div>
+
+                    {viewMode === 'week' && renderCalendarWeekRow(visibleDates, 0)}
+                    {viewMode === 'month' && Array.from({ length: Math.ceil(visibleDates.length / 7) }).map((_, weekIndex) => {
+                      const start = weekIndex * 7;
+                      const weekDates = visibleDates.slice(start, start + 7);
+                      return renderCalendarWeekRow(weekDates, weekIndex);
+                    })}
                   </div>
                 )}
 
-                <div className={`grid gap-3 ${viewMode === 'day' ? 'grid-cols-3 min-w-[760px]' : 'grid-cols-7 min-w-[980px]'}`}>
-                  {visibleDates.map(renderDayCell)}
-                </div>
+                {viewMode === 'day' && (
+                  <div className="grid gap-3 grid-cols-1 sm:grid-cols-3">
+                    {visibleDates.map(renderDayCardCell)}
+                  </div>
+                )}
               </div>
             </CardContent>
           </Card>
