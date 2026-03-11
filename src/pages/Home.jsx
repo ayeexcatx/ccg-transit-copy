@@ -116,11 +116,20 @@ export default function Home() {
   const { session } = useSession();
   const navigate = useNavigate();
   const allowedTrucks = session?.allowed_trucks || [];
+  const isDriver = session?.code_type === 'Driver';
+
 
   // Shared notifications hook — same query key as bell + notifications page
   const { notifications, unreadCount, markReadAsync } = useOwnerNotifications(session);
 
   const { data: confirmations = [] } = useConfirmationsQuery(session?.code_type === 'CompanyOwner');
+
+
+  const { data: driverAssignments = [] } = useQuery({
+    queryKey: ['driver-dispatch-assignments', session?.driver_id],
+    queryFn: () => base44.entities.DriverDispatchAssignment.filter({ driver_id: session.driver_id }, '-assigned_datetime', 500),
+    enabled: isDriver && !!session?.driver_id,
+  });
 
   const { data: dispatches = [] } = useQuery({
     queryKey: ['portal-dispatches', session?.company_id],
@@ -144,12 +153,23 @@ export default function Home() {
     }).sort((a, b) => (a.priority || 3) - (b.priority || 3));
   }, [allAnnouncements, session]);
 
+  const driverDispatchIds = useMemo(() => new Set(
+    driverAssignments
+      .filter((assignment) => assignment?.active_flag !== false)
+      .map((assignment) => assignment.dispatch_id)
+      .filter(Boolean)
+  ), [driverAssignments]);
+
   const filteredDispatches = useMemo(() => {
+    if (isDriver) {
+      return dispatches.filter((dispatch) => driverDispatchIds.has(dispatch.id));
+    }
+
     return dispatches.filter(d => {
       const assigned = d.trucks_assigned || [];
       return assigned.some(t => allowedTrucks.includes(t));
     });
-  }, [dispatches, allowedTrucks]);
+  }, [dispatches, allowedTrucks, driverDispatchIds, isDriver]);
 
   const todayDispatches = useMemo(() =>
     filteredDispatches
@@ -170,7 +190,7 @@ export default function Home() {
   // Build action items: unread dispatch-change notifications enriched with dispatch data
   const actionItems = useMemo(() => {
     const dispatchMap = {};
-    dispatches.forEach((dispatch) => {dispatchMap[dispatch.id] = dispatch;});
+    filteredDispatches.forEach((dispatch) => {dispatchMap[dispatch.id] = dispatch;});
 
     return notifications
       .filter((notification) => {
@@ -183,7 +203,7 @@ export default function Home() {
         notification,
         dispatch: notification.related_dispatch_id ? dispatchMap[notification.related_dispatch_id] : null,
       }));
-  }, [notifications, dispatches]);
+  }, [notifications, filteredDispatches]);
 
   const isInformationalUpdateNotification = (notification) =>
     notification?.notification_category === 'dispatch_update_info';

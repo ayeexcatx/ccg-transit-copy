@@ -89,6 +89,7 @@ export default function Incidents() {
   const isAdmin = session?.code_type === 'Admin';
   const isOwner = session?.code_type === 'CompanyOwner';
   const isTruck = session?.code_type === 'Truck';
+  const isDriver = session?.code_type === 'Driver';
 
   const queryParams = useMemo(() => new URLSearchParams(location.search), [location.search]);
   const createFromDispatch = queryParams.get('create') === '1';
@@ -112,6 +113,12 @@ export default function Incidents() {
     queryKey: ['incident-companies'],
     queryFn: () => base44.entities.Company.list('-created_date', 500),
     enabled: !!session,
+  });
+
+  const { data: driverAssignments = [] } = useQuery({
+    queryKey: ['incident-driver-dispatch-assignments', session?.driver_id],
+    queryFn: () => base44.entities.DriverDispatchAssignment.filter({ driver_id: session.driver_id }, '-assigned_datetime', 1000),
+    enabled: !!session && isDriver && !!session?.driver_id,
   });
 
   const { data: dispatches = [] } = useQuery({
@@ -205,13 +212,23 @@ export default function Incidents() {
     ) || update?.added_by_access_code_id || null;
   };
 
+  const driverDispatchIds = useMemo(() => new Set(
+    driverAssignments
+      .filter((assignment) => assignment?.active_flag !== false)
+      .map((assignment) => assignment.dispatch_id)
+      .filter(Boolean)
+  ), [driverAssignments]);
+
   const visibleDispatches = useMemo(() => {
     if (isAdmin || isOwner) return dispatches;
+    if (isDriver) {
+      return dispatches.filter((dispatch) => driverDispatchIds.has(dispatch.id));
+    }
     const allowed = session?.allowed_trucks || [];
     return dispatches.filter((dispatch) =>
       (dispatch.trucks_assigned || []).some((truckNumber) => allowed.includes(truckNumber))
     );
-  }, [dispatches, isAdmin, isOwner, session?.allowed_trucks]);
+  }, [dispatches, driverDispatchIds, isAdmin, isDriver, isOwner, session?.allowed_trucks]);
 
   const visibleDispatchIds = useMemo(() => new Set(visibleDispatches.map((d) => d.id)), [visibleDispatches]);
 
@@ -231,12 +248,20 @@ export default function Incidents() {
       return (session?.allowed_trucks || []).map((truck) => ({ value: truck, label: truck }));
     }
 
+    if (isDriver) {
+      const trucks = new Set();
+      visibleDispatches.forEach((dispatch) => {
+        (dispatch.trucks_assigned || []).forEach((truck) => trucks.add(truck));
+      });
+      return Array.from(trucks).sort().map((truck) => ({ value: truck, label: truck }));
+    }
+
     const trucks = new Set();
     visibleDispatches.forEach((dispatch) => {
       (dispatch.trucks_assigned || []).forEach((truck) => trucks.add(truck));
     });
     return Array.from(trucks).sort().map((truck) => ({ value: truck, label: truck }));
-  }, [form.dispatch_id, dispatchMap, isTruck, session?.allowed_trucks, visibleDispatches]);
+  }, [form.dispatch_id, dispatchMap, isDriver, isTruck, session?.allowed_trucks, visibleDispatches]);
 
   useEffect(() => {
     if (!createFromDispatch || !session) return;
@@ -266,6 +291,7 @@ export default function Incidents() {
   }, [
     createFromDispatch,
     dispatchMap,
+    isDriver,
     isTruck,
     queryCompanyId,
     queryDispatchId,
@@ -363,6 +389,11 @@ export default function Incidents() {
       .filter((incident) => {
         if (isAdmin) return true;
         if (isTruck) return incident.reported_by_access_code_id === session?.id;
+        if (isDriver) {
+          const createdByDriver = incident.reported_by_access_code_id === session?.id;
+          const tiedToAssignedDispatch = incident.dispatch_id && visibleDispatchIds.has(incident.dispatch_id);
+          return createdByDriver || tiedToAssignedDispatch;
+        }
         if (isOwner) {
           const createdByOwner = incident.reported_by_access_code_id === session?.id;
           const forOwnersTruck = incident.company_id === session?.company_id && ownedTruckSet.has(incident.truck_number);
@@ -377,7 +408,7 @@ export default function Incidents() {
         return true;
       })
       .sort((a, b) => new Date(b.incident_datetime || b.created_date || 0) - new Date(a.incident_datetime || a.created_date || 0));
-  }, [incidents, isAdmin, isOwner, isTruck, session, filters]);
+  }, [filters, incidents, isAdmin, isDriver, isOwner, isTruck, session, visibleDispatchIds]);
 
   const onDispatchChange = (dispatchId) => {
     if (dispatchId === '__none__') {

@@ -180,6 +180,7 @@ export default function DispatchDetailDrawer({
   const isOwner = session.code_type === 'CompanyOwner';
   const isAdmin = session.code_type === 'Admin';
   const isTruckUser = session.code_type === 'Truck';
+  const isDriverUser = session.code_type === 'Driver';
   const primaryReferenceTag = String(dispatch.reference_tag || '').trim();
   const currentConfType = dispatch.status;
   const hasAdditional = Array.isArray(dispatch.additional_assignments) && dispatch.additional_assignments.length > 0;
@@ -196,6 +197,13 @@ export default function DispatchDetailDrawer({
     enabled: open && isOwner && !!dispatch?.id,
   });
 
+
+
+  const { data: currentDriverAssignments = [] } = useQuery({
+    queryKey: ['driver-dispatch-assignments', dispatch?.id, session?.driver_id],
+    queryFn: () => base44.entities.DriverDispatchAssignment.filter({ dispatch_id: dispatch.id, driver_id: session.driver_id }, '-assigned_datetime', 200),
+    enabled: open && isDriverUser && !!dispatch?.id && !!session?.driver_id,
+  });
   useEffect(() => {
     if (!isOwner || !dispatch?.id) return;
 
@@ -251,6 +259,12 @@ export default function DispatchDetailDrawer({
 
   if (!dispatch) return null;
 
+  const driverAssignedTrucks = currentDriverAssignments
+    .filter((entry) => entry?.active_flag !== false)
+    .map((entry) => entry.truck_number)
+    .filter(Boolean);
+
+  const visibleTrucks = isDriverUser ? [...new Set(driverAssignedTrucks)] : myTrucks;
 
   const normalizedTemplateNotes = (templateNotes || []).map(normalizeTemplateNote);
   const boxNotes = normalizedTemplateNotes.filter(n => n.note_type === NOTE_TYPES.BOX);
@@ -429,8 +443,8 @@ export default function DispatchDetailDrawer({
       params.set('companyId', dispatch.company_id);
     }
 
-    if (myTrucks.length === 1) {
-      params.set('truckNumber', myTrucks[0]);
+    if (visibleTrucks.length === 1) {
+      params.set('truckNumber', visibleTrucks[0]);
     }
 
     handleDrawerClose();
@@ -564,7 +578,7 @@ export default function DispatchDetailDrawer({
 
         <div className="px-5 py-5 space-y-6">
 
-          {(isOwner || isTruckUser) && (
+          {(isOwner || isTruckUser || isDriverUser) && (
             <div className="flex items-center gap-2">
               <Button
                 type="button"
@@ -628,7 +642,7 @@ export default function DispatchDetailDrawer({
               <div className="space-y-2">
                 <div className="flex items-center gap-1.5 flex-wrap">
                   <Truck className="h-3.5 w-3.5 text-slate-400" />
-                  {myTrucks.map(t => (
+                  {visibleTrucks.map(t => (
                     <Badge key={t} variant="outline" className="text-xs border-slate-900 text-slate-900 font-medium">
                       {t}
                     </Badge>
@@ -880,7 +894,7 @@ export default function DispatchDetailDrawer({
           </div>
 
           {/* Actions */}
-          {(isOwner || isAdmin) && (
+          {(isOwner || isAdmin || isDriverUser) && (
             <div className="space-y-4 pt-2 border-t border-slate-100">
 
               {/* CompanyOwner confirm */}
@@ -972,6 +986,24 @@ export default function DispatchDetailDrawer({
                       <Save className="h-4 w-4 mr-2" />
                       {isSavingAll ? 'Saving…' : 'Save All Time Logs'}
                     </Button>
+                  </div>
+                </div>
+              )}
+
+
+              {isDriverUser && visibleTrucks.length > 0 && dispatch.status !== 'Cancelled' && (
+                <div>
+                  <p className="text-xs text-slate-500 uppercase tracking-wide mb-2">Time Log</p>
+                  <div className="space-y-1.5">
+                    {visibleTrucks.map(truck => (
+                      <TruckTimeRow
+                        key={truck}
+                        truck={truck}
+                        dispatch={dispatch}
+                        timeEntries={timeEntries}
+                        readOnly={true}
+                      />
+                    ))}
                   </div>
                 </div>
               )}

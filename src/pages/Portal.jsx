@@ -59,6 +59,12 @@ export default function Portal() {
     enabled: !!session?.company_id,
   });
 
+  const { data: driverAssignments = [] } = useQuery({
+    queryKey: ['driver-dispatch-assignments', session?.driver_id],
+    queryFn: () => base44.entities.DriverDispatchAssignment.filter({ driver_id: session.driver_id }, '-assigned_datetime', 500),
+    enabled: session?.code_type === 'Driver' && !!session?.driver_id,
+  });
+
   const { data: companies = [] } = useQuery({
     queryKey: ['companies'],
     queryFn: () => base44.entities.Company.list(),
@@ -382,13 +388,25 @@ Would you like to swap ${outgoingTruck} with ${incomingTruck}?`;
   const handleOwnerTruckUpdate = (dispatch, nextTrucks) => updateOwnerTrucksMutation.mutateAsync({ dispatch, nextTrucks });
 
   const allowedTrucks = session?.allowed_trucks || [];
+  const driverDispatchIds = useMemo(() => new Set(
+    driverAssignments
+      .filter((assignment) => assignment?.active_flag !== false)
+      .map((assignment) => assignment.dispatch_id)
+      .filter(Boolean)
+  ), [driverAssignments]);
+
+  const isDriverUser = session?.code_type === 'Driver';
 
   const filteredDispatches = useMemo(() => {
+    if (isDriverUser) {
+      return dispatches.filter((dispatch) => driverDispatchIds.has(dispatch.id));
+    }
+
     return dispatches.filter(d => {
       const assigned = d.trucks_assigned || [];
       return assigned.some(t => allowedTrucks.includes(t));
     });
-  }, [dispatches, allowedTrucks]);
+  }, [dispatches, allowedTrucks, driverDispatchIds, isDriverUser]);
 
   const upcomingDispatches = useMemo(() => filteredDispatches
     .filter(d => getDispatchBucket(d) === 'upcoming')
@@ -534,14 +552,16 @@ Would you like to swap ${outgoingTruck} with ${incomingTruck}?`;
         <div className="flex items-center gap-3 mb-1">
           <h2 className="text-2xl font-semibold text-slate-900">My Dispatches</h2>
         </div>
-        <div className="flex items-center gap-2 flex-wrap">
-          <span className="text-sm text-slate-500">Trucks:</span>
-          {allowedTrucks.map(t => (
-            <Badge key={t} variant="outline" className="font-mono text-xs">
-              <Truck className="h-3 w-3 mr-1" />{t}
-            </Badge>
-          ))}
-        </div>
+        {!isDriverUser && (
+          <div className="flex items-center gap-2 flex-wrap">
+            <span className="text-sm text-slate-500">Trucks:</span>
+            {allowedTrucks.map(t => (
+              <Badge key={t} variant="outline" className="font-mono text-xs">
+                <Truck className="h-3 w-3 mr-1" />{t}
+              </Badge>
+            ))}
+          </div>
+        )}
       </div>
 
       <Tabs value={tab} onValueChange={setTab}>

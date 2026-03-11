@@ -24,11 +24,24 @@ export function useOwnerNotifications(session) {
   });
 
 
+  const { data: driverAssignments = [] } = useQuery({
+    queryKey: ['driver-dispatch-assignments', session?.driver_id],
+    queryFn: () => base44.entities.DriverDispatchAssignment.filter({ driver_id: session.driver_id }, '-assigned_datetime', 500),
+    enabled: session?.code_type === 'Driver' && !!session?.driver_id,
+  });
+
   const { data: dispatches = [] } = useQuery({
     queryKey: ['portal-dispatches', session?.company_id],
     queryFn: () => base44.entities.Dispatch.filter({ company_id: session.company_id }, '-date', 200),
     enabled: !!session?.company_id && session?.code_type !== 'Admin',
   });
+
+  const driverDispatchIds = new Set(
+    driverAssignments
+      .filter((assignment) => assignment?.active_flag !== false)
+      .map((assignment) => assignment.dispatch_id)
+      .filter(Boolean)
+  );
 
   const validDispatchIds = new Set(dispatches.map((dispatch) => dispatch.id));
 
@@ -36,6 +49,7 @@ export function useOwnerNotifications(session) {
   const notifications = rawNotifications.filter((notification) => {
     if (!notification.related_dispatch_id) return true;
     if (session?.code_type === 'Admin') return true;
+    if (session?.code_type === 'Driver') return driverDispatchIds.has(notification.related_dispatch_id);
     return validDispatchIds.has(notification.related_dispatch_id);
   }).sort((a, b) => {
     if (a.read_flag !== b.read_flag) return a.read_flag ? 1 : -1;

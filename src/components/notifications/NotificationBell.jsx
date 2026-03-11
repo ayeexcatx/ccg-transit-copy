@@ -17,7 +17,13 @@ export default function NotificationBell({ session }) {
   const navigate = useNavigate();
   const [open, setOpen] = React.useState(false);
   const { notifications, unreadCount, markReadAsync } = useOwnerNotifications(session);
+  const isDriver = session?.code_type === 'Driver';
 
+  const { data: driverAssignments = [] } = useQuery({
+    queryKey: ['driver-dispatch-assignments', session?.driver_id],
+    queryFn: () => base44.entities.DriverDispatchAssignment.filter({ driver_id: session.driver_id }, '-assigned_datetime', 500),
+    enabled: isDriver && !!session?.driver_id,
+  });
 
   const { data: dispatches = [] } = useQuery({
     queryKey: ['portal-dispatches', session?.company_id],
@@ -26,9 +32,18 @@ export default function NotificationBell({ session }) {
   });
 
   const dispatchIds = new Set(dispatches.map((dispatch) => dispatch.id));
+
+  const driverDispatchIds = new Set(
+    driverAssignments
+      .filter((assignment) => assignment?.active_flag !== false)
+      .map((assignment) => assignment.dispatch_id)
+      .filter(Boolean)
+  );
+
   const filteredNotifications = notifications.filter((notification) => {
     if (!notification.related_dispatch_id) return true;
     if (session?.code_type === 'Admin') return true;
+    if (isDriver) return driverDispatchIds.has(notification.related_dispatch_id);
     return dispatchIds.has(notification.related_dispatch_id);
   });
 

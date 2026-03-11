@@ -21,7 +21,6 @@ export default function Notifications() {
 
   const { data: confirmations = [] } = useConfirmationsQuery(session?.code_type === 'CompanyOwner');
 
-
   const { data: dispatches = [] } = useQuery({
     queryKey: ['portal-dispatches', session?.company_id],
     queryFn: () => base44.entities.Dispatch.filter({ company_id: session.company_id }, '-date', 200),

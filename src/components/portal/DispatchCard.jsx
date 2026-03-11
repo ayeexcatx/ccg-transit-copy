@@ -55,6 +55,9 @@ const DispatchCard = React.forwardRef(function DispatchCard({
   const myTrucks = (session.allowed_trucks || []).filter(t =>
     (dispatch.trucks_assigned || []).includes(t)
   );
+  const visibleTrucks = session.code_type === 'Driver'
+    ? (dispatch.trucks_assigned || [])
+    : myTrucks;
 
   return (
     <div ref={ref}>
@@ -121,7 +124,7 @@ const DispatchCard = React.forwardRef(function DispatchCard({
                     {myTrucks[0]}
                   </Badge>
                 ) : (
-                  myTrucks.map(t => (
+                  visibleTrucks.map(t => (
                     <Badge key={t} variant="outline" className="text-xs border-slate-900 text-slate-900 font-medium">
                       {t}
                     </Badge>

@@ -75,7 +75,7 @@ function LayoutInner({ children, currentPageName }) {
             </div>
 
             <div className="flex items-center gap-2 shrink-0">
-              {(isAdmin || session.code_type === 'CompanyOwner') &&
+              {(isAdmin || session.code_type === 'CompanyOwner' || session.code_type === 'Driver') &&
               <NotificationBell session={session} />
               }
               <Button
