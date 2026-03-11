@@ -71,7 +71,7 @@ export default function Incidents() {
   const [filters, setFilters] = useState({ status: 'all', truck: '', type: 'all' });
   const [draftUpdates, setDraftUpdates] = useState({});
   const [draftTimeStoppedTo, setDraftTimeStoppedTo] = useState({});
-  const [selectedIncident, setSelectedIncident] = useState(null);
+  const [selectedIncidentId, setSelectedIncidentId] = useState(null);
 
   const isAdmin = session?.code_type === 'Admin';
   const isOwner = session?.code_type === 'CompanyOwner';
@@ -161,10 +161,20 @@ export default function Incidents() {
 
 
   const { data: incidentUpdates = [] } = useQuery({
-    queryKey: ['incident-updates', selectedIncident?.id],
-    queryFn: () => base44.entities.IncidentUpdate.filter({ incident_report_id: selectedIncident?.id }, 'update_datetime', 1000),
-    enabled: !!session && !!selectedIncident?.id,
+    queryKey: ['incident-updates', selectedIncidentId],
+    queryFn: () => base44.entities.IncidentUpdate.filter({ incident_report_id: selectedIncidentId }, 'update_datetime', 1000),
+    enabled: !!session && !!selectedIncidentId,
   });
+
+  const selectedIncident = useMemo(
+    () => incidents.find((item) => item.id === selectedIncidentId) || null,
+    [incidents, selectedIncidentId]
+  );
+
+  const sortedIncidentUpdates = useMemo(
+    () => [...incidentUpdates].sort((a, b) => new Date(a?.update_datetime || 0) - new Date(b?.update_datetime || 0)),
+    [incidentUpdates]
+  );
 
   const getUpdateAuthorName = (incident, update) => {
     const updateCode = update?.added_by_access_code_id
@@ -295,9 +305,10 @@ export default function Incidents() {
       });
     },
     onSuccess: async (_, variables) => {
-      setDraftUpdates((prev) => ({ ...prev, [variables.incident.id]: '' }));
-      await queryClient.invalidateQueries({ queryKey: ['incident-updates', variables.incident.id] });
-      await queryClient.refetchQueries({ queryKey: ['incident-updates', variables.incident.id] });
+      const incidentId = variables.incident.id;
+      setDraftUpdates((prev) => ({ ...prev, [incidentId]: '' }));
+      await queryClient.invalidateQueries({ queryKey: ['incident-updates', incidentId], exact: true });
+      await queryClient.refetchQueries({ queryKey: ['incident-updates', incidentId], exact: true });
       toast.success('Incident update added.');
     },
     onError: (error) => {
@@ -480,11 +491,11 @@ export default function Incidents() {
               className="border-slate-200 cursor-pointer hover:border-slate-300 transition-colors"
               role="button"
               tabIndex={0}
-              onClick={() => setSelectedIncident(incident.id)}
+              onClick={() => setSelectedIncidentId(incident.id)}
               onKeyDown={(e) => {
                 if (e.key === 'Enter' || e.key === ' ') {
                   e.preventDefault();
-                  setSelectedIncident(incident.id);
+                  setSelectedIncidentId(incident.id);
                 }
               }}
             >
@@ -636,10 +647,10 @@ export default function Incidents() {
         </DialogContent>
       </Dialog>
 
-      <Dialog open={!!selectedIncident} onOpenChange={(open) => !open && setSelectedIncident(null)}>
+      <Dialog open={!!selectedIncidentId} onOpenChange={(open) => !open && setSelectedIncidentId(null)}>
         <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
           {selectedIncident && (() => {
-            const incident = incidents.find((item) => item.id === selectedIncident);
+            const incident = selectedIncident;
             if (!incident) return null;
 
             return (
@@ -761,8 +772,8 @@ export default function Incidents() {
                         {getIncidentReporterName(incident) ? ` • ${getIncidentReporterName(incident)}` : ''}
                       </p>
                     </div>
-                    {incidentUpdates.length > 0 ? (
-                      incidentUpdates.map((update) => (
+                    {sortedIncidentUpdates.length > 0 ? (
+                      sortedIncidentUpdates.map((update) => (
                         <div key={update.id} className="text-sm text-slate-700 border-t border-slate-200 pt-2">
                           <p className="whitespace-pre-wrap">{update?.update_text || '—'}</p>
                           <p className="text-xs text-slate-500 mt-1">
