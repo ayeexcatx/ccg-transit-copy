@@ -53,8 +53,8 @@ function LayoutInner({ children, currentPageName }) {
   return (
     <div className="bg-zinc-50 min-h-screen">
       <header className="bg-white border-b border-slate-200 sticky top-0 z-50">
-        <div className="bg-slate-50 mx-auto px-4 max-w-7xl sm:px-6 h-16 flex items-center gap-3">
-          <div className="flex items-center gap-3 shrink-0">
+        <div className="bg-slate-50 mx-auto px-4 max-w-7xl sm:px-6 h-16 flex items-center justify-between">
+          <div className="flex items-center gap-3">
             <img
               src="/transitlogo.png"
               alt="CCG Transit logo"
@@ -71,9 +71,9 @@ function LayoutInner({ children, currentPageName }) {
             </div>
           </div>
 
-          <div className="hidden md:flex flex-1 min-w-0 justify-center px-2">
+          <div className="bg-yellow-300 flex items-center gap-2">
             {isAdmin &&
-            <nav className="flex items-center gap-1 whitespace-nowrap max-w-full overflow-x-auto">
+            <nav className="hidden md:flex items-center gap-1 mr-4">
                 <Link to={createPageUrl('AdminDashboard')}>
                   <Button variant="ghost" size="sm" className="text-xs flex items-center gap-1"><Home className="h-3 w-3" />Dashboard</Button>
                 </Link>
@@ -110,7 +110,7 @@ function LayoutInner({ children, currentPageName }) {
               </nav>
             }
             {canUsePortalTabs &&
-            <nav className="flex items-center gap-1 whitespace-nowrap max-w-full overflow-x-auto">
+            <nav className="hidden md:flex items-center gap-1 mr-4">
                 <Link to={createPageUrl('Home')}>
                   <Button variant={isActive('Home') ? 'secondary' : 'ghost'} size="sm" className="text-xs">Home</Button>
                 </Link>
@@ -128,9 +128,6 @@ function LayoutInner({ children, currentPageName }) {
                 </Link>
               </nav>
             }
-          </div>
-
-          <div className="flex items-center gap-2 shrink-0">
             {(isAdmin || session.code_type === 'CompanyOwner') &&
             <NotificationBell session={session} />
             }
