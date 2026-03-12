@@ -39,7 +39,8 @@ const formatDispatchTime = (startTime) => {
 
 const DispatchCard = React.forwardRef(function DispatchCard({
   dispatch, session, confirmations, timeEntries, templateNotes,
-  onConfirm, onTimeEntry, onOwnerTruckUpdate, companyName, forceOpen, onDrawerClose, visibleTrucksOverride
+  onConfirm, onTimeEntry, onOwnerTruckUpdate, companyName, forceOpen, onDrawerClose, visibleTrucksOverride,
+  onOpen, disableInternalDrawer = false
 }, ref) {
   const [drawerOpen, setDrawerOpen] = useState(false);
 
@@ -50,6 +51,15 @@ const DispatchCard = React.forwardRef(function DispatchCard({
   const handleClose = () => {
     setDrawerOpen(false);
     if (onDrawerClose) onDrawerClose();
+  };
+
+  const handleOpen = () => {
+    if (disableInternalDrawer) {
+      if (onOpen) onOpen(dispatch);
+      return;
+    }
+
+    setDrawerOpen(true);
   };
 
   const myTrucks = (session.allowed_trucks || []).filter(t =>
@@ -65,7 +75,7 @@ const DispatchCard = React.forwardRef(function DispatchCard({
     <div ref={ref}>
       <Card
         className={`overflow-hidden border-slate-200 hover:border-slate-400 hover:shadow-md transition-all cursor-pointer ${statusBorderAccent[dispatch.status] || ''}`}
-        onClick={() => setDrawerOpen(true)}
+        onClick={handleOpen}
       >
         <CardContent className="p-0">
           <div className="p-4 sm:p-5">
@@ -136,7 +146,7 @@ const DispatchCard = React.forwardRef(function DispatchCard({
             </div>
 
             <button
-              onClick={(e) => { e.stopPropagation(); setDrawerOpen(true); }}
+              onClick={(e) => { e.stopPropagation(); handleOpen(); }}
               className="mt-3 flex items-center gap-1 text-xs text-slate-400 hover:text-slate-600 transition-colors"
             >
               <ChevronDown className="h-3.5 w-3.5" />
@@ -146,19 +156,21 @@ const DispatchCard = React.forwardRef(function DispatchCard({
         </CardContent>
       </Card>
 
-      <DispatchDetailDrawer
-        open={drawerOpen}
-        onClose={handleClose}
-        dispatch={dispatch}
-        session={session}
-        confirmations={confirmations}
-        timeEntries={timeEntries}
-        templateNotes={templateNotes}
-        onConfirm={onConfirm}
-        onTimeEntry={onTimeEntry}
-        onOwnerTruckUpdate={onOwnerTruckUpdate}
-        companyName={companyName}
-      />
+      {!disableInternalDrawer && (
+        <DispatchDetailDrawer
+          open={drawerOpen}
+          onClose={handleClose}
+          dispatch={dispatch}
+          session={session}
+          confirmations={confirmations}
+          timeEntries={timeEntries}
+          templateNotes={templateNotes}
+          onConfirm={onConfirm}
+          onTimeEntry={onTimeEntry}
+          onOwnerTruckUpdate={onOwnerTruckUpdate}
+          companyName={companyName}
+        />
+      )}
     </div>
   );
 });
