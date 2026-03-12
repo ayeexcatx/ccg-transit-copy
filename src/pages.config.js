@@ -28,7 +28,8 @@
  *
  *   import Home from './pages/Home';
  *   import Settings from './pages/Settings';
- *   import __Layout from './Layout.jsx';
+ *   import Drivers from './pages/Drivers';
+import __Layout from './Layout.jsx';
  *
  *   export const PAGES = {
  *       "Home": Home,
@@ -57,11 +58,11 @@ import AdminDashboard from './pages/AdminDashboard';
 import AdminDispatches from './pages/AdminDispatches';
 import AdminTemplateNotes from './pages/AdminTemplateNotes';
 import Availability from './pages/Availability';
-import Drivers from './pages/Drivers';
 import Home from './pages/Home';
 import Incidents from './pages/Incidents';
 import Notifications from './pages/Notifications';
 import Portal from './pages/Portal';
+import Drivers from './pages/Drivers';
 import __Layout from './Layout.jsx';
 
 

@@ -13,6 +13,8 @@ import { useOwnerNotifications } from './useOwnerNotifications';
 import { formatNotificationDetailsMessage } from './formatNotificationDetailsMessage';
 import { useConfirmationsQuery } from './useConfirmationsQuery';
 
+const normalizeId = (value) => String(value ?? '');
+
 export default function NotificationBell({ session }) {
   const navigate = useNavigate();
   const [open, setOpen] = React.useState(false);
@@ -31,20 +33,21 @@ export default function NotificationBell({ session }) {
     enabled: !!session?.company_id && session?.code_type !== 'Admin',
   });
 
-  const dispatchIds = new Set(dispatches.map((dispatch) => dispatch.id));
+  const dispatchIds = new Set(dispatches.map((dispatch) => normalizeId(dispatch.id)));
 
   const driverDispatchIds = new Set(
     driverAssignments
       .filter((assignment) => assignment?.active_flag !== false)
-      .map((assignment) => assignment.dispatch_id)
+      .map((assignment) => normalizeId(assignment.dispatch_id))
       .filter(Boolean)
   );
 
   const filteredNotifications = notifications.filter((notification) => {
     if (!notification.related_dispatch_id) return true;
     if (session?.code_type === 'Admin') return true;
-    if (isDriver) return driverDispatchIds.has(notification.related_dispatch_id);
-    return dispatchIds.has(notification.related_dispatch_id);
+    const relatedDispatchId = normalizeId(notification.related_dispatch_id);
+    if (isDriver) return driverDispatchIds.has(relatedDispatchId);
+    return dispatchIds.has(relatedDispatchId);
   });
 
   const { data: confirmations = [] } = useConfirmationsQuery(session?.code_type === 'CompanyOwner');
@@ -66,7 +69,7 @@ export default function NotificationBell({ session }) {
     if (n.related_dispatch_id) {
       const targetPage = session.code_type === 'Admin' ? 'AdminDispatches' : 'Portal';
       setOpen(false);
-      setTimeout(() => navigate(createPageUrl(`${targetPage}?dispatchId=${n.related_dispatch_id}`)), 0);
+      setTimeout(() => navigate(createPageUrl(`${targetPage}?dispatchId=${normalizeId(n.related_dispatch_id)}`)), 0);
     } else {
       navigate(createPageUrl('Notifications'));
     }

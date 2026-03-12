@@ -17,6 +17,7 @@ import { formatNotificationDetailsMessage } from '../components/notifications/fo
 import { useConfirmationsQuery } from '../components/notifications/useConfirmationsQuery';
 
 const dateOnly = (v) => (typeof v === 'string' ? v.slice(0, 10) : v);
+const normalizeId = (value) => String(value ?? '');
 
 const statusColors = {
   Scheduled: 'bg-blue-50 text-blue-700 border-blue-200',
@@ -58,7 +59,7 @@ const formatDispatchTime = (startTime) => {
 function MiniDispatchCard({ dispatch, companyName, truckNumbers = [] }) {
 
   return (
-    <Link to={createPageUrl(`Portal?dispatchId=${dispatch.id}`)}>
+    <Link to={createPageUrl(`Portal?dispatchId=${normalizeId(dispatch.id)}`)}>
       <div className="flex items-start gap-3 p-3 rounded-lg border border-slate-200 hover:bg-slate-50 transition-all cursor-pointer">
         <div className="shrink-0 mt-0.5">
           {dispatch.shift_time === 'Day Shift'
@@ -158,8 +159,9 @@ export default function Home() {
       .filter((assignment) => assignment?.active_flag !== false)
       .forEach((assignment) => {
         if (!assignment?.dispatch_id || !assignment?.truck_number) return;
-        if (!map.has(assignment.dispatch_id)) map.set(assignment.dispatch_id, []);
-        const trucks = map.get(assignment.dispatch_id);
+        const dispatchId = normalizeId(assignment.dispatch_id);
+        if (!map.has(dispatchId)) map.set(dispatchId, []);
+        const trucks = map.get(dispatchId);
         if (!trucks.includes(assignment.truck_number)) trucks.push(assignment.truck_number);
       });
     return map;
@@ -172,13 +174,13 @@ export default function Home() {
 
   const getVisibleTrucksForDispatch = (dispatch) => {
     if (!dispatch?.id) return [];
-    if (isDriver) return driverAssignedTrucksByDispatch.get(dispatch.id) || [];
+    if (isDriver) return driverAssignedTrucksByDispatch.get(normalizeId(dispatch.id)) || [];
     return (dispatch.trucks_assigned || []).filter((truck) => allowedTrucks.includes(truck));
   };
 
   const filteredDispatches = useMemo(() => {
     if (isDriver) {
-      return dispatches.filter((dispatch) => driverDispatchIds.has(dispatch.id));
+      return dispatches.filter((dispatch) => driverDispatchIds.has(normalizeId(dispatch.id)));
     }
 
     return dispatches.filter(d => {
@@ -206,18 +208,18 @@ export default function Home() {
   // Build action items: unread dispatch-change notifications enriched with dispatch data
   const actionItems = useMemo(() => {
     const dispatchMap = {};
-    filteredDispatches.forEach((dispatch) => {dispatchMap[dispatch.id] = dispatch;});
+    filteredDispatches.forEach((dispatch) => {dispatchMap[normalizeId(dispatch.id)] = dispatch;});
 
     return notifications
       .filter((notification) => {
         if (notification.read_flag) return false;
         if (!notification.related_dispatch_id) return true;
-        return Boolean(dispatchMap[notification.related_dispatch_id]);
+        return Boolean(dispatchMap[normalizeId(notification.related_dispatch_id)]);
       })
       .slice(0, 8)
       .map((notification) => ({
         notification,
-        dispatch: notification.related_dispatch_id ? dispatchMap[notification.related_dispatch_id] : null,
+        dispatch: notification.related_dispatch_id ? dispatchMap[normalizeId(notification.related_dispatch_id)] : null,
       }));
   }, [notifications, filteredDispatches]);
 
@@ -236,7 +238,7 @@ export default function Home() {
     }
 
     if (n.related_dispatch_id) {
-      navigate(createPageUrl(`Portal?dispatchId=${n.related_dispatch_id}`));
+      navigate(createPageUrl(`Portal?dispatchId=${normalizeId(n.related_dispatch_id)}`));
     } else {
       navigate(createPageUrl('Notifications'));
     }
