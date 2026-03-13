@@ -78,8 +78,13 @@ export default function AdminDashboard() {
 
   const countDispatchShiftsByDate = (dateStr) => dispatches.reduce((totals, dispatch) => {
     if (dispatch.date !== dateStr) return totals;
-    if (dispatch.shift_time === 'Night Shift') return { ...totals, night: totals.night + 1 };
-    if (dispatch.shift_time === 'Day Shift') return { ...totals, day: totals.day + 1 };
+
+    const assignedTruckCount = Array.isArray(dispatch.trucks_assigned)
+      ? dispatch.trucks_assigned.filter(Boolean).length
+      : 0;
+
+    if (dispatch.shift_time === 'Night Shift') return { ...totals, night: totals.night + assignedTruckCount };
+    if (dispatch.shift_time === 'Day Shift') return { ...totals, day: totals.day + assignedTruckCount };
     return totals;
   }, { day: 0, night: 0 });
 
