@@ -7,7 +7,7 @@ import {
 } from 'lucide-react';
 import { format, parseISO } from 'date-fns';
 import DispatchDetailDrawer from './DispatchDetailDrawer';
-import { statusBadgeColors, statusBorderAccent } from './statusConfig';
+import { statusBadgeColors, statusBorderAccent, scheduledStatusMessage } from './statusConfig';
 
 const formatDispatchTime = (startTime) => {
   if (!startTime) return '';
@@ -94,7 +94,7 @@ const DispatchCard = React.forwardRef(function DispatchCard({
               {dispatch.status === 'Scheduled' ? (
                 <>
                   <h3 className="text-sm font-semibold text-slate-700">Scheduled</h3>
-                  <p className="text-xs text-blue-600 italic mt-0.5">Your truck has been scheduled — details will follow</p>
+                  <p className="text-xs text-blue-600 italic mt-0.5">{scheduledStatusMessage}</p>
                 </>
               ) : (
                 <>

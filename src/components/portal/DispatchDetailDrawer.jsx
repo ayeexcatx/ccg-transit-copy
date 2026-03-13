@@ -13,7 +13,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { format, parseISO } from 'date-fns';
 import { createPageUrl } from '@/utils';
 import { base44 } from '@/api/base44Client';
-import { statusBadgeColors } from './statusConfig';
+import { statusBadgeColors, scheduledDispatchNote, scheduledStatusMessage } from './statusConfig';
 import { NOTE_TYPES, normalizeTemplateNote, renderSimpleMarkupToHtml } from '@/lib/templateNotes';
 import { calculateWorkedHours, formatTime24h, formatWorkedHours } from '@/lib/timeLogs';
 import { toast } from 'sonner';
@@ -628,7 +628,8 @@ export default function DispatchDetailDrawer({
             {dispatch.status === 'Scheduled' ? (
               <div>
                 <h2 className="text-sm font-semibold text-slate-700">Scheduled Dispatch</h2>
-                <p className="text-sm text-blue-600 mt-1 italic">Your truck has been scheduled — details will follow</p>
+                <p className="text-sm text-blue-600 mt-1 italic">{scheduledStatusMessage}</p>
+                <p className="text-xs text-slate-600 mt-2 italic">{scheduledDispatchNote}</p>
               </div>
             ) : (
               <div className="space-y-3">

@@ -19,7 +19,7 @@ import DispatchForm from '../components/admin/DispatchForm';
 import DispatchDetailDrawer from '../components/portal/DispatchDetailDrawer';
 import { useSession } from '../components/session/SessionContext';
 import { Label } from '@/components/ui/label';
-import { statusBadgeColors, statusBorderAccent } from '../components/portal/statusConfig';
+import { statusBadgeColors, statusBorderAccent, scheduledStatusMessage } from '../components/portal/statusConfig';
 import { reconcileOwnerNotificationsForDispatch } from '@/components/notifications/createNotifications';
 import { syncDispatchHtmlToDrive } from '@/lib/dispatchDriveSync';
 import { toast } from 'sonner';
@@ -865,6 +865,9 @@ export default function AdminDispatches() {
                         {firstLineTimeText ? ` • ${firstLineTimeText}` : ''}
                       </span>
                     </div>
+                    {d.status === 'Scheduled' && (
+                      <p className="text-xs text-blue-600 italic mt-0.5">{scheduledStatusMessage}</p>
+                    )}
                     <div className="flex items-center gap-3 text-sm text-slate-700 flex-wrap">
                       {d.client_name && <span className="font-medium">{d.client_name}</span>}
                     </div>
