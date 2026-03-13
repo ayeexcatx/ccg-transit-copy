@@ -64,7 +64,7 @@ export const syncDispatchHtmlToDrive = async ({ dispatch, previousDispatch, comp
     updatedAt: new Date().toISOString()
   };
 
-  const response = await base44.functions.invoke('syncDispatchHtmlToDrive/index', payload);
+  const response = await base44.functions.invoke('syncDispatchHtmlToDrive/entry', payload);
   const responseData = response?.data || response || {};
   const syncedRecords = Array.isArray(responseData.files)
     ? responseData.files
