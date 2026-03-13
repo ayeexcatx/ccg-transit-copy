@@ -180,7 +180,7 @@ async function getPayload(req: Request): Promise<SyncPayload> {
 }
 
 Deno.serve(async (req: Request) => {
-console.log('syncDispatchHtmlToDrive invoked');
+  console.log('syncDispatchHtmlToDrive invoked');
   
   try {
     const payload = await getPayload(req);
@@ -192,16 +192,20 @@ console.log('syncDispatchHtmlToDrive invoked');
       updatedAt = new Date().toISOString(),
       status = 'synced',
     } = payload;
-    
-console.log('syncDispatchHtmlToDrive payload received', {
-  dispatchId: payload.dispatchId,
-  desiredFilesCount: payload.desiredFiles?.length ?? 0,
-  previousFilesCount: payload.previousFiles?.length ?? 0,
-});
+    console.log('syncDispatchHtmlToDrive payload summary', {
+      dispatchId: payload.dispatchId,
+      rootFolderId: payload.rootFolderId,
+      desiredFilesCount: payload.desiredFiles?.length ?? 0,
+      previousFilesCount: payload.previousFiles?.length ?? 0,
+      status: payload.status ?? 'synced',
+    });
+
     if (!dispatchId) throw new Error('dispatchId is required.');
     if (!rootFolderId) throw new Error('rootFolderId is required.');
 
+    console.log('syncDispatchHtmlToDrive before getting connector token');
     const token = await getGoogleDriveAccessToken(req);
+    console.log('syncDispatchHtmlToDrive after token received');
     const syncedFiles: ExistingDriveRecord[] = [];
 
     const desiredPathKeys = new Set(desiredFiles.map((file) => file.pathKey));
@@ -222,6 +226,13 @@ console.log('syncDispatchHtmlToDrive payload received', {
     }
 
     for (const target of desiredFiles) {
+      console.log('syncDispatchHtmlToDrive before syncing each file', {
+        dispatchId,
+        truckNumber: target.truckNumber,
+        fileName: target.fileName,
+        pathKey: target.pathKey,
+      });
+
       const companyFolder = await ensureFolder(token, rootFolderId, target.companyFolderName);
       const truckFolder = await ensureFolder(token, companyFolder.id, target.truckFolderName);
       const uploaded = await upsertHtmlFile(token, truckFolder.id, target.fileName, target.htmlContent);
