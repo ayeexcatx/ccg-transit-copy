@@ -56,6 +56,7 @@ function LayoutInner({ children, currentPageName }) {
   if (!session) return null;
 
   const isAdmin = session.code_type === 'Admin';
+  const headerTitle = isAdmin ? 'CCG Transit' : session.company || 'CCG Transit';
   const isOwner = session.code_type === 'CompanyOwner';
   const isTruck = session.code_type === 'Truck';
   const isDriver = session.code_type === 'Driver';
@@ -74,7 +75,7 @@ function LayoutInner({ children, currentPageName }) {
                 className="h-12 w-12 object-contain" />
 
               <div className="min-w-0">
-                <h1 className="text-sm font-semibold text-slate-900 tracking-tight">CCG Transit</h1>
+                <h1 className="text-sm font-semibold text-slate-900 tracking-tight">{headerTitle}</h1>
                 <p className="text-xs text-slate-500 flex items-center gap-1 truncate">
                   {session.code_type === 'Admin' && <Shield className="h-3 w-3 shrink-0" />}
                   {session.code_type === 'CompanyOwner' && <Building2 className="h-3 w-3 shrink-0" />}
