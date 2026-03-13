@@ -84,9 +84,14 @@ export default function AdminDashboard() {
     if (isFriday(today)) {
       const sundayStr = format(addDays(today, 2), 'yyyy-MM-dd');
       const mondayStr = format(addDays(today, 3), 'yyyy-MM-dd');
+      const sundayCount = dispatches.filter((dispatch) => dispatch.date === sundayStr).length;
+      const mondayCount = dispatches.filter((dispatch) => dispatch.date === mondayStr).length;
+
       return {
-        label: 'Sun + Mon Dispatches',
-        count: dispatches.filter((dispatch) => dispatch.date === sundayStr || dispatch.date === mondayStr).length,
+        label: 'Upcoming Dispatches',
+        isFridayView: true,
+        sundayCount,
+        mondayCount,
       };
     }
 
@@ -94,6 +99,7 @@ export default function AdminDashboard() {
     return {
       label: "Tomorrow's Dispatches",
       count: dispatches.filter((dispatch) => dispatch.date === tomorrowStr).length,
+      isFridayView: false,
     };
   })();
 
@@ -119,7 +125,12 @@ export default function AdminDashboard() {
       color: 'bg-amber-500', link: 'AdminDispatches'
     },
     {
-      label: tomorrowCardConfig.label, value: tomorrowCardConfig.count, icon: Clock,
+      label: tomorrowCardConfig.label,
+      value: tomorrowCardConfig.isFridayView ? null : tomorrowCardConfig.count,
+      isFridayView: tomorrowCardConfig.isFridayView,
+      sundayCount: tomorrowCardConfig.sundayCount,
+      mondayCount: tomorrowCardConfig.mondayCount,
+      icon: Clock,
       color: 'bg-purple-500', link: 'AdminDispatches'
     },
   ];
@@ -217,7 +228,22 @@ export default function AdminDashboard() {
                 <div className={`h-10 w-10 rounded-xl ${s.color} bg-opacity-10 flex items-center justify-center mb-3`}>
                   <s.icon className={`h-5 w-5 ${s.color.replace('bg-', 'text-')}`} />
                 </div>
-                <p className="text-2xl font-semibold text-slate-900">{s.value}</p>
+                {s.isFridayView ? (
+                  <div className="space-y-1.5 min-h-[2rem]">
+                    {s.sundayCount > 0 ? (
+                      <div className="flex items-baseline justify-between gap-3">
+                        <p className="text-xs text-slate-500">Sunday</p>
+                        <p className="text-xl font-semibold text-slate-900">{s.sundayCount}</p>
+                      </div>
+                    ) : null}
+                    <div className="flex items-baseline justify-between gap-3">
+                      <p className="text-xs text-slate-500">Monday</p>
+                      <p className="text-xl font-semibold text-slate-900">{s.mondayCount}</p>
+                    </div>
+                  </div>
+                ) : (
+                  <p className="text-2xl font-semibold text-slate-900">{s.value}</p>
+                )}
                 <div className="flex items-center justify-between mt-1">
                   <p className={`text-xs ${s.isAction ? 'text-emerald-700 font-semibold' : 'text-slate-500'}`}>{s.label}</p>
                   <ArrowRight className="h-3.5 w-3.5 text-slate-300 group-hover:text-slate-500 transition-colors" />
