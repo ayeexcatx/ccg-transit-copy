@@ -75,7 +75,14 @@ export const getDispatchJobNumberString = (dispatch) => {
   return values.length ? values.join('+') : 'NoJobNumber';
 };
 
-export const buildDispatchHtml = ({ dispatch, companyName, truckNumber, confirmations = [], timeEntries = [] }) => {
+export const buildDispatchHtml = ({
+  dispatch,
+  companyName,
+  truckNumber,
+  confirmations = [],
+  timeEntries = [],
+  driverAssignments = []
+}) => {
   const assignments = [
     {
       job_number: dispatch?.job_number,
@@ -89,7 +96,44 @@ export const buildDispatchHtml = ({ dispatch, companyName, truckNumber, confirma
   ];
 
   const filteredConfirmations = confirmations.filter((entry) => !truckNumber || entry?.truck_number === truckNumber);
+  const filteredDriverAssignments = driverAssignments.filter((entry) => {
+    if (entry?.active_flag === false) return false;
+    return !truckNumber || entry?.truck_number === truckNumber;
+  });
   const filteredTimeEntries = timeEntries.filter((entry) => !truckNumber || entry?.truck_number === truckNumber);
+
+  const selectedDriverEntry = [...filteredDriverAssignments].sort((a, b) => {
+    const left = new Date(a?.assigned_datetime || a?.updated_date || a?.created_date || 0).getTime();
+    const right = new Date(b?.assigned_datetime || b?.updated_date || b?.created_date || 0).getTime();
+    return right - left;
+  })[0];
+  const selectedDriverName = selectedDriverEntry?.driver_name || dispatch?.driver_name || '—';
+
+  const selectedTimeEntryByTruck = Object.values(
+    filteredTimeEntries.reduce((map, entry) => {
+      const key = entry?.truck_number || 'unassigned';
+      const existing = map[key];
+      if (!existing) {
+        map[key] = entry;
+        return map;
+      }
+
+      const existingHasValues = Boolean(existing?.start_time || existing?.end_time);
+      const nextHasValues = Boolean(entry?.start_time || entry?.end_time);
+      if (nextHasValues && !existingHasValues) {
+        map[key] = entry;
+        return map;
+      }
+
+      const existingTime = new Date(existing?.updated_date || existing?.created_date || existing?.timestamp || 0).getTime();
+      const nextTime = new Date(entry?.updated_date || entry?.created_date || entry?.timestamp || 0).getTime();
+      if (nextTime >= existingTime) {
+        map[key] = entry;
+      }
+      return map;
+    }, {})
+  );
+
   const activityRows = [
     ...(Array.isArray(dispatch?.admin_activity_log) ? dispatch.admin_activity_log : []).map((entry) => [
       entry?.action || 'Activity',
@@ -145,7 +189,7 @@ export const buildDispatchHtml = ({ dispatch, companyName, truckNumber, confirma
       <table>
         <tr><th>Company</th><td>${escapeHtml(companyName || '—')}</td></tr>
         <tr><th>Truck Number</th><td>${escapeHtml(truckNumber || '—')}</td></tr>
-        <tr><th>Driver</th><td>${escapeHtml(dispatch?.driver_name || '—')}</td></tr>
+        <tr><th>Driver</th><td>${escapeHtml(selectedDriverName)}</td></tr>
       </table>
     </section>
 
@@ -163,8 +207,8 @@ export const buildDispatchHtml = ({ dispatch, companyName, truckNumber, confirma
     <section class="section">
       <h3>Time</h3>
       ${renderSimpleLogTable(
-        ['Truck', 'Action', 'Timestamp', 'Notes'],
-        filteredTimeEntries.map((entry) => [entry?.truck_number || '—', entry?.entry_type || entry?.status || '—', formatTimestamp(entry?.created_date || entry?.timestamp), entry?.notes || '—']),
+        ['Truck', 'Check In', 'Check Out'],
+        selectedTimeEntryByTruck.map((entry) => [entry?.truck_number || '—', entry?.start_time || '—', entry?.end_time || '—']),
         'No time log entries recorded.'
       )}
     </section>

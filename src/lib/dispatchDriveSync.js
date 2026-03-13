@@ -44,6 +44,7 @@ export const syncDispatchHtmlToDrive = async ({
   companyName,
   confirmations,
   timeEntries,
+  driverAssignments = [],
   finalizeAfterSync = false,
   allowArchivedFinalizedSync = false
 }) => {
@@ -69,7 +70,8 @@ export const syncDispatchHtmlToDrive = async ({
         companyName,
         truckNumber: target.truckNumber,
         confirmations,
-        timeEntries
+        timeEntries,
+        driverAssignments
       })
     })),
     previousFiles: previousRecords,

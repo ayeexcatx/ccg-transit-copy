@@ -60,9 +60,10 @@ const syncDispatchRecordHtml = async ({
   allowArchivedFinalizedSync = false
 }) => {
   const companyName = getCompanyNameFromDispatch(dispatch, companies);
-  const [confirmationsForDispatch, timeEntriesForDispatch] = await Promise.all([
+  const [confirmationsForDispatch, timeEntriesForDispatch, driverAssignmentsForDispatch] = await Promise.all([
     base44.entities.Confirmation.filter({ dispatch_id: dispatch.id }, '-confirmed_at', 500),
-    base44.entities.TimeEntry.filter({ dispatch_id: dispatch.id }, '-created_date', 500)
+    base44.entities.TimeEntry.filter({ dispatch_id: dispatch.id }, '-created_date', 500),
+    base44.entities.DriverDispatchAssignment.filter({ dispatch_id: dispatch.id }, '-assigned_datetime', 500)
   ]);
 
   return syncDispatchHtmlToDrive({
@@ -71,6 +72,7 @@ const syncDispatchRecordHtml = async ({
     companyName,
     confirmations: confirmationsForDispatch,
     timeEntries: timeEntriesForDispatch,
+    driverAssignments: driverAssignmentsForDispatch,
     finalizeAfterSync,
     allowArchivedFinalizedSync
   });
