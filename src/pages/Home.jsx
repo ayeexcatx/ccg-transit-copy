@@ -13,7 +13,7 @@ import { createPageUrl } from '@/utils';
 import { Link, useNavigate } from 'react-router-dom';
 import { useOwnerNotifications } from '../components/notifications/useOwnerNotifications';
 import NotificationStatusBadge from '../components/notifications/NotificationStatusBadge';
-import { formatNotificationDetailsMessage } from '../components/notifications/formatNotificationDetailsMessage';
+import { getNotificationDisplay } from '../components/notifications/formatNotificationDetailsMessage';
 import { useConfirmationsQuery } from '../components/notifications/useConfirmationsQuery';
 
 const dateOnly = (v) => (typeof v === 'string' ? v.slice(0, 10) : v);
@@ -332,6 +332,8 @@ export default function Home() {
                 <p className="text-sm text-slate-400 text-center py-4">No actions needed</p>
               ) : (
                 actionItems.map(({ notification: n, dispatch: d }) => {
+                  const display = getNotificationDisplay(n);
+
                   return (
                     <div
                       key={n.id}
@@ -340,8 +342,8 @@ export default function Home() {
                     >
                       <Bell className="h-4 w-4 text-blue-500 shrink-0 mt-0.5" />
                       <div className="flex-1 min-w-0">
-                        <p className="text-sm font-semibold text-slate-800 truncate">{n.title}</p>
-                        <p className="text-xs text-slate-600 mt-0.5 line-clamp-2 whitespace-pre-line">{formatNotificationDetailsMessage(n.message)}</p>
+                        <p className={`text-sm text-slate-800 truncate ${display.isOwnerDispatchStatus ? 'font-semibold' : ''}`}>{display.title}</p>
+                        <p className="text-xs text-slate-600 mt-0.5 line-clamp-2 whitespace-pre-line">{display.message}</p>
                         {d && (
                           <div className="mt-1 flex items-center gap-1 flex-wrap">
                             <Truck className="h-3 w-3 text-slate-500" />

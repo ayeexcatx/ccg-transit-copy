@@ -11,7 +11,7 @@ import { createPageUrl } from '@/utils';
 import { useNavigate } from 'react-router-dom';
 import NotificationStatusBadge from '@/components/notifications/NotificationStatusBadge';
 import { useOwnerNotifications } from '@/components/notifications/useOwnerNotifications';
-import { formatNotificationDetailsMessage } from '@/components/notifications/formatNotificationDetailsMessage';
+import { getNotificationDisplay } from '@/components/notifications/formatNotificationDetailsMessage';
 import { useConfirmationsQuery } from '@/components/notifications/useConfirmationsQuery';
 
 export default function Notifications() {
@@ -90,39 +90,43 @@ export default function Notifications() {
         </Card>
       ) : (
         <div className="space-y-2">
-          {filteredNotifications.map(n => (
-            <Card
-              key={n.id}
-              className={`hover:shadow-sm transition-shadow cursor-pointer ${!n.read_flag ? 'border-blue-200 bg-blue-50/30' : ''}`}
-              onClick={() => handleNotificationClick(n)}
-            >
-              <CardContent className="p-4">
-                <div className="flex items-start justify-between gap-3">
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-2 mb-1">
-                      <h3 className="text-sm text-slate-900">{n.title}</h3>
-                      {!n.read_flag && <Badge className="bg-blue-500 text-xs">New</Badge>}
-                      {n.related_dispatch_id && (
-                        <ExternalLink className="h-3.5 w-3.5 text-slate-400 ml-auto shrink-0" />
-                      )}
+          {filteredNotifications.map(n => {
+            const display = getNotificationDisplay(n);
+
+            return (
+              <Card
+                key={n.id}
+                className={`hover:shadow-sm transition-shadow cursor-pointer ${!n.read_flag ? 'border-blue-200 bg-blue-50/30' : ''}`}
+                onClick={() => handleNotificationClick(n)}
+              >
+                <CardContent className="p-4">
+                  <div className="flex items-start justify-between gap-3">
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-2 mb-1">
+                        <h3 className={`text-sm text-slate-900 ${display.isOwnerDispatchStatus ? 'font-semibold' : ''}`}>{display.title}</h3>
+                        {!n.read_flag && <Badge className="bg-blue-500 text-xs">New</Badge>}
+                        {n.related_dispatch_id && (
+                          <ExternalLink className="h-3.5 w-3.5 text-slate-400 ml-auto shrink-0" />
+                        )}
+                      </div>
+                      <p className="text-sm text-slate-600 whitespace-pre-line">{display.message}</p>
+                      <div className="mt-1.5">
+                        <NotificationStatusBadge
+                          notification={n}
+                          confirmations={confirmations}
+                          dispatch={dispatchMap[n.related_dispatch_id] || null}
+                          ownerAllowedTrucks={allowedTrucks}
+                        />
+                      </div>
+                      <p className="text-xs text-slate-400 mt-2">
+                        {format(new Date(n.created_date), 'MMM d, yyyy h:mm a')}
+                      </p>
                     </div>
-                    <p className="text-sm text-slate-600 whitespace-pre-line">{formatNotificationDetailsMessage(n.message)}</p>
-                    <div className="mt-1.5">
-                      <NotificationStatusBadge
-                        notification={n}
-                        confirmations={confirmations}
-                        dispatch={dispatchMap[n.related_dispatch_id] || null}
-                        ownerAllowedTrucks={allowedTrucks}
-                      />
-                    </div>
-                    <p className="text-xs text-slate-400 mt-2">
-                      {format(new Date(n.created_date), 'MMM d, yyyy h:mm a')}
-                    </p>
                   </div>
-                </div>
-              </CardContent>
-            </Card>
-          ))}
+                </CardContent>
+              </Card>
+            );
+          })}
         </div>
       )}
     </div>
