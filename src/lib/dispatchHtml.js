@@ -158,64 +158,355 @@ export const buildDispatchHtml = ({
   <meta charset="UTF-8" />
   <title>CCG Dispatch Record</title>
   <style>
-    body { font-family: Arial, sans-serif; background: #f8fafc; margin: 0; padding: 24px; color: #0f172a; }
-    .container { max-width: 980px; margin: 0 auto; background: #fff; border: 1px solid #cbd5e1; border-radius: 12px; padding: 24px; }
-    h1 { margin: 0 0 16px; text-align: center; }
-    .status { display: inline-block; font-weight: 700; padding: 6px 10px; border-radius: 9999px; border: 1px solid #94a3b8; margin-bottom: 8px; }
-    .section { margin-top: 20px; }
-    h3 { font-size: 16px; margin-bottom: 8px; text-decoration: underline; font-weight: 700; }
-    table { width: 100%; border-collapse: collapse; }
-    th, td { border: 1px solid #dbeafe; padding: 8px; text-align: left; vertical-align: top; }
-    th { background: #f1f5f9; font-weight: 700; width: 30%; }
-    .log-box { border: 1px solid #cbd5e1; border-radius: 8px; overflow: hidden; }
-    .log-box.empty { padding: 10px; color: #64748b; font-style: italic; }
-    .footer { margin-top: 24px; color: #64748b; font-size: 12px; text-align: right; }
-    @media print { body { background: #fff; padding: 0; } .container { border: none; border-radius: 0; } }
+    body {
+      font-family: Arial, Helvetica, sans-serif;
+      background: #f8fafc;
+      margin: 0;
+      padding: 24px;
+      color: #0f172a;
+    }
+
+    .container {
+      max-width: 1050px;
+      margin: 0 auto;
+      background: #ffffff;
+      border: 1px solid #cbd5e1;
+      border-radius: 14px;
+      padding: 28px;
+      box-shadow: 0 10px 30px rgba(15, 23, 42, 0.06);
+    }
+
+    .header {
+      border-bottom: 2px solid #334155;
+      padding-bottom: 14px;
+      margin-bottom: 22px;
+    }
+
+    .title-row {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      gap: 16px;
+      flex-wrap: wrap;
+    }
+
+    .title-block h1 {
+      margin: 0;
+      font-size: 24px;
+      line-height: 1.2;
+      color: #0f172a;
+    }
+
+    .subtitle {
+      margin-top: 6px;
+      font-size: 13px;
+      color: #64748b;
+    }
+
+    .status-badge {
+      display: inline-block;
+      padding: 8px 14px;
+      border-radius: 9999px;
+      border: 1px solid #94a3b8;
+      font-size: 13px;
+      font-weight: 700;
+      background: #f8fafc;
+      color: #0f172a;
+      white-space: nowrap;
+    }
+
+    .summary-grid {
+      display: grid;
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+      gap: 10px;
+      margin-top: 18px;
+    }
+
+    .summary-card {
+      border: 1px solid #dbeafe;
+      border-radius: 10px;
+      background: #f8fafc;
+      padding: 10px 12px;
+    }
+
+    .summary-label {
+      font-size: 11px;
+      font-weight: 700;
+      color: #475569;
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+      margin-bottom: 4px;
+    }
+
+    .summary-value {
+      font-size: 14px;
+      font-weight: 700;
+      color: #0f172a;
+      word-break: break-word;
+    }
+
+    .section {
+      margin-top: 24px;
+    }
+
+    .section-title {
+      font-size: 16px;
+      font-weight: 700;
+      color: #0f172a;
+      border-bottom: 1px solid #cbd5e1;
+      padding-bottom: 6px;
+      margin-bottom: 10px;
+      text-decoration: underline;
+    }
+
+    .info-grid {
+      display: grid;
+      grid-template-columns: 180px minmax(0, 1fr);
+      row-gap: 8px;
+      column-gap: 12px;
+      border: 1px solid #cbd5e1;
+      border-radius: 10px;
+      background: #ffffff;
+      padding: 14px;
+    }
+
+    .label {
+      font-weight: 700;
+      color: #334155;
+    }
+
+    .value {
+      color: #0f172a;
+      word-break: break-word;
+    }
+
+    .table-wrap {
+      border: 1px solid #cbd5e1;
+      border-radius: 10px;
+      overflow: hidden;
+      background: #ffffff;
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+    }
+
+    th, td {
+      border: 1px solid #dbeafe;
+      padding: 9px 10px;
+      text-align: left;
+      vertical-align: top;
+      font-size: 13px;
+    }
+
+    th {
+      background: #f1f5f9;
+      font-weight: 700;
+      color: #334155;
+    }
+
+    .log-box {
+      border: 1px solid #cbd5e1;
+      border-radius: 10px;
+      overflow: hidden;
+      background: #ffffff;
+    }
+
+    .log-box.empty {
+      padding: 12px;
+      color: #64748b;
+      font-style: italic;
+    }
+
+    .assignment-card {
+      border: 1px solid #cbd5e1;
+      border-radius: 10px;
+      overflow: hidden;
+      background: #ffffff;
+    }
+
+    .assignment-card + .assignment-card {
+      margin-top: 14px;
+    }
+
+    .assignment-header {
+      background: #f8fafc;
+      border-bottom: 1px solid #cbd5e1;
+      padding: 10px 12px;
+      font-weight: 700;
+      color: #0f172a;
+    }
+
+    .assignment-body {
+      padding: 12px;
+    }
+
+    .assignment-grid {
+      display: grid;
+      grid-template-columns: 180px minmax(0, 1fr);
+      row-gap: 8px;
+      column-gap: 12px;
+    }
+
+    .notes-box {
+      margin-top: 10px;
+      padding: 10px 12px;
+      border: 1px solid #dbeafe;
+      border-radius: 8px;
+      background: #f8fafc;
+    }
+
+    .notes-title {
+      font-weight: 700;
+      margin-bottom: 4px;
+      color: #334155;
+    }
+
+    .footer {
+      margin-top: 32px;
+      border-top: 1px solid #cbd5e1;
+      padding-top: 12px;
+      color: #64748b;
+      font-size: 12px;
+      text-align: right;
+      line-height: 1.5;
+    }
+
+    @media print {
+      body {
+        background: #ffffff;
+        padding: 0;
+      }
+
+      .container {
+        border: none;
+        border-radius: 0;
+        box-shadow: none;
+        max-width: none;
+        padding: 0;
+      }
+
+      .section,
+      .assignment-card,
+      .table-wrap,
+      .log-box {
+        page-break-inside: avoid;
+      }
+    }
   </style>
 </head>
 <body>
   <div class="container">
-    <h1>CCG Dispatch Record</h1>
-    <div class="status">Status: ${escapeHtml(dispatch?.status || '—')}</div>
-    <table>
-      <tr><th>Dispatch Date</th><td>${escapeHtml(formatDateDisplay(dispatch?.date))}</td></tr>
-      <tr><th>Client</th><td>${escapeHtml(dispatch?.client_name || '—')}</td></tr>
-      <tr><th>Shift</th><td>${escapeHtml(normalizeShift(dispatch?.shift_time))}</td></tr>
-      <tr><th>Reference</th><td>${escapeHtml(referenceValue)}</td></tr>
-    </table>
+    <div class="header">
+      <div class="title-row">
+        <div class="title-block">
+          <h1>CCG Dispatch Record</h1>
+          <div class="subtitle">Truck-specific dispatch archive record</div>
+        </div>
+        <div class="status-badge">Status: ${escapeHtml(dispatch?.status || '—')}</div>
+      </div>
+
+      <div class="summary-grid">
+        <div class="summary-card">
+          <div class="summary-label">Dispatch Date</div>
+          <div class="summary-value">${escapeHtml(formatDateDisplay(dispatch?.date))}</div>
+        </div>
+        <div class="summary-card">
+          <div class="summary-label">Client</div>
+          <div class="summary-value">${escapeHtml(dispatch?.client_name || '—')}</div>
+        </div>
+        <div class="summary-card">
+          <div class="summary-label">Shift</div>
+          <div class="summary-value">${escapeHtml(normalizeShift(dispatch?.shift_time))}</div>
+        </div>
+        <div class="summary-card">
+          <div class="summary-label">Reference</div>
+          <div class="summary-value">${escapeHtml(referenceValue)}</div>
+        </div>
+      </div>
+    </div>
 
     <section class="section">
-      <h3>Hauler</h3>
-      <table>
-        <tr><th>Company</th><td>${escapeHtml(companyName || '—')}</td></tr>
-        <tr><th>Truck Number</th><td>${escapeHtml(truckNumber || '—')}</td></tr>
-        <tr><th>Driver</th><td>${escapeHtml(selectedDriverName)}</td></tr>
-      </table>
+      <div class="section-title">Hauler</div>
+      <div class="info-grid">
+        <div class="label">Company</div>
+        <div class="value">${escapeHtml(companyName || '—')}</div>
+
+        <div class="label">Truck Number</div>
+        <div class="value">${escapeHtml(truckNumber || '—')}</div>
+
+        <div class="label">Driver</div>
+        <div class="value">${escapeHtml(selectedDriverName || '—')}</div>
+      </div>
     </section>
 
-    ${assignments.map((assignment, index) => renderAssignmentTable(assignment, index === 0 ? 'Assignment 1' : `Additional Assignment ${index}`)).join('')}
+    <section class="section">
+      <div class="section-title">Assignments</div>
+      ${assignments.map((assignment, index) => `
+        <div class="assignment-card">
+          <div class="assignment-header">${escapeHtml(index === 0 ? 'Assignment 1' : `Additional Assignment ${index}`)}</div>
+          <div class="assignment-body">
+            <div class="assignment-grid">
+              <div class="label">Job Number</div>
+              <div class="value">${escapeHtml(assignment?.job_number || '—')}</div>
+
+              <div class="label">Start Time</div>
+              <div class="value">${escapeHtml(assignment?.start_time || '—')}</div>
+
+              <div class="label">Start Location</div>
+              <div class="value">${escapeHtml(assignment?.start_location || '—')}</div>
+
+              <div class="label">Instructions</div>
+              <div class="value">${escapeHtml(assignment?.instructions || '—')}</div>
+
+              <div class="label">Tolls</div>
+              <div class="value">${escapeHtml(assignment?.toll_status || '—')}</div>
+            </div>
+
+            <div class="notes-box">
+              <div class="notes-title">Notes</div>
+              <div>${escapeHtml(assignment?.notes || '—')}</div>
+            </div>
+          </div>
+        </div>
+      `).join('')}
+    </section>
 
     <section class="section">
-      <h3>Confirmation</h3>
+      <div class="section-title">Confirmation</div>
       ${renderSimpleLogTable(
         ['Truck', 'Type', 'Confirmed By', 'Timestamp'],
-        filteredConfirmations.map((entry) => [entry?.truck_number || '—', entry?.confirmation_type || '—', entry?.driver_name || '—', formatTimestamp(entry?.confirmed_at)]),
+        filteredConfirmations.map((entry) => [
+          entry?.truck_number || '—',
+          entry?.confirmation_type || '—',
+          entry?.driver_name || '—',
+          formatTimestamp(entry?.confirmed_at)
+        ]),
         'No confirmations recorded.'
       )}
     </section>
 
     <section class="section">
-      <h3>Time</h3>
+      <div class="section-title">Time Log</div>
       ${renderSimpleLogTable(
         ['Truck', 'Check In', 'Check Out'],
-        selectedTimeEntryByTruck.map((entry) => [entry?.truck_number || '—', entry?.start_time || '—', entry?.end_time || '—']),
+        selectedTimeEntryByTruck.map((entry) => [
+          entry?.truck_number || '—',
+          entry?.start_time || '—',
+          entry?.end_time || '—'
+        ]),
         'No time log entries recorded.'
       )}
     </section>
 
     <section class="section">
-      <h3>Activity</h3>
-      ${renderSimpleLogTable(['Type', 'Detail', 'By', 'Timestamp'], activityRows, 'No activity entries recorded.')}
+      <div class="section-title">Activity</div>
+      ${renderSimpleLogTable(
+        ['Type', 'Detail', 'By', 'Timestamp'],
+        activityRows,
+        'No activity entries recorded.'
+      )}
     </section>
 
     <div class="footer">
