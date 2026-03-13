@@ -38,8 +38,21 @@ export const getTruckSpecificRecordTargets = (dispatch, companyName) => {
   });
 };
 
-export const syncDispatchHtmlToDrive = async ({ dispatch, previousDispatch, companyName, confirmations, timeEntries }) => {
+export const syncDispatchHtmlToDrive = async ({
+  dispatch,
+  previousDispatch,
+  companyName,
+  confirmations,
+  timeEntries,
+  finalizeAfterSync = false,
+  allowArchivedFinalizedSync = false
+}) => {
   if (!dispatch?.id) return { skipped: true, reason: 'missing_dispatch_id' };
+
+  const alreadyFinalized = Boolean(dispatch?.archived_flag && dispatch?.dispatch_html_drive_sync_finalized_at);
+  if (alreadyFinalized && !allowArchivedFinalizedSync) {
+    return { skipped: true, reason: 'already_finalized' };
+  }
 
   const targets = getTruckSpecificRecordTargets(dispatch, companyName);
   const previousRecords = Array.isArray(previousDispatch?.dispatch_html_drive_records) ? previousDispatch.dispatch_html_drive_records : [];
@@ -84,7 +97,8 @@ export const syncDispatchHtmlToDrive = async ({ dispatch, previousDispatch, comp
     dispatch_html_drive_records: syncedRecords,
     dispatch_html_drive_root_folder_id: DRIVE_DISPATCH_ROOT_FOLDER_ID,
     dispatch_html_drive_last_synced_at: payload.updatedAt,
-    dispatch_html_drive_last_sync_status: 'synced',
+    dispatch_html_drive_last_sync_status: finalizeAfterSync ? 'finalized' : 'synced',
+    dispatch_html_drive_sync_finalized_at: finalizeAfterSync ? payload.updatedAt : dispatch?.dispatch_html_drive_sync_finalized_at || null,
     dispatch_html_drive_last_sync_error: null
   };
 

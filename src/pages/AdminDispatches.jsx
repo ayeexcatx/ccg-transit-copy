@@ -52,7 +52,13 @@ const getCompanyNameFromDispatch = (dispatch, companies) => {
   return company?.name || 'Unknown Company';
 };
 
-const syncDispatchRecordHtml = async ({ dispatch, previousDispatch, companies }) => {
+const syncDispatchRecordHtml = async ({
+  dispatch,
+  previousDispatch,
+  companies,
+  finalizeAfterSync = false,
+  allowArchivedFinalizedSync = false
+}) => {
   const companyName = getCompanyNameFromDispatch(dispatch, companies);
   const [confirmationsForDispatch, timeEntriesForDispatch] = await Promise.all([
     base44.entities.Confirmation.filter({ dispatch_id: dispatch.id }, '-confirmed_at', 500),
@@ -64,7 +70,9 @@ const syncDispatchRecordHtml = async ({ dispatch, previousDispatch, companies })
     previousDispatch,
     companyName,
     confirmations: confirmationsForDispatch,
-    timeEntries: timeEntriesForDispatch
+    timeEntries: timeEntriesForDispatch,
+    finalizeAfterSync,
+    allowArchivedFinalizedSync
   });
 };
 
@@ -527,20 +535,52 @@ export default function AdminDispatches() {
   });
 
   const archiveMutation = useMutation({
-    mutationFn: ({ dispatch, archive }) => {
+    mutationFn: async ({ dispatch, archive }) => {
       const payload = archive ?
-      { archived_flag: true, archived_at: new Date().toISOString(), archived_reason: 'Admin archived' } :
-      { archived_flag: false, archived_at: null, archived_reason: null };
+      {
+        archived_flag: true,
+        archived_at: new Date().toISOString(),
+        archived_reason: 'Admin archived'
+      } :
+      {
+        archived_flag: false,
+        archived_at: null,
+        archived_reason: null,
+        dispatch_html_drive_sync_finalized_at: null
+      };
 
       const nextLog = archive ? appendAdminActivityLog(
         dispatch.admin_activity_log,
         createAdminActivityEntry(session, 'archived_dispatch', `${getAdminDisplayName(session)} archived this dispatch`)
       ) : dispatch.admin_activity_log;
 
-      return base44.entities.Dispatch.update(dispatch.id, {
+      const updatedDispatch = await base44.entities.Dispatch.update(dispatch.id, {
         ...payload,
         admin_activity_log: nextLog
       });
+
+      if (!archive) return updatedDispatch;
+
+      const shouldRunArchiveFinalSync = !dispatch.dispatch_html_drive_sync_finalized_at;
+      if (!shouldRunArchiveFinalSync) return updatedDispatch;
+
+      try {
+        await syncDispatchRecordHtml({
+          dispatch: updatedDispatch,
+          previousDispatch: dispatch,
+          companies,
+          finalizeAfterSync: true,
+          allowArchivedFinalizedSync: true
+        });
+      } catch (error) {
+        await base44.entities.Dispatch.update(updatedDispatch.id, {
+          dispatch_html_drive_last_sync_status: 'failed',
+          dispatch_html_drive_last_sync_error: String(error?.message || error || 'Drive sync failed')
+        });
+        toast.warning('Dispatch archived, but final Google Drive sync failed.');
+      }
+
+      return updatedDispatch;
     },
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ['dispatches-admin'] })
   });
