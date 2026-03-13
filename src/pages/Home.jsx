@@ -84,9 +84,9 @@ const getHomeGreeting = (userName) => {
     else if (hour >= 17 && hour <= 20) greeting = 'Good evening';
     else if (hour >= 21 || hour <= 2) greeting = 'Good night';
 
-    return safeName ? `${greeting}, ${safeName}` : greeting;
+    return safeName ? `${greeting}, ${safeName}!` : `${greeting}!`;
   } catch {
-    return safeName ? `Welcome back, ${safeName}` : 'Welcome back';
+    return safeName ? `Welcome back, ${safeName}!` : 'Welcome back!';
   }
 };
 
@@ -288,9 +288,6 @@ export default function Home() {
     <div className="space-y-6 max-w-2xl mx-auto">
       <div>
         <h2 className="text-2xl font-semibold text-slate-900">{homeHeading}</h2>
-        <p className="text-sm text-slate-500">
-          {userName}
-        </p>
       </div>
 
       {/* Announcements */}
