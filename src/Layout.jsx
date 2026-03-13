@@ -12,6 +12,9 @@ function LayoutInner({ children, currentPageName }) {
   const { session, loading, logout } = useSession();
   const location = useLocation();
   const isAdminSession = session?.code_type === 'Admin';
+  const sessionCompanyId = session?.company_id ||
+  (typeof session?.company === 'string' ? session.company : session?.company?.id) ||
+  null;
 
   const { data: allDrivers = [] } = useQuery({
     queryKey: ['drivers-all-nav'],
@@ -20,6 +23,15 @@ function LayoutInner({ children, currentPageName }) {
   });
 
   const pendingDriverRequestsCount = allDrivers.filter((driver) => driver.access_code_status === 'Pending').length;
+
+  const { data: headerCompany } = useQuery({
+    queryKey: ['header-company', sessionCompanyId],
+    queryFn: async () => {
+      const companies = await base44.entities.Company.filter({ id: sessionCompanyId });
+      return companies[0] || null;
+    },
+    enabled: !!sessionCompanyId && !isAdminSession,
+  });
 
   useEffect(() => {
     if (loading) return;
@@ -56,6 +68,11 @@ function LayoutInner({ children, currentPageName }) {
   if (!session) return null;
 
   const isAdmin = session.code_type === 'Admin';
+  const sessionCompanyName =
+  session?.company_name ||
+  (typeof session?.company === 'object' ? session.company?.name : null) ||
+  (!session?.company_id && typeof session?.company === 'string' ? session.company : null);
+  const headerTitle = isAdmin ? 'CCG Transit' : headerCompany?.name || sessionCompanyName || 'CCG Transit';
   const isOwner = session.code_type === 'CompanyOwner';
   const isTruck = session.code_type === 'Truck';
   const isDriver = session.code_type === 'Driver';
@@ -74,7 +91,7 @@ function LayoutInner({ children, currentPageName }) {
                 className="h-12 w-12 object-contain" />
 
               <div className="min-w-0">
-                <h1 className="text-sm font-semibold text-slate-900 tracking-tight">CCG Transit</h1>
+                <h1 className="text-sm font-semibold text-slate-900 tracking-tight">{headerTitle}</h1>
                 <p className="text-xs text-slate-500 flex items-center gap-1 truncate">
                   {session.code_type === 'Admin' && <Shield className="h-3 w-3 shrink-0" />}
                   {session.code_type === 'CompanyOwner' && <Building2 className="h-3 w-3 shrink-0" />}
