@@ -56,6 +56,40 @@ const formatDispatchTime = (startTime) => {
   return `${hour12}:${minute} ${period}`;
 };
 
+const getEasternHour = () => {
+  const parts = new Intl.DateTimeFormat('en-US', {
+    hour: 'numeric',
+    hour12: false,
+    timeZone: 'America/New_York',
+  }).formatToParts(new Date());
+
+  const hourPart = parts.find((part) => part.type === 'hour')?.value;
+  const hour = Number(hourPart);
+
+  if (!Number.isInteger(hour) || hour < 0 || hour > 23) {
+    throw new Error('Invalid Eastern hour');
+  }
+
+  return hour;
+};
+
+const getHomeGreeting = (userName) => {
+  const safeName = typeof userName === 'string' ? userName.trim() : '';
+
+  try {
+    const hour = getEasternHour();
+    let greeting = 'Good morning';
+
+    if (hour >= 12 && hour <= 16) greeting = 'Good afternoon';
+    else if (hour >= 17 && hour <= 20) greeting = 'Good evening';
+    else if (hour >= 21 || hour <= 2) greeting = 'Good night';
+
+    return safeName ? `${greeting}, ${safeName}` : greeting;
+  } catch {
+    return safeName ? `Welcome back, ${safeName}` : 'Welcome back';
+  }
+};
+
 function MiniDispatchCard({ dispatch, companyName, truckNumbers = [] }) {
 
   return (
@@ -115,6 +149,8 @@ function MiniDispatchCard({ dispatch, companyName, truckNumbers = [] }) {
 export default function Home() {
   const { session } = useSession();
   const navigate = useNavigate();
+  const userName = session?.label || session?.code_type;
+  const homeHeading = getHomeGreeting(userName);
   const allowedTrucks = session?.allowed_trucks || [];
   const isDriver = session?.code_type === 'Driver';
 
@@ -251,9 +287,9 @@ export default function Home() {
   return (
     <div className="space-y-6 max-w-2xl mx-auto">
       <div>
-        <h2 className="text-2xl font-semibold text-slate-900">Home</h2>
+        <h2 className="text-2xl font-semibold text-slate-900">{homeHeading}</h2>
         <p className="text-sm text-slate-500">
-          {session?.label || session?.code_type}
+          {userName}
         </p>
       </div>
 
