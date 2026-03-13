@@ -6,15 +6,48 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
+import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Building2, Plus, Pencil, Trash2, X, Truck } from 'lucide-react';
+
+const CONTACT_TYPE_OPTIONS = ['Office', 'Cell', 'Email', 'Fax', 'Other'];
+const PHONE_CONTACT_TYPES = ['Office', 'Cell', 'Fax'];
+
+const formatPhoneNumber = (value) => {
+  const digits = value.replace(/\D/g, '').slice(0, 10);
+  if (!digits) return '';
+  if (digits.length < 4) return `(${digits}`;
+  if (digits.length < 7) return `(${digits.slice(0, 3)}) ${digits.slice(3)}`;
+  return `(${digits.slice(0, 3)}) ${digits.slice(3, 6)}-${digits.slice(6)}`;
+};
+
+const normalizeContactMethods = (company) => {
+  if (Array.isArray(company?.contact_methods) && company.contact_methods.length > 0) {
+    return company.contact_methods.map((method) => ({
+      type: CONTACT_TYPE_OPTIONS.includes(method?.type) ? method.type : 'Other',
+      value: method?.value || '',
+    }));
+  }
+
+  if (company?.contact_info) {
+    return [{ type: 'Other', value: company.contact_info }];
+  }
+
+  return [{ type: 'Office', value: '' }];
+};
 
 export default function AdminCompanies() {
   const queryClient = useQueryClient();
   const [open, setOpen] = useState(false);
   const [editing, setEditing] = useState(null);
-  const [form, setForm] = useState({ name: '', contact_info: '', trucks: [], status: 'active' });
+  const [form, setForm] = useState({
+    name: '',
+    address: '',
+    contact_methods: [{ type: 'Office', value: '' }],
+    trucks: [],
+    status: 'active',
+  });
   const [truckInput, setTruckInput] = useState('');
 
   const { data: companies = [], isLoading } = useQuery({
@@ -39,7 +72,13 @@ export default function AdminCompanies() {
 
   const openNew = () => {
     setEditing(null);
-    setForm({ name: '', contact_info: '', trucks: [], status: 'active' });
+    setForm({
+      name: '',
+      address: '',
+      contact_methods: [{ type: 'Office', value: '' }],
+      trucks: [],
+      status: 'active',
+    });
     setTruckInput('');
     setOpen(true);
   };
@@ -48,7 +87,8 @@ export default function AdminCompanies() {
     setEditing(company);
     setForm({
       name: company.name || '',
-      contact_info: company.contact_info || '',
+      address: company.address || '',
+      contact_methods: normalizeContactMethods(company),
       trucks: company.trucks || [],
       status: company.status || 'active',
     });
@@ -75,7 +115,53 @@ export default function AdminCompanies() {
 
   const handleSave = () => {
     if (!form.name.trim()) return;
-    saveMutation.mutate(form);
+    const cleanedContactMethods = (form.contact_methods || [])
+      .map((method) => ({
+        type: CONTACT_TYPE_OPTIONS.includes(method?.type) ? method.type : 'Other',
+        value: (method?.value || '').trim(),
+      }))
+      .filter((method) => method.value);
+
+    saveMutation.mutate({
+      ...form,
+      contact_methods: cleanedContactMethods,
+      contact_info: cleanedContactMethods.map((method) => `${method.type}: ${method.value}`).join(' • '),
+    });
+  };
+
+  const addContactMethod = () => {
+    setForm((prev) => ({
+      ...prev,
+      contact_methods: [...prev.contact_methods, { type: 'Office', value: '' }],
+    }));
+  };
+
+  const removeContactMethod = (index) => {
+    setForm((prev) => ({
+      ...prev,
+      contact_methods: prev.contact_methods.filter((_, i) => i !== index),
+    }));
+  };
+
+  const updateContactMethod = (index, key, nextValue) => {
+    setForm((prev) => ({
+      ...prev,
+      contact_methods: prev.contact_methods.map((method, i) => {
+        if (i !== index) return method;
+        if (key === 'value' && PHONE_CONTACT_TYPES.includes(method.type)) {
+          return { ...method, value: formatPhoneNumber(nextValue) };
+        }
+        if (key === 'type') {
+          const nextType = nextValue;
+          const nextMethod = { ...method, type: nextType };
+          if (PHONE_CONTACT_TYPES.includes(nextType)) {
+            nextMethod.value = formatPhoneNumber(nextMethod.value);
+          }
+          return nextMethod;
+        }
+        return { ...method, [key]: nextValue };
+      }),
+    }));
   };
 
   return (
@@ -113,7 +199,18 @@ export default function AdminCompanies() {
                           {c.status}
                         </Badge>
                       </div>
-                      {c.contact_info && <p className="text-sm text-slate-500 mt-0.5">{c.contact_info}</p>}
+                      {c.address && <p className="text-sm text-slate-500 mt-0.5 whitespace-pre-line">{c.address}</p>}
+                      {(Array.isArray(c.contact_methods) && c.contact_methods.length > 0) ? (
+                        <div className="mt-1.5 space-y-0.5">
+                          {c.contact_methods.filter((method) => method?.value).map((method, index) => (
+                            <p key={`${c.id}-contact-${index}`} className="text-sm text-slate-500">
+                              <span className="font-medium text-slate-600">{method.type}:</span> {method.value}
+                            </p>
+                          ))}
+                        </div>
+                      ) : (
+                        c.contact_info && <p className="text-sm text-slate-500 mt-0.5">{c.contact_info}</p>
+                      )}
                       <div className="flex items-center gap-1.5 mt-2 flex-wrap">
                         <Truck className="h-3.5 w-3.5 text-slate-400" />
                         {(c.trucks || []).length === 0 ? (
@@ -152,8 +249,52 @@ export default function AdminCompanies() {
               <Input value={form.name} onChange={e => setForm({ ...form, name: e.target.value })} />
             </div>
             <div>
+              <Label>Address</Label>
+              <Textarea
+                rows={3}
+                value={form.address}
+                onChange={e => setForm({ ...form, address: e.target.value })}
+                placeholder="Street address\nCity, State ZIP"
+              />
+            </div>
+            <div>
               <Label>Contact Info</Label>
-              <Input value={form.contact_info} onChange={e => setForm({ ...form, contact_info: e.target.value })} />
+              <div className="space-y-2 mt-1">
+                {form.contact_methods.map((method, index) => {
+                  const isPhoneType = PHONE_CONTACT_TYPES.includes(method.type);
+                  return (
+                    <div key={`contact-method-${index}`} className="flex gap-2 items-start">
+                      <Select value={method.type} onValueChange={(v) => updateContactMethod(index, 'type', v)}>
+                        <SelectTrigger className="w-32 shrink-0"><SelectValue /></SelectTrigger>
+                        <SelectContent>
+                          {CONTACT_TYPE_OPTIONS.map((option) => (
+                            <SelectItem key={option} value={option}>{option}</SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                      <Input
+                        value={method.value}
+                        placeholder={isPhoneType ? '(555) 123-4567' : 'Enter value'}
+                        onChange={(e) => updateContactMethod(index, 'value', e.target.value)}
+                      />
+                      {form.contact_methods.length > 1 && (
+                        <Button
+                          type="button"
+                          size="icon"
+                          variant="ghost"
+                          onClick={() => removeContactMethod(index)}
+                          className="h-9 w-9 shrink-0"
+                        >
+                          <X className="h-4 w-4" />
+                        </Button>
+                      )}
+                    </div>
+                  );
+                })}
+                <Button type="button" variant="outline" size="sm" onClick={addContactMethod}>
+                  <Plus className="h-3.5 w-3.5 mr-1" />Add Contact
+                </Button>
+              </div>
             </div>
             <div>
               <Label>Status</Label>
