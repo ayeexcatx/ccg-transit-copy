@@ -233,7 +233,7 @@ export default function AdminDashboard() {
         {stats.map(s => (
           <Link key={s.label} to={createPageUrl(s.link)} state={s.state}>
             <Card className="h-full hover:shadow-md transition-shadow cursor-pointer group">
-              <CardContent className="p-5 h-full flex flex-col">
+              <CardContent className="p-4 sm:p-5 h-full flex flex-col">
                 <div className="flex items-center justify-between gap-3 mb-4">
                   <div className="flex items-center gap-2.5 min-w-0">
                     <div className={`h-10 w-10 rounded-xl ${s.color} bg-opacity-10 flex items-center justify-center shrink-0`}>
@@ -243,7 +243,7 @@ export default function AdminDashboard() {
                       {s.headerLabel}
                     </p>
                   </div>
-                  <ArrowRight className="h-3.5 w-3.5 text-slate-300 group-hover:text-slate-500 transition-colors shrink-0" />
+                  <ArrowRight className="h-3.5 w-3.5 text-slate-300 group-hover:text-slate-500 transition-colors shrink-0 translate-y-0.5 sm:translate-y-0" />
                 </div>
 
                 <div className="flex-1 flex items-center">
