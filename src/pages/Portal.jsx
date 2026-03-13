@@ -394,7 +394,14 @@ Would you like to swap ${outgoingTruck} with ${incomingTruck}?`;
       await expandCurrentStatusRequiredTrucks(updatedDispatch, addedTrucks);
       await reconcileOwnerNotificationsForDispatch(updatedDispatch);
 
-      await notifyOwnerTruckReassignment({ dispatch: updatedDispatch, actorName });
+      await notifyOwnerTruckReassignment({
+        dispatch: updatedDispatch,
+        actorName,
+        changeDetails: {
+          fromTruck: removedTrucks[0],
+          toTruck: addedTrucks[0],
+        },
+      });
 
       return { updated: true };
     },

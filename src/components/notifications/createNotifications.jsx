@@ -415,6 +415,7 @@ export async function notifyOwnerTruckReassignment({
   dispatch,
   actorName,
   swapDetails = null,
+  changeDetails = null,
 }) {
   try {
     if (!dispatch?.id) return;
@@ -432,9 +433,11 @@ export async function notifyOwnerTruckReassignment({
       ? `${companyName || 'Company'} swapped their trucks`
       : `${companyName || 'Company'} changed their truck`;
 
-    const message = swapDetails
-      ? `${actorName} updated truck assignments\n${dateText}${shiftText ? ` • ${shiftText}` : ''}`
-      : `${actorName} updated truck assignments\n${dateText}${shiftText ? ` • ${shiftText}` : ''}`;
+    const actionLine = swapDetails
+      ? `${actorName} swapped ${swapDetails.fromTruck} with ${swapDetails.toTruck}`
+      : `${actorName} updated ${changeDetails?.fromTruck || 'truck assignment'} to ${changeDetails?.toTruck || 'truck assignment'}`;
+
+    const message = `${actionLine}\n${dateText}${shiftText ? ` • ${shiftText}` : ''}`;
 
     await base44.entities.Notification.create({
       recipient_type: 'Admin',
@@ -487,10 +490,17 @@ export async function notifyTruckConfirmation(dispatch, truckNumber, companyName
     const lineTwo = [dateText, shiftText, statusText].filter(Boolean).join(' • ');
     const jobTag = dispatch.reference_tag || dispatch.job_number || dispatch.id;
     const lineThree = [jobTag, assignedTrucks.join(', ')].filter(Boolean).join(' • ');
+    const confirmationTitleByStatus = {
+      Scheduled: `${companyDisplayName} has confirmed the schedule`,
+      Dispatch: `${companyDisplayName} has confirmed the dispatch`,
+      Amended: `${companyDisplayName} has confirmed the amendment`,
+      Canceled: `${companyDisplayName} has confirmed the cancellation`,
+      Cancelled: `${companyDisplayName} has confirmed the cancellation`,
+    };
 
     await base44.entities.Notification.create({
       recipient_type: 'Admin',
-      title: `${companyDisplayName} has confirmed their dispatch`,
+      title: confirmationTitleByStatus[dispatch.status] || `${companyDisplayName} has confirmed the dispatch`,
       message: `${lineTwo}\n${lineThree}`,
       related_dispatch_id: dispatch.id,
       read_flag: false,
