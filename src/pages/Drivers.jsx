@@ -162,6 +162,21 @@ export default function Drivers() {
         </div>
       )}
 
+      <Card className="border-slate-200 bg-slate-50/60">
+        <CardContent className="p-4 space-y-3">
+          <h3 className="text-base font-semibold text-slate-900">Assigning Drivers:</h3>
+          <ul className="list-disc pl-5 space-y-2 text-sm leading-6 text-slate-700">
+            <li>When you select a driver on a dispatch, a copy of the dispatch and a notification will be sent to the driver.</li>
+            <li>Any subsequent status changes by the admin will also be received by the driver as long as they remain assigned.</li>
+            <li>If you remove a driver from the dispatch assignment, they will immediately receive a cancellation.</li>
+            <li>If you still have a driver assigned, and switch the driver, the driver you removed will immediately receive a cancellation, and the driver you added will immediately receive a new dispatch notification.</li>
+            <li>When you switch trucks, the driver assignment will reset and the driver will receive a cancellation if you have one assigned.</li>
+            <li>Please make sure to reassign the drivers to the correct dispatch if you switch trucks.</li>
+            <li>If you select a driver and do nothing, they will receive notifications and dispatch updates the same way you receive them, except they will only receive the ones pertaining to the dispatch they are assigned to.</li>
+          </ul>
+        </CardContent>
+      </Card>
+
       <Dialog open={open} onOpenChange={setOpen}>
         <DialogContent className="sm:max-w-md">
           <DialogHeader>
