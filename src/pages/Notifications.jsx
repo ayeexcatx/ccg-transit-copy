@@ -31,6 +31,7 @@ export default function Notifications() {
   const filteredNotifications = notifications.filter((notification) => {
     if (!notification.related_dispatch_id) return true;
     if (session?.code_type === 'Admin') return true;
+    if (session?.code_type === 'Driver' && notification.notification_category === 'driver_dispatch_update') return true;
     return Boolean(dispatchMap[notification.related_dispatch_id]);
   });
   const allowedTrucks = session?.allowed_trucks || [];

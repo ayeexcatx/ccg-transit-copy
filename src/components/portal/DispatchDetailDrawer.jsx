@@ -17,6 +17,7 @@ import { statusBadgeColors, scheduledDispatchNote, scheduledStatusMessage } from
 import { NOTE_TYPES, normalizeTemplateNote, renderSimpleMarkupToHtml } from '@/lib/templateNotes';
 import { calculateWorkedHours, formatTime24h, formatWorkedHours } from '@/lib/timeLogs';
 import { toast } from 'sonner';
+import { notifyDriverAssignmentChanges } from '@/components/notifications/createNotifications';
 import html2canvas from 'html2canvas';
 
 const tollColors = {
@@ -253,6 +254,7 @@ export default function DispatchDetailDrawer({
 
   const assignDriverMutation = useMutation({
     mutationFn: async ({ truckNumber, driverId }) => {
+      const previousAssignments = [...driverAssignments];
       const driver = eligibleDrivers.find((entry) => entry.id === driverId);
       if (!driver) throw new Error('Selected driver was not found.');
 
@@ -269,11 +271,20 @@ export default function DispatchDetailDrawer({
         active_flag: true,
       };
 
+      let savedAssignment;
       if (existing?.id) {
-        return base44.entities.DriverDispatchAssignment.update(existing.id, payload);
+        savedAssignment = await base44.entities.DriverDispatchAssignment.update(existing.id, payload);
+      } else {
+        savedAssignment = await base44.entities.DriverDispatchAssignment.create(payload);
       }
 
-      return base44.entities.DriverDispatchAssignment.create(payload);
+      const nextAssignments = previousAssignments
+        .filter((entry) => entry?.id !== existing?.id)
+        .concat(savedAssignment);
+
+      await notifyDriverAssignmentChanges(dispatch, previousAssignments, nextAssignments);
+
+      return savedAssignment;
     },
     onSuccess: async () => {
       await refetchDriverAssignments();
@@ -288,7 +299,22 @@ export default function DispatchDetailDrawer({
   const handleDriverSelection = async (truckNumber, driverId) => {
     setSelectedDriverByTruck((prev) => ({ ...prev, [truckNumber]: driverId }));
 
-    if (driverId === UNASSIGNED_DRIVER_VALUE) return;
+    if (driverId === UNASSIGNED_DRIVER_VALUE) {
+      const existing = driverAssignments.find((entry) => entry.truck_number === truckNumber && entry.active_flag !== false);
+      if (!existing?.id) return;
+
+      const previousAssignments = [...driverAssignments];
+      await base44.entities.DriverDispatchAssignment.update(existing.id, {
+        active_flag: false,
+      });
+
+      const nextAssignments = previousAssignments.filter((entry) => entry.id !== existing.id);
+      await notifyDriverAssignmentChanges(dispatch, previousAssignments, nextAssignments);
+      await refetchDriverAssignments();
+      queryClient.invalidateQueries({ queryKey: ['driver-dispatch-assignments', dispatch?.id] });
+      toast.success('Driver assignment removed.');
+      return;
+    }
 
     await assignDriverMutation.mutateAsync({ truckNumber, driverId });
   };

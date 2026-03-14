@@ -49,7 +49,10 @@ export function useOwnerNotifications(session) {
   const notifications = rawNotifications.filter((notification) => {
     if (!notification.related_dispatch_id) return true;
     if (session?.code_type === 'Admin') return true;
-    if (session?.code_type === 'Driver') return driverDispatchIds.has(notification.related_dispatch_id);
+    if (session?.code_type === 'Driver') {
+      if (notification.notification_category === 'driver_dispatch_update') return true;
+      return driverDispatchIds.has(notification.related_dispatch_id);
+    }
     return validDispatchIds.has(notification.related_dispatch_id);
   }).sort((a, b) => {
     if (a.read_flag !== b.read_flag) return a.read_flag ? 1 : -1;

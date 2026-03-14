@@ -11,6 +11,138 @@ const statusLabels = {
 
 const NON_CONFIRMATION_CATEGORIES = new Set(['dispatch_update_info']);
 
+const DRIVER_NOTIFICATION_CATEGORY = 'driver_dispatch_update';
+
+function isDispatchCanceledStatus(status) {
+  const normalized = String(status || '').toLowerCase();
+  return normalized === 'cancelled' || normalized === 'canceled';
+}
+
+function getUniqueDriverIds(assignments = []) {
+  return [...new Set((assignments || [])
+    .filter((assignment) => assignment?.active_flag !== false)
+    .map((assignment) => assignment?.driver_id)
+    .filter(Boolean))];
+}
+
+async function buildDriverAccessCodeMap(driverIds = []) {
+  const uniqueIds = [...new Set((driverIds || []).filter(Boolean))];
+  if (!uniqueIds.length) return new Map();
+
+  const results = await Promise.all(uniqueIds.map((driverId) =>
+    base44.entities.Driver.filter({ id: driverId }, '-created_date', 1)
+  ));
+
+  return new Map(results
+    .map((entries) => entries?.[0])
+    .filter(Boolean)
+    .map((driver) => [driver.id, driver.access_code_id])
+    .filter(([, accessCodeId]) => Boolean(accessCodeId)));
+}
+
+async function createDriverDispatchNotification({
+  dispatch,
+  driverAccessCodeId,
+  title,
+  message,
+}) {
+  if (!dispatch?.id || !driverAccessCodeId || !title || !message) return;
+
+  await base44.entities.Notification.create({
+    recipient_type: 'AccessCode',
+    recipient_access_code_id: driverAccessCodeId,
+    recipient_id: driverAccessCodeId,
+    recipient_company_id: dispatch.company_id,
+    title,
+    message: `${message}\n${formatDispatchDateTimeLine(dispatch)}`,
+    related_dispatch_id: dispatch.id,
+    read_flag: false,
+    notification_category: DRIVER_NOTIFICATION_CATEGORY,
+  });
+}
+
+export async function notifyDriverAssignmentChanges(dispatch, previousAssignments = [], nextAssignments = []) {
+  try {
+    if (!dispatch?.id) return;
+
+    const previousDriverIds = getUniqueDriverIds(previousAssignments);
+    const nextDriverIds = getUniqueDriverIds(nextAssignments);
+
+    const removedDriverIds = previousDriverIds.filter((id) => !nextDriverIds.includes(id));
+    const addedDriverIds = nextDriverIds.filter((id) => !previousDriverIds.includes(id));
+    const impactedDriverIds = [...new Set([...removedDriverIds, ...addedDriverIds])];
+    if (!impactedDriverIds.length) return;
+
+    const driverAccessCodeMap = await buildDriverAccessCodeMap(impactedDriverIds);
+
+    await Promise.all([
+      ...removedDriverIds.map((driverId) => createDriverDispatchNotification({
+        dispatch,
+        driverAccessCodeId: driverAccessCodeMap.get(driverId),
+        title: 'Dispatch Canceled',
+        message: 'Your dispatch has been canceled',
+      })),
+      ...addedDriverIds.map((driverId) => createDriverDispatchNotification({
+        dispatch,
+        driverAccessCodeId: driverAccessCodeMap.get(driverId),
+        title: 'New Dispatch',
+        message: 'You have received a new dispatch',
+      })),
+    ]);
+  } catch (error) {
+    console.error('Error creating driver assignment notifications:', error);
+  }
+}
+
+export async function notifyDriversForDispatchUpdate(dispatch, driverAssignments = []) {
+  try {
+    if (!dispatch?.id) return;
+
+    const assignedDriverIds = getUniqueDriverIds(driverAssignments);
+    if (!assignedDriverIds.length) return;
+
+    const driverAccessCodeMap = await buildDriverAccessCodeMap(assignedDriverIds);
+
+    await Promise.all(assignedDriverIds.map((driverId) => createDriverDispatchNotification({
+      dispatch,
+      driverAccessCodeId: driverAccessCodeMap.get(driverId),
+      title: isDispatchCanceledStatus(dispatch.status) ? 'Dispatch Canceled' : 'Dispatch Updated',
+      message: isDispatchCanceledStatus(dispatch.status)
+        ? 'Your dispatch has been canceled'
+        : 'Your dispatch has been updated',
+    })));
+  } catch (error) {
+    console.error('Error creating driver dispatch update notifications:', error);
+  }
+}
+
+export async function notifyDriversForDispatchEdit({
+  previousDispatch,
+  nextDispatch,
+  driverAssignments = [],
+}) {
+  try {
+    if (!nextDispatch?.id) return;
+
+    const assignedDriverIds = getUniqueDriverIds(driverAssignments);
+    if (!assignedDriverIds.length) return;
+
+    const driverAccessCodeMap = await buildDriverAccessCodeMap(assignedDriverIds);
+    const cancelledNow = !isDispatchCanceledStatus(previousDispatch?.status) && isDispatchCanceledStatus(nextDispatch?.status);
+
+    await Promise.all(assignedDriverIds.map((driverId) => createDriverDispatchNotification({
+      dispatch: nextDispatch,
+      driverAccessCodeId: driverAccessCodeMap.get(driverId),
+      title: cancelledNow ? 'Dispatch Canceled' : 'Dispatch Updated',
+      message: cancelledNow
+        ? 'Your dispatch has been canceled'
+        : 'Your dispatch has been updated',
+    })));
+  } catch (error) {
+    console.error('Error creating driver dispatch edit notifications:', error);
+  }
+}
+
 function getRelevantTrucks(dispatch, accessCode) {
   return (dispatch?.trucks_assigned || []).filter(t =>
     (accessCode?.allowed_trucks || []).includes(t)

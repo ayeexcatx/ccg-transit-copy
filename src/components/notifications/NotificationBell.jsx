@@ -50,7 +50,10 @@ export default function NotificationBell({ session }) {
     if (!notification.related_dispatch_id) return true;
     if (session?.code_type === 'Admin') return true;
     const relatedDispatchId = normalizeId(notification.related_dispatch_id);
-    if (isDriver) return driverDispatchIds.has(relatedDispatchId);
+    if (isDriver) {
+      if (notification.notification_category === 'driver_dispatch_update') return true;
+      return driverDispatchIds.has(relatedDispatchId);
+    }
     return dispatchIds.has(relatedDispatchId);
   });
 

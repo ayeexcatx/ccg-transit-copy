@@ -20,7 +20,7 @@ import DispatchDetailDrawer from '../components/portal/DispatchDetailDrawer';
 import { useSession } from '../components/session/SessionContext';
 import { Label } from '@/components/ui/label';
 import { statusBadgeColors, statusBorderAccent, scheduledStatusMessage } from '../components/portal/statusConfig';
-import { reconcileOwnerNotificationsForDispatch } from '@/components/notifications/createNotifications';
+import { reconcileOwnerNotificationsForDispatch, notifyDriversForDispatchEdit } from '@/components/notifications/createNotifications';
 import { syncDispatchHtmlToDrive } from '@/lib/dispatchDriveSync';
 import { toast } from 'sonner';
 
@@ -454,6 +454,17 @@ export default function AdminDispatches() {
 
         if (savedDispatch) {
           await reconcileOwnerNotificationsForDispatch(savedDispatch, accessCodes);
+          const activeDriverAssignments = await base44.entities.DriverDispatchAssignment.filter({
+            dispatch_id: savedDispatch.id,
+            active_flag: true,
+          }, '-assigned_datetime', 500);
+
+          await notifyDriversForDispatchEdit({
+            previousDispatch: editing,
+            nextDispatch: savedDispatch,
+            driverAssignments: activeDriverAssignments,
+          });
+
           try {
             await syncDispatchRecordHtml({
               dispatch: savedDispatch,
