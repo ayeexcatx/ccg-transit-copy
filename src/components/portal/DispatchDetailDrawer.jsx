@@ -464,12 +464,7 @@ export default function DispatchDetailDrawer({
   const handleSaveTrucks = async () => {
     if (!onOwnerTruckUpdate) return;
     setTruckEditMessage(null);
-    const currentTrucks = [...new Set((dispatch?.trucks_assigned || []).filter(Boolean))];
     const nextTrucks = [...new Set(draftTrucks.filter(Boolean))];
-    const removedTrucks = currentTrucks.filter((truck) => !nextTrucks.includes(truck));
-    const removedTruckHadAssignedDriver = removedTrucks.some((truck) =>
-      driverAssignments.some((assignment) => assignment?.active_flag !== false && assignment?.truck_number === truck)
-    );
 
     if (nextTrucks.length !== requiredTruckCount) {
       setTruckEditMessage({
@@ -485,9 +480,6 @@ export default function DispatchDetailDrawer({
       const result = await onOwnerTruckUpdate(dispatch, nextTrucks);
       if (result?.updated) {
         resetTruckEditing();
-        if (isOwner && removedTrucks.length > 0 && removedTruckHadAssignedDriver) {
-          toast.warning('The drivers you had assigned to the truck numbers you switched received a cancellation. Please reassign drivers to send their new dispatch.');
-        }
       }
     } catch (error) {
       setTruckEditMessage({
