@@ -110,7 +110,10 @@ export default function DispatchForm({ dispatch, dispatches = [], companies, acc
 
   const isConfirmed = form.status === 'Scheduled';
   const isFullDispatch = form.status === 'Dispatch' || form.status === 'Amended';
-  const isCanceled = form.status === 'Cancelled';
+  const normalizedStatus = String(form.status || '').toLowerCase();
+  const isCanceled = normalizedStatus === 'cancelled' || normalizedStatus === 'canceled';
+  const isAmended = normalizedStatus === 'amended';
+  const showStatusReasonField = isCanceled || isAmended;
 
   const normalizeAdditionalAssignments = (assignments) => {
     if (!Array.isArray(assignments)) return [];
@@ -420,6 +423,17 @@ export default function DispatchForm({ dispatch, dispatches = [], companies, acc
               <Label>Client Name</Label>
               <Input value={form.client_name} onChange={(e) => setForm({ ...form, client_name: e.target.value })} />
             </div>
+            {showStatusReasonField &&
+          <div>
+                <Label>{isCanceled ? 'Cancellation Reason' : 'Amendment Reason'}{isCanceled ? ' *' : ''}</Label>
+                <Textarea
+              value={form.canceled_reason}
+              onChange={(e) => setForm({ ...form, canceled_reason: e.target.value })}
+              rows={2}
+              placeholder={isCanceled ? 'Reason for cancellation...' : 'Reason for amendment...'}
+            />
+              </div>
+          }
           </>
         }
       </div>
@@ -491,13 +505,6 @@ export default function DispatchForm({ dispatch, dispatches = [], companies, acc
                 </SelectContent>
               </Select>
             </div>
-
-            {isCanceled &&
-          <div>
-                <Label>Cancellation Reason *</Label>
-                <Textarea value={form.canceled_reason} onChange={(e) => setForm({ ...form, canceled_reason: e.target.value })} rows={2} placeholder="Reason for cancellation..." />
-              </div>
-          }
           </div>
         </>
       }

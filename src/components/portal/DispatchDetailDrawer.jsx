@@ -792,6 +792,24 @@ export default function DispatchDetailDrawer({
 
           {dispatch.status !== 'Scheduled' && (
             <>
+              {(() => {
+                const normalizedStatus = String(dispatch.status || '').toLowerCase();
+                const isCanceled = normalizedStatus === 'cancelled' || normalizedStatus === 'canceled';
+                const isAmended = normalizedStatus === 'amended';
+
+                if (!dispatch.canceled_reason || (!isCanceled && !isAmended)) return null;
+
+                return (
+                  <div className="flex items-start gap-2 bg-red-50 rounded-lg p-4">
+                    <AlertTriangle className="h-4 w-4 text-red-500 mt-0.5 shrink-0" />
+                    <div>
+                      <p className="text-xs font-semibold text-red-700 mb-0.5">{isCanceled ? 'Cancellation' : 'Amendment'}</p>
+                      <p className="text-sm text-red-600">{dispatch.canceled_reason}</p>
+                    </div>
+                  </div>
+                );
+              })()}
+
               {(hasAdditional || dispatch.instructions || dispatch.notes || dispatch.toll_status || dispatch.start_time || dispatch.start_location) && (
                 <div className="rounded-lg border border-slate-200 bg-slate-50 p-3 space-y-3">
                   <p className="text-xs text-slate-500 uppercase tracking-wide">Assignment 1</p>
@@ -932,15 +950,6 @@ export default function DispatchDetailDrawer({
                 </div>
               )}
 
-                {dispatch.canceled_reason && (
-                  <div className="flex items-start gap-2 bg-red-50 rounded-lg p-4">
-                    <AlertTriangle className="h-4 w-4 text-red-500 mt-0.5 shrink-0" />
-                    <div>
-                      <p className="text-xs font-semibold text-red-700 mb-0.5">Cancellation Reason</p>
-                      <p className="text-sm text-red-600">{dispatch.canceled_reason}</p>
-                    </div>
-                  </div>
-                )}
               </>
             )}
           </div>
