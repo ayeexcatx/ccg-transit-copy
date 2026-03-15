@@ -39,6 +39,9 @@ export default function TutorialProvider({ session, children }) {
 
   const [isRunning, setIsRunning] = useState(false);
   const [showWelcome, setShowWelcome] = useState(false);
+  const [isDispatchDrawerOpen, setIsDispatchDrawerOpen] = useState(() => (
+    typeof window !== 'undefined' && window.__dispatchDetailDrawerOpen === true
+  ));
 
   const {
     totalSteps,
@@ -105,6 +108,25 @@ export default function TutorialProvider({ session, children }) {
     handleStepChange(stepIndex - 1);
   }, [handleStepChange, isCompletion, stepIndex, totalSteps]);
 
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return undefined;
+
+    const syncDispatchDrawerOpen = (event) => {
+      if (typeof event?.detail?.open === 'boolean') {
+        setIsDispatchDrawerOpen(event.detail.open);
+        return;
+      }
+      setIsDispatchDrawerOpen(window.__dispatchDetailDrawerOpen === true);
+    };
+
+    window.addEventListener('dispatch-detail-drawer-state', syncDispatchDrawerOpen);
+
+    return () => {
+      window.removeEventListener('dispatch-detail-drawer-state', syncDispatchDrawerOpen);
+    };
+  }, []);
+
   useEffect(() => {
     if (!isCompanyOwner) {
       setShowWelcome(false);
@@ -144,13 +166,13 @@ export default function TutorialProvider({ session, children }) {
     <TutorialContext.Provider value={value}>
       {children}
 
-      {isCompanyOwner && (
+      {isCompanyOwner && !isDispatchDrawerOpen && (
         <Button
           type="button"
           size="sm"
-          variant="secondary"
+          variant="default"
           onClick={startTutorial}
-          className="fixed bottom-5 right-5 z-[180] shadow-lg"
+          className="fixed bottom-5 right-5 z-[180] border border-blue-700 bg-blue-600 text-white shadow-lg hover:bg-blue-700 focus-visible:ring-blue-500"
         >
           <CircleHelp className="mr-1 h-4 w-4" />
           Tutorial

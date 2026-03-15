@@ -28,6 +28,16 @@ const tollColors = {
 };
 
 const UNASSIGNED_DRIVER_VALUE = '__unassigned__';
+let openDispatchDrawerCount = 0;
+
+function announceDispatchDrawerState() {
+  if (typeof window === 'undefined') return;
+  const isOpen = openDispatchDrawerCount > 0;
+  window.__dispatchDetailDrawerOpen = isOpen;
+  window.dispatchEvent(new CustomEvent('dispatch-detail-drawer-state', {
+    detail: { open: isOpen },
+  }));
+}
 
 
 function formatActivityTimestamp(value) {
@@ -189,6 +199,18 @@ export default function DispatchDetailDrawer({
   useEffect(() => {
     setDraftTimeEntries({});
   }, [dispatch?.id]);
+
+  useEffect(() => {
+    if (!open) return undefined;
+
+    openDispatchDrawerCount += 1;
+    announceDispatchDrawerState();
+
+    return () => {
+      openDispatchDrawerCount = Math.max(0, openDispatchDrawerCount - 1);
+      announceDispatchDrawerState();
+    };
+  }, [open]);
 
   useEffect(() => {
     setIsEditingTrucks(false);

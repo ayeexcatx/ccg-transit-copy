@@ -83,9 +83,9 @@ export default function DispatchDrawerTutorial({ isOwner, drawerOpen }) {
         <Button
           type="button"
           size="sm"
-          variant="outline"
+          variant="default"
           onClick={startTutorial}
-          className="h-7 text-xs"
+          className="h-7 border border-blue-700 bg-blue-600 px-2 text-xs text-white shadow-sm hover:bg-blue-700 focus-visible:ring-blue-500"
           data-tour="dispatch-tutorial-trigger"
         >
           <CircleHelp className="mr-1 h-3.5 w-3.5" />
