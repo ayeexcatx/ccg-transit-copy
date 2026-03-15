@@ -79,15 +79,17 @@ function LayoutInner({ children, currentPageName }) {
   const isDriver = session.code_type === 'Driver';
   const canUsePortalTabs = isOwner || isTruck || isDriver;
   const isActive = (pageName) => location.pathname === createPageUrl(pageName);
+  const navBaseClassName = 'text-xs flex items-center gap-1 rounded-lg px-3 py-1 transition-all duration-200';
+  const mobileNavBaseClassName = 'text-xs whitespace-nowrap flex items-center gap-1 rounded-lg px-3 py-1 transition-all duration-200';
   const getNavItemClassName = (active) =>
   active ?
-  'text-xs flex items-center gap-1 border-b-2 border-amber-500 bg-amber-50 text-amber-700 font-semibold hover:bg-amber-100 hover:text-amber-800 [&_svg]:text-amber-600' :
-  'text-xs flex items-center gap-1 border-b-2 border-transparent text-slate-600 hover:bg-slate-100 hover:text-slate-800 [&_svg]:text-slate-500 hover:[&_svg]:text-slate-700';
+  `${navBaseClassName} bg-slate-900 text-white font-medium hover:bg-slate-900 [&_svg]:text-white` :
+  `${navBaseClassName} text-slate-600 hover:bg-slate-100 hover:text-slate-800 [&_svg]:text-slate-500 hover:[&_svg]:text-slate-700`;
 
   const getMobileNavItemClassName = (active) =>
   active ?
-  'text-xs whitespace-nowrap flex items-center gap-1 border-b-2 border-amber-500 bg-amber-50 text-amber-700 font-semibold hover:bg-amber-100 hover:text-amber-800 [&_svg]:text-amber-600' :
-  'text-xs whitespace-nowrap flex items-center gap-1 border-b-2 border-transparent text-slate-600 hover:bg-slate-100 hover:text-slate-800 [&_svg]:text-slate-500 hover:[&_svg]:text-slate-700';
+  `${mobileNavBaseClassName} bg-slate-900 text-white font-medium hover:bg-slate-900 [&_svg]:text-white` :
+  `${mobileNavBaseClassName} text-slate-600 hover:bg-slate-100 hover:text-slate-800 [&_svg]:text-slate-500 hover:[&_svg]:text-slate-700`;
 
   const portalNavItems = [
   {
