@@ -26,6 +26,9 @@ const statusColors = {
   Cancelled: 'bg-red-50 text-red-700 border-red-200',
 };
 
+const homeSectionCardClass = 'rounded-2xl border border-slate-200 bg-white shadow-sm overflow-hidden';
+const homeSectionHeaderClass = 'flex min-h-14 items-center justify-between gap-2 border-b border-slate-200 px-4 py-3';
+
 const formatDispatchDate = (dateValue) => (dateValue ? format(parseISO(dateValue), 'EEE, MMM d, yyyy') : '');
 
 const formatDispatchTime = (startTime) => {
@@ -293,8 +296,8 @@ export default function Home() {
       {/* Announcements */}
       {announcements.length > 0 && (
         <section data-tour="announcement-center">
-          <Card className="rounded-lg border bg-white shadow-sm overflow-hidden">
-            <div className="border-b border-slate-100 bg-blue-700 px-4 py-3">
+          <Card className={homeSectionCardClass}>
+            <div className={`${homeSectionHeaderClass} bg-blue-700`}>
               <div className="flex items-center gap-2">
                 <Megaphone className="h-4 w-4 text-white" />
                 <h3 className="text-sm font-semibold text-white">Announcement Center</h3>
@@ -314,8 +317,8 @@ export default function Home() {
       {/* Action Needed — always visible for CompanyOwner */}
       {session?.code_type === 'CompanyOwner' && (
         <section data-tour="action-needed">
-          <Card className="border-2 border-red-600">
-            <div className="border-b border-red-800 bg-red-700 px-4 py-3 flex items-center justify-between gap-2">
+          <Card className={homeSectionCardClass}>
+            <div className={`${homeSectionHeaderClass} bg-red-700`}>
               <div className="flex items-center gap-2 min-w-0">
                 <AlertCircle className="h-4 w-4 text-white shrink-0" />
                 <h3 className="text-sm font-semibold text-white truncate">Action Needed</h3>
@@ -375,8 +378,8 @@ export default function Home() {
 
       {/* Today's Dispatches */}
       <section data-tour="dispatch-preview">
-        <Card>
-          <div className="border-b border-green-800 bg-green-700 px-4 py-3">
+        <Card className={homeSectionCardClass}>
+          <div className={`${homeSectionHeaderClass} bg-green-700`}>
             <div className="flex items-center gap-2">
               <Sun className="h-4 w-4 text-white" />
               <h3 className="text-sm font-semibold text-white">Today's Dispatches</h3>
@@ -397,13 +400,13 @@ export default function Home() {
 
       {/* Upcoming Dispatches */}
       <section>
-        <Card>
-          <div className="border-b border-slate-900 bg-black px-4 py-3">
+        <Card className={homeSectionCardClass}>
+          <div className={`${homeSectionHeaderClass} bg-indigo-700`}>
             <div className="flex items-center gap-2">
               <Clock className="h-4 w-4 text-white" />
               <h3 className="text-sm font-semibold text-white">Upcoming Dispatches</h3>
               {upcomingDispatches.length > 0 && (
-                <Badge className="bg-white text-black text-xs px-1.5 py-0">{upcomingDispatches.length}</Badge>
+                <Badge className="bg-white text-indigo-700 text-xs px-1.5 py-0">{upcomingDispatches.length}</Badge>
               )}
             </div>
           </div>
