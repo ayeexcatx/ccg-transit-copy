@@ -47,7 +47,7 @@ export const companyOwnerTutorialSteps = [
     page: createPageUrl('Home'),
     target: '[data-tour="dispatch-preview"]',
     title: 'Dispatch Preview',
-    description: 'This area provides a quick view of your next few assigned dispatches',
+    description: 'This area provides a quick view of your next few assigned dispatches.',
   },
   {
     id: 'dispatches-page',
@@ -95,7 +95,7 @@ export const companyOwnerTutorialSteps = [
     page: createPageUrl('Home'),
     target: '[data-tour="incidents-nav"]',
     title: 'Incidents',
-    description: 'This is where you can view your incident history or create a new incident report.',
+    description: 'This is where you can create a new incident report or view your incident history.',
   },
 ];
 
