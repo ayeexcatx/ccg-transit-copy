@@ -1,8 +1,10 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 
 const clamp = (value, min, max) => Math.max(min, Math.min(max, value));
+const EDGE_MARGIN = 24;
+const CENTER_TOLERANCE = 64;
 
-const getVisibleRect = (selector) => {
+const resolveVisibleTarget = (selector) => {
   if (!selector) return null;
   const targets = Array.from(document.querySelectorAll(selector));
   const visible = targets.find((el) => {
@@ -10,7 +12,52 @@ const getVisibleRect = (selector) => {
     const rect = el.getBoundingClientRect();
     return style.display !== 'none' && style.visibility !== 'hidden' && rect.width > 0 && rect.height > 0;
   });
-  return visible?.getBoundingClientRect() || null;
+  if (!visible) return null;
+  return {
+    element: visible,
+    rect: visible.getBoundingClientRect(),
+  };
+};
+
+const getIsNearViewportCenter = (rect) => {
+  if (!rect) return false;
+
+  const viewportHeight = window.innerHeight;
+  const viewportCenter = viewportHeight / 2;
+  const targetCenter = rect.top + (rect.height / 2);
+  const fullyVisible = rect.top >= EDGE_MARGIN && rect.bottom <= viewportHeight - EDGE_MARGIN;
+  const closeToCenter = Math.abs(targetCenter - viewportCenter) <= CENTER_TOLERANCE;
+
+  return fullyVisible && closeToCenter;
+};
+
+const settleAfterScroll = () => new Promise((resolve) => {
+  let frameCount = 0;
+  const settle = () => {
+    frameCount += 1;
+    if (frameCount >= 2) {
+      resolve();
+      return;
+    }
+    window.requestAnimationFrame(settle);
+  };
+
+  window.requestAnimationFrame(settle);
+});
+
+const scrollTargetIntoView = async (element, rect) => {
+  if (!element || !rect || getIsNearViewportCenter(rect)) {
+    return;
+  }
+
+  element.scrollIntoView({
+    behavior: 'smooth',
+    block: 'center',
+    inline: 'nearest',
+  });
+
+  await settleAfterScroll();
+  await new Promise((resolve) => window.setTimeout(resolve, 180));
 };
 
 // Shared runner for tutorial overlays to keep sequencing/target resolution behavior consistent.
@@ -31,17 +78,34 @@ export default function useTutorialRunner({ steps, active, getCurrentTarget }) {
 
     let cancelled = false;
     let attempts = 0;
+    const maxAttempts = 20;
 
-    const resolveTarget = () => {
+    const resolveTarget = async () => {
       if (cancelled) return;
-      const rect = getVisibleRect(getCurrentTarget(currentStep));
-      if (rect) {
-        setTargetRect(rect);
+
+      const resolvedTarget = resolveVisibleTarget(getCurrentTarget(currentStep));
+      if (resolvedTarget) {
+        await scrollTargetIntoView(resolvedTarget.element, resolvedTarget.rect);
+        if (cancelled) return;
+
+        const measuredTarget = resolveVisibleTarget(getCurrentTarget(currentStep));
+        if (measuredTarget) {
+          setTargetRect(measuredTarget.rect);
+          return;
+        }
+
+        attempts += 1;
+        if (attempts < maxAttempts) {
+          window.setTimeout(resolveTarget, 120);
+          return;
+        }
+
+        handleStepChange(stepIndex + 1);
         return;
       }
 
       attempts += 1;
-      if (attempts >= 8) {
+      if (attempts >= maxAttempts) {
         handleStepChange(stepIndex + 1);
         return;
       }
@@ -60,8 +124,8 @@ export default function useTutorialRunner({ steps, active, getCurrentTarget }) {
     if (!active || isCompletion) return;
 
     const updatePosition = () => {
-      const rect = getVisibleRect(getCurrentTarget(currentStep));
-      if (rect) setTargetRect(rect);
+      const resolvedTarget = resolveVisibleTarget(getCurrentTarget(currentStep));
+      if (resolvedTarget?.rect) setTargetRect(resolvedTarget.rect);
     };
 
     updatePosition();
