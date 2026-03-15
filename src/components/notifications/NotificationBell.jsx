@@ -101,24 +101,18 @@ export default function NotificationBell({ session }) {
         </Button>
       </PopoverTrigger>
       <PopoverContent
-        className="w-[min(22rem,calc(100vw-1.25rem))] max-w-[calc(100vw-1.25rem)] p-0 rounded-2xl border border-slate-200/90 bg-white/95 shadow-2xl shadow-slate-900/20 backdrop-blur supports-[backdrop-filter]:bg-white/90"
+        className="w-[min(24rem,calc(100vw-1.5rem))] max-w-sm mx-3 p-0 rounded-2xl border border-slate-200/60 bg-white/80 shadow-2xl shadow-slate-900/25 backdrop-blur-lg supports-[backdrop-filter]:bg-white/65 transition-all duration-200 data-[state=open]:animate-in data-[state=open]:fade-in-0 data-[state=open]:zoom-in-95 data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=closed]:zoom-out-95"
         align="end"
         sideOffset={10}
       >
-        <div className="px-4 py-3.5 border-b border-slate-200 bg-slate-50/70 rounded-t-2xl">
+        <div className="px-4 py-3 border-b border-slate-200/60 bg-gradient-to-r from-white/70 via-slate-50/40 to-white/70 rounded-t-2xl">
           <div className="flex items-center justify-between">
-            <div className="flex items-center gap-2.5">
-              <div className="h-8 w-8 rounded-full bg-blue-100 text-blue-600 flex items-center justify-center">
-                <Bell className="h-4 w-4" />
-              </div>
-              <h3 className="font-semibold text-sm text-slate-900">Notifications</h3>
+            <div className="flex items-center gap-2">
+              <Bell className="h-4 w-4 text-blue-500" />
+              <h3 className="text-sm font-semibold tracking-tight text-slate-800">Notifications</h3>
             </div>
             <Link to={createPageUrl('Notifications')}>
-              <Button
-                variant="ghost"
-                size="sm"
-                className="h-8 px-2.5 text-xs font-medium text-blue-600 hover:bg-blue-50 hover:text-blue-700"
-              >
+              <Button variant="ghost" size="sm" className="h-8 px-2 text-sm font-medium text-blue-600 hover:bg-blue-50/70 hover:text-blue-700 focus-visible:ring-blue-300">
                 View all
               </Button>
             </Link>
@@ -126,7 +120,7 @@ export default function NotificationBell({ session }) {
         </div>
         <div className="max-h-[26rem] overflow-y-auto">
           {filteredNotifications.length === 0 ? (
-            <div className="p-6 text-center text-sm text-slate-500">No notifications</div>
+            <div className="p-7 text-center text-sm text-slate-500">No notifications</div>
           ) : (
             filteredNotifications.slice(0, 5).map((n) => {
               const dispatch = n.related_dispatch_id
@@ -137,27 +131,27 @@ export default function NotificationBell({ session }) {
               return (
                 <div
                   key={n.id}
-                  className={`group px-4 py-3.5 cursor-pointer border-b border-slate-100/90 transition-colors ${!n.read_flag ? 'bg-blue-50/50' : 'bg-white'} hover:bg-slate-50/85 last:border-b-0`}
+                  className={`group relative cursor-pointer border-b border-slate-100/90 px-4 py-3.5 transition-all duration-200 last:border-b-0 ${!n.read_flag ? 'bg-blue-50/40' : 'bg-white/40'} hover:bg-slate-50/80 focus-within:bg-slate-50/80`}
                   onClick={() => handleNotificationClick(n)}
                 >
+                  {!n.read_flag && (
+                    <span className="absolute left-2.5 top-5 h-2 w-2 rounded-full bg-blue-500 shadow-[0_0_0_4px_rgba(59,130,246,0.12)]" aria-hidden="true" />
+                  )}
                   <div className="flex items-start justify-between gap-3">
-                    <div className="flex-1 min-w-0">
-                      <p className={`text-sm leading-5 text-slate-900 ${display.isOwnerDispatchStatus ? 'font-semibold' : 'font-medium'}`}>
+                    <div className={`min-w-0 flex-1 ${!n.read_flag ? 'pl-4' : ''}`}>
+                      <p className={`text-sm leading-5 text-slate-800 ${display.isOwnerDispatchStatus ? 'font-semibold' : 'font-medium'}`}>
                         {display.title}
                       </p>
-                      <p className="text-xs leading-5 text-slate-600 mt-1 whitespace-pre-line">{display.message}</p>
+                      <p className="mt-1 whitespace-pre-line text-sm leading-5 text-slate-600">{display.message}</p>
                       {n.required_trucks?.length > 0 && (
                         <div className="mt-2">
                           <NotificationStatusBadge notification={n} confirmations={confirmations} />
                         </div>
                       )}
-                      <p className="text-[11px] text-slate-400 mt-2">
+                      <p className="mt-2 text-xs text-slate-400">
                         {format(new Date(n.created_date), 'MMM d, h:mm a')}
                       </p>
                     </div>
-                    {!n.read_flag && (
-                      <div className="h-2.5 w-2.5 rounded-full bg-blue-500 shrink-0 mt-1.5 ring-2 ring-blue-100" />
-                    )}
                   </div>
                 </div>
               );
