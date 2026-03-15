@@ -101,22 +101,32 @@ export default function NotificationBell({ session }) {
         </Button>
       </PopoverTrigger>
       <PopoverContent
-        className="w-[min(20rem,calc(100vw-1rem))] max-w-[calc(100vw-1rem)] p-0 border border-red-300 shadow-2xl"
+        className="w-[min(22rem,calc(100vw-1.25rem))] max-w-[calc(100vw-1.25rem)] p-0 rounded-2xl border border-slate-200/90 bg-white/95 shadow-2xl shadow-slate-900/20 backdrop-blur supports-[backdrop-filter]:bg-white/90"
         align="end"
+        sideOffset={10}
       >
-        <div className="p-3 border-b border-red-300 bg-red-500 text-white">
+        <div className="px-4 py-3.5 border-b border-slate-200 bg-slate-50/70 rounded-t-2xl">
           <div className="flex items-center justify-between">
-            <h3 className="font-semibold text-sm">Notifications</h3>
+            <div className="flex items-center gap-2.5">
+              <div className="h-8 w-8 rounded-full bg-blue-100 text-blue-600 flex items-center justify-center">
+                <Bell className="h-4 w-4" />
+              </div>
+              <h3 className="font-semibold text-sm text-slate-900">Notifications</h3>
+            </div>
             <Link to={createPageUrl('Notifications')}>
-              <Button variant="ghost" size="sm" className="h-7 text-xs text-white hover:bg-red-600 hover:text-white">
+              <Button
+                variant="ghost"
+                size="sm"
+                className="h-8 px-2.5 text-xs font-medium text-blue-600 hover:bg-blue-50 hover:text-blue-700"
+              >
                 View all
               </Button>
             </Link>
           </div>
         </div>
-        <div className="max-h-96 overflow-y-auto">
+        <div className="max-h-[26rem] overflow-y-auto">
           {filteredNotifications.length === 0 ? (
-            <div className="p-4 text-center text-sm text-slate-500">No notifications</div>
+            <div className="p-6 text-center text-sm text-slate-500">No notifications</div>
           ) : (
             filteredNotifications.slice(0, 5).map((n) => {
               const dispatch = n.related_dispatch_id
@@ -127,24 +137,26 @@ export default function NotificationBell({ session }) {
               return (
                 <div
                   key={n.id}
-                  className={`p-3 border-b hover:bg-slate-50 cursor-pointer ${!n.read_flag ? 'bg-blue-50/30' : ''}`}
+                  className={`group px-4 py-3.5 cursor-pointer border-b border-slate-100/90 transition-colors ${!n.read_flag ? 'bg-blue-50/50' : 'bg-white'} hover:bg-slate-50/85 last:border-b-0`}
                   onClick={() => handleNotificationClick(n)}
                 >
-                  <div className="flex items-start justify-between gap-2">
+                  <div className="flex items-start justify-between gap-3">
                     <div className="flex-1 min-w-0">
-                      <p className={`text-sm text-slate-900 ${display.isOwnerDispatchStatus ? 'font-semibold' : ''}`}>{display.title}</p>
-                      <p className="text-xs text-slate-600 mt-0.5 whitespace-pre-line">{display.message}</p>
+                      <p className={`text-sm leading-5 text-slate-900 ${display.isOwnerDispatchStatus ? 'font-semibold' : 'font-medium'}`}>
+                        {display.title}
+                      </p>
+                      <p className="text-xs leading-5 text-slate-600 mt-1 whitespace-pre-line">{display.message}</p>
                       {n.required_trucks?.length > 0 && (
-                        <div className="mt-1">
+                        <div className="mt-2">
                           <NotificationStatusBadge notification={n} confirmations={confirmations} />
                         </div>
                       )}
-                      <p className="text-xs text-slate-400 mt-1">
+                      <p className="text-[11px] text-slate-400 mt-2">
                         {format(new Date(n.created_date), 'MMM d, h:mm a')}
                       </p>
                     </div>
                     {!n.read_flag && (
-                      <div className="h-2 w-2 rounded-full bg-blue-500 shrink-0 mt-1" />
+                      <div className="h-2.5 w-2.5 rounded-full bg-blue-500 shrink-0 mt-1.5 ring-2 ring-blue-100" />
                     )}
                   </div>
                 </div>
