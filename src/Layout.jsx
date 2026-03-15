@@ -2,7 +2,7 @@ import React, { useEffect } from 'react';
 import { SessionProvider, useSession } from './components/session/SessionContext';
 import { createPageUrl } from './utils';
 import { Link, useLocation } from 'react-router-dom';
-import { LogOut, Truck, Shield, Building2, Megaphone, TriangleAlert, CalendarDays, Home, CheckCircle2, FileText, UserRound } from 'lucide-react';
+import { LogOut, Truck, Shield, Building2, Megaphone, TriangleAlert, CalendarDays, Home, CheckCircle2, FileText, UserRound, Bell } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import NotificationBell from '@/components/notifications/NotificationBell';
 import { useQuery } from '@tanstack/react-query';
@@ -79,6 +79,48 @@ function LayoutInner({ children, currentPageName }) {
   const isDriver = session.code_type === 'Driver';
   const canUsePortalTabs = isOwner || isTruck || isDriver;
   const isActive = (pageName) => location.pathname === createPageUrl(pageName);
+  const portalNavItems = [
+  {
+    page: 'Home',
+    label: 'Home',
+    icon: Home,
+    tour: 'home-overview',
+    visible: true,
+  },
+  {
+    page: 'Portal',
+    label: 'Dispatches',
+    icon: Truck,
+    tour: 'dispatches-nav',
+    visible: true,
+  },
+  {
+    page: 'Availability',
+    label: 'Availability',
+    icon: CalendarDays,
+    tour: 'availability-nav',
+    visible: isOwner,
+  },
+  {
+    page: 'Drivers',
+    label: 'Drivers',
+    icon: UserRound,
+    tour: 'drivers-nav',
+    visible: isOwner,
+  },
+  {
+    page: 'Notifications',
+    label: 'Notifications',
+    icon: Bell,
+    visible: isOwner,
+  },
+  {
+    page: 'Incidents',
+    label: 'Incidents',
+    icon: TriangleAlert,
+    tour: 'incidents-nav',
+    visible: true,
+  }].filter((item) => item.visible);
 
   return (
     <TutorialProvider session={session}>
@@ -173,24 +215,21 @@ function LayoutInner({ children, currentPageName }) {
               }
               {canUsePortalTabs &&
               <nav className="flex items-center gap-1">
-                <Link to={createPageUrl('Home')}>
-                  <Button variant={isActive('Home') ? 'secondary' : 'ghost'} size="sm" className="text-xs" data-tour="home-overview">Home</Button>
-                </Link>
-                <Link to={createPageUrl('Portal')}>
-                  <Button variant={isActive('Portal') ? 'secondary' : 'ghost'} size="sm" className="text-xs" data-tour="dispatches-nav">Dispatches</Button>
-                </Link>
-                {isOwner && <Link to={createPageUrl('Availability')}>
-                  <Button variant={isActive('Availability') ? 'secondary' : 'ghost'} size="sm" className="text-xs flex items-center gap-1" data-tour="availability-nav"><CalendarDays className="h-3 w-3" />Availability</Button>
-                </Link>}
-                {isOwner && <Link to={createPageUrl('Drivers')}>
-                  <Button variant={isActive('Drivers') ? 'secondary' : 'ghost'} size="sm" className="text-xs flex items-center gap-1" data-tour="drivers-nav"><UserRound className="h-3 w-3" />Drivers</Button>
-                </Link>}
-                {isOwner && <Link to={createPageUrl('Notifications')}>
-                  <Button variant={isActive('Notifications') ? 'secondary' : 'ghost'} size="sm" className="text-xs">Notifications</Button>
-                </Link>}
-                <Link to={createPageUrl('Incidents')}>
-                  <Button variant={isActive('Incidents') ? 'secondary' : 'ghost'} size="sm" className="text-xs" data-tour="incidents-nav">Incidents</Button>
-                </Link>
+                {portalNavItems.map((item) => {
+                  const Icon = item.icon;
+                  return (
+                    <Link key={item.page} to={createPageUrl(item.page)}>
+                      <Button
+                        variant={isActive(item.page) ? 'secondary' : 'ghost'}
+                        size="sm"
+                        className="text-xs flex items-center gap-1"
+                        data-tour={item.tour}>
+                        <Icon className="h-3 w-3" />
+                        {item.label}
+                      </Button>
+                    </Link>);
+
+                })}
               </nav>
               }
               </div>
@@ -201,24 +240,21 @@ function LayoutInner({ children, currentPageName }) {
         {/* Mobile nav for company owner */}
         {canUsePortalTabs &&
         <div className="md:hidden border-t border-slate-100 px-4 py-2 flex gap-1 overflow-x-auto">
-            <Link to={createPageUrl('Home')}>
-              <Button variant={isActive('Home') ? 'secondary' : 'ghost'} size="sm" className="text-xs whitespace-nowrap" data-tour="home-overview">Home</Button>
-            </Link>
-            <Link to={createPageUrl('Portal')}>
-              <Button variant={isActive('Portal') ? 'secondary' : 'ghost'} size="sm" className="text-xs whitespace-nowrap" data-tour="dispatches-nav">Dispatches</Button>
-            </Link>
-            {isOwner && <Link to={createPageUrl('Availability')}>
-              <Button variant={isActive('Availability') ? 'secondary' : 'ghost'} size="sm" className="text-xs whitespace-nowrap" data-tour="availability-nav">Availability</Button>
-            </Link>}
-            {isOwner && <Link to={createPageUrl('Drivers')}>
-              <Button variant={isActive('Drivers') ? 'secondary' : 'ghost'} size="sm" className="text-xs whitespace-nowrap" data-tour="drivers-nav">Drivers</Button>
-            </Link>}
-            {isOwner && <Link to={createPageUrl('Notifications')}>
-              <Button variant={isActive('Notifications') ? 'secondary' : 'ghost'} size="sm" className="text-xs whitespace-nowrap">Notifications</Button>
-            </Link>}
-            <Link to={createPageUrl('Incidents')}>
-              <Button variant={isActive('Incidents') ? 'secondary' : 'ghost'} size="sm" className="text-xs whitespace-nowrap" data-tour="incidents-nav">Incidents</Button>
-            </Link>
+            {portalNavItems.map((item) => {
+            const Icon = item.icon;
+            return (
+              <Link key={item.page} to={createPageUrl(item.page)}>
+                <Button
+                  variant={isActive(item.page) ? 'secondary' : 'ghost'}
+                  size="sm"
+                  className="text-xs whitespace-nowrap flex items-center gap-1"
+                  data-tour={item.tour}>
+                  <Icon className="h-3 w-3" />
+                  {item.label}
+                </Button>
+              </Link>);
+
+          })}
           </div>
         }
 
