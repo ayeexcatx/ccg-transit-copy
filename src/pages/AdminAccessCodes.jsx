@@ -12,14 +12,6 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/u
 import { Key, Plus, Pencil, Trash2, Truck, Building2, Shield, Copy, UserRound } from 'lucide-react';
 import { toast } from 'sonner';
 
-function formatPhoneNumber(value) {
-  const digits = String(value || '').replace(/\D/g, '').slice(0, 10);
-  if (!digits) return '';
-  if (digits.length < 4) return `(${digits}`;
-  if (digits.length < 7) return `(${digits.slice(0, 3)}) ${digits.slice(3)}`;
-  return `(${digits.slice(0, 3)}) ${digits.slice(3, 6)}-${digits.slice(6)}`;
-}
-
 function generateCode(len = 8) {
   const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
   let result = '';
@@ -39,8 +31,6 @@ export default function AdminAccessCodes() {
     company_id: '',
     allowed_trucks: [],
     driver_id: '',
-    sms_enabled: false,
-    sms_phone: '',
   });
 
   const { data: codes = [], isLoading } = useQuery({
@@ -117,8 +107,6 @@ export default function AdminAccessCodes() {
       company_id: '',
       allowed_trucks: [],
       driver_id: '',
-      sms_enabled: false,
-      sms_phone: '',
     });
     setOpen(true);
   };
@@ -133,8 +121,6 @@ export default function AdminAccessCodes() {
       company_id: driver.company_id || '',
       allowed_trucks: [],
       driver_id: driver.id || '',
-      sms_enabled: false,
-      sms_phone: formatPhoneNumber(driver.phone || ''),
     });
     setOpen(true);
   };
@@ -149,8 +135,6 @@ export default function AdminAccessCodes() {
       company_id: code.company_id || '',
       allowed_trucks: code.allowed_trucks || [],
       driver_id: code.driver_id || '',
-      sms_enabled: code.sms_enabled === true,
-      sms_phone: formatPhoneNumber(code.sms_phone || ''),
     });
     setOpen(true);
   };
@@ -183,8 +167,6 @@ export default function AdminAccessCodes() {
         company_id: form.company_id,
         driver_id: form.driver_id,
         allowed_trucks: [],
-        sms_enabled: form.sms_enabled,
-        sms_phone: form.sms_phone,
       });
       return;
     }
@@ -299,11 +281,10 @@ export default function AdminAccessCodes() {
                           </Badge>
                           <Badge variant="outline" className="text-xs">{c.code_type}</Badge>
                         </div>
-                        {c.label && <p className="text-sm text-slate-600 mt-0.5">Name: {c.label}</p>}
+                        {c.label && <p className="text-sm text-slate-600 mt-0.5">{c.label}</p>}
                         <div className="flex items-center gap-2 mt-1 text-xs text-slate-500 flex-wrap">
                           {comp && <span>Company: {comp.name}</span>}
                           {driver && <span>Driver: {driver.driver_name || driver.id}</span>}
-                          {c.sms_enabled === true && c.sms_phone && <span>SMS: {formatPhoneNumber(c.sms_phone)}</span>}
                           {c.code_type !== 'Driver' && (c.allowed_trucks || []).length > 0 && (
                             <span>Trucks: {c.allowed_trucks.join(', ')}</span>
                           )}
@@ -342,7 +323,7 @@ export default function AdminAccessCodes() {
               </div>
             </div>
             <div>
-              <Label>Name</Label>
+              <Label>Label</Label>
               <Input value={form.label} onChange={(e) => setForm({ ...form, label: e.target.value })} placeholder="e.g., Truck 401, Owner ABC" />
             </div>
             <div>
@@ -421,20 +402,6 @@ export default function AdminAccessCodes() {
                 )}
               </>
             )}
-
-            <div className="flex items-center justify-between">
-              <Label>SMS Enabled</Label>
-              <Switch checked={form.sms_enabled} onCheckedChange={(v) => setForm({ ...form, sms_enabled: v })} />
-            </div>
-
-            <div>
-              <Label>SMS Phone</Label>
-              <Input
-                value={form.sms_phone}
-                onChange={(e) => setForm({ ...form, sms_phone: formatPhoneNumber(e.target.value) })}
-                placeholder="(555) 123-4567"
-              />
-            </div>
 
             <div className="flex items-center justify-between">
               <Label>Active</Label>
