@@ -375,14 +375,27 @@ export default function useTutorialRunner({
     let cancelled = false;
     let attempts = 0;
     const maxAttempts = 20;
+    let retryTimeoutId = null;
+    let initialRafId = null;
 
     const resolveTarget = async () => {
-      if (cancelled) return;
-
       const targetSelector = getCurrentTarget(currentStep);
       const explicitScrollContainerSelector = getScrollContainer
         ? getScrollContainer(currentStep)
         : currentStep?.scrollContainer || null;
+
+      logTutorialScroll('resolveTarget start', {
+        stepIndex,
+        targetSelector,
+        explicitScrollContainerSelector,
+        attempts,
+        cancelled,
+        active,
+        hasCurrentStep: Boolean(currentStep),
+      });
+
+      if (cancelled) return;
+
       const resolvedTarget = resolveVisibleTarget(targetSelector);
       if (resolvedTarget) {
         const centeredRect = await scrollTargetIntoView(
@@ -406,7 +419,10 @@ export default function useTutorialRunner({
 
         attempts += 1;
         if (attempts < maxAttempts) {
-          window.setTimeout(resolveTarget, 120);
+          retryTimeoutId = window.setTimeout(() => {
+            retryTimeoutId = null;
+            resolveTarget();
+          }, 120);
           return;
         }
 
@@ -414,19 +430,37 @@ export default function useTutorialRunner({
         return;
       }
 
+      logTutorialScroll('resolveTarget target not found', {
+        targetSelector,
+        attempts,
+        page: typeof window !== 'undefined' ? window.location?.pathname : null,
+      });
+
       attempts += 1;
       if (attempts >= maxAttempts) {
         handleStepChange(stepIndex + 1);
         return;
       }
 
-      window.setTimeout(resolveTarget, 120);
+      retryTimeoutId = window.setTimeout(() => {
+        retryTimeoutId = null;
+        resolveTarget();
+      }, 120);
     };
 
-    window.setTimeout(resolveTarget, 80);
+    initialRafId = window.requestAnimationFrame(() => {
+      initialRafId = null;
+      resolveTarget();
+    });
 
     return () => {
       cancelled = true;
+      if (retryTimeoutId) {
+        window.clearTimeout(retryTimeoutId);
+      }
+      if (initialRafId) {
+        window.cancelAnimationFrame(initialRafId);
+      }
     };
   }, [active, currentStep, getCurrentTarget, getScrollContainer, handleStepChange, isCompletion, stepIndex]);
 
