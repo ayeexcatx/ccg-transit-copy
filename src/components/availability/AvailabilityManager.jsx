@@ -395,6 +395,7 @@ export default function AvailabilityManager({ companyId, canSelectCompany = fals
         <div>
           <h2 className="text-2xl font-semibold text-slate-900">Availability</h2>
           <p className="text-slate-500 text-sm font-medium text-left">Select how many trucks you have available for each shift.</p>
+          <p> Anything entered here will override any of your defaults. </p> 
         </div>
         <div className="flex items-center gap-2">
           {VIEW_MODES.map((mode) =>
