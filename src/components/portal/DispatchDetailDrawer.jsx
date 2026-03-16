@@ -731,10 +731,10 @@ export default function DispatchDetailDrawer({
           </SheetHeader>
         </div>
 
-        <div className="px-5 py-5 space-y-6">
+        <div className="px-5 py-5 space-y-5">
 
           {(isOwner || isTruckUser || isDriverUser) && (
-            <div className="flex items-center gap-2">
+            <div className="flex flex-wrap items-center gap-2" data-screenshot-exclude="true">
               <Button
                 type="button"
                 variant="outline"
@@ -761,10 +761,30 @@ export default function DispatchDetailDrawer({
                   {isCreatingScreenshot ? 'Creating…' : 'Screenshot Dispatch'}
                 </Button>
               )}
+              {isOwner && (
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  className="h-8 text-xs border-red-300 text-red-700 hover:bg-red-50 hover:text-red-800"
+                  data-tour="dispatch-edit-trucks"
+                  onClick={() => {
+                    if (isEditingTrucks) {
+                      resetTruckEditing();
+                      return;
+                    }
+                    setTruckEditMessage(null);
+                    setIsEditingTrucks((prev) => !prev);
+                  }}
+                >
+                  <Pencil className="h-3.5 w-3.5 mr-1" />
+                  {isEditingTrucks ? 'Cancel' : 'Edit Trucks'}
+                </Button>
+              )}
             </div>
           )}
 
-          <div ref={screenshotSectionRef} className="space-y-6 bg-white">
+          <div ref={screenshotSectionRef} className="space-y-5 bg-white">
             {/* Main info */}
             {dispatch.status === 'Scheduled' ? (
               <div>
@@ -773,111 +793,91 @@ export default function DispatchDetailDrawer({
                 <p className="text-xs text-slate-600 mt-2 italic">{scheduledDispatchNote}</p>
               </div>
             ) : (
-              <div className="space-y-3">
-              {dispatch.client_name && (
-                <h2 className="text-sm font-semibold text-slate-700">{dispatch.client_name}</h2>
-              )}
-              {!hasAdditional && (
-                <div className="grid grid-cols-1 gap-3 text-sm">
-                  {dispatch.job_number && (
-                    <div className="space-y-0.5">
-                      <div className="flex items-center gap-2 text-slate-600">
-                        <FileText className="h-4 w-4 text-slate-400 shrink-0" />
-                        <span>Job #{dispatch.job_number}</span>
-                      </div>
-                    </div>
-                  )}
-                </div>
-              )}
-              {companyName && (
-                <p className="text-xs text-slate-400">{companyName}</p>
-              )}
-
-              {/* Trucks */}
-              <div className="space-y-2">
-                <div className="flex items-start gap-1.5">
-                  <Truck className="h-3.5 w-3.5 text-slate-400 mt-1 shrink-0" />
-                  {(isAdmin || isOwner) ? (
-                    <div className="min-w-0 flex-1 space-y-1.5">
-                      {visibleTrucks.map((t) => (
-                        <div key={t} className="flex items-start gap-2">
-                          <Badge variant="outline" className="text-xs border-slate-900 text-slate-900 font-medium shrink-0">
-                            {t}
-                          </Badge>
-                          <span className="text-xs text-slate-500 min-w-0 break-words leading-5">
-                            {getTruckDriverSummaryLabel(t)}
-                          </span>
-                        </div>
-                      ))}
-                    </div>
-                  ) : (
-                    <div className="flex items-center gap-1.5 flex-wrap">
-                      {visibleTrucks.map((t) => (
-                        <Badge key={t} variant="outline" className="text-xs border-slate-900 text-slate-900 font-medium w-fit">
-                          {t}
-                        </Badge>
-                      ))}
-                    </div>
-                  )}
-                  {isOwner && (
-                    <Button
-                      type="button"
-                      data-screenshot-exclude="true"
-                      variant="outline"
-                      size="sm"
-                      className="h-7 text-xs border-red-300 text-red-700 hover:bg-red-50 hover:text-red-800"
-                      data-tour="dispatch-edit-trucks"
-                      onClick={() => {
-                        if (isEditingTrucks) {
-                          resetTruckEditing();
-                          return;
-                        }
-                        setTruckEditMessage(null);
-                        setIsEditingTrucks((prev) => !prev);
-                      }}
-                    >
-                      <Pencil className="h-3.5 w-3.5 mr-1" />
-                      {isEditingTrucks ? 'Cancel' : 'Edit Trucks'}
-                    </Button>
-                  )}
-                </div>
-
-                {isOwner && isEditingTrucks && (
-                  <div data-screenshot-exclude="true" className="rounded-lg border border-slate-200 bg-slate-50 p-3 space-y-3">
-                    <p className="text-xs text-slate-500">
-                      Select assigned trucks. You must keep exactly {requiredTruckCount} truck{requiredTruckCount === 1 ? '' : 's'}.
-                    </p>
-                    <div className="space-y-2">
-                      {ownerTruckOptions.map((truck) => (
-                        <label key={truck} className="flex items-center gap-2 text-sm text-slate-700">
-                          <Checkbox
-                            checked={draftTrucks.includes(truck)}
-                            disabled={!draftTrucks.includes(truck) && draftTrucks.filter(Boolean).length >= requiredTruckCount}
-                            onCheckedChange={() => toggleDraftTruck(truck)}
-                          />
-                          <span className="font-mono">{truck}</span>
-                        </label>
-                      ))}
-                    </div>
-                    {truckEditMessage?.text && (
-                      <div className="rounded-md border border-red-200 bg-red-50 px-2.5 py-2 text-xs text-red-700">
-                        {truckEditMessage.text}
-                      </div>
-                    )}
-                    <Button
-                      type="button"
-                      size="sm"
-                      className="bg-emerald-600 hover:bg-emerald-700 text-white"
-                      disabled={!hasTruckDraftChanges || isSavingTrucks || draftTrucks.filter(Boolean).length !== requiredTruckCount}
-                      onClick={handleSaveTrucks}
-                    >
-                      {isSavingTrucks ? 'Saving…' : 'Save Truck Assignments'}
-                    </Button>
+              <div className="space-y-4">
+              <div className="rounded-lg border border-slate-200 bg-slate-50 px-3.5 py-3 space-y-1.5">
+                <p className="text-[11px] font-semibold text-slate-500 uppercase tracking-wide">Client Job</p>
+                {dispatch.client_name && (
+                  <h2 className="text-xl leading-tight font-semibold text-slate-900">{dispatch.client_name}</h2>
+                )}
+                {!hasAdditional && dispatch.job_number && (
+                  <div className="flex items-center gap-1.5 text-sm text-slate-600">
+                    <FileText className="h-3.5 w-3.5 text-slate-400 shrink-0" />
+                    <span>Job #{dispatch.job_number}</span>
                   </div>
                 )}
-
               </div>
-            </div>
+
+              <div className="rounded-lg border border-slate-200 bg-white px-3.5 py-3 space-y-2.5">
+                <p className="text-[11px] font-semibold text-slate-500 uppercase tracking-wide">Company Owner</p>
+                {companyName && (
+                  <p className="text-sm font-medium text-slate-700">{companyName}</p>
+                )}
+
+                {/* Trucks */}
+                <div className="space-y-2">
+                  <p className="text-[11px] font-semibold text-slate-500 uppercase tracking-wide">Truck Assignments</p>
+                  <div className="flex items-start gap-1.5">
+                    <Truck className="h-3.5 w-3.5 text-slate-400 mt-1 shrink-0" />
+                    {(isAdmin || isOwner) ? (
+                      <div className="min-w-0 flex-1 space-y-1.5">
+                        {visibleTrucks.map((t) => (
+                          <div key={t} className="flex items-start gap-2">
+                            <Badge variant="outline" className="text-xs border-slate-900 text-slate-900 font-medium shrink-0">
+                              {t}
+                            </Badge>
+                            <span className="text-xs text-slate-500 min-w-0 break-words leading-5">
+                              {getTruckDriverSummaryLabel(t)}
+                            </span>
+                          </div>
+                        ))}
+                      </div>
+                    ) : (
+                      <div className="flex items-center gap-1.5 flex-wrap">
+                        {visibleTrucks.map((t) => (
+                          <Badge key={t} variant="outline" className="text-xs border-slate-900 text-slate-900 font-medium w-fit">
+                            {t}
+                          </Badge>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                </div>
+              </div>
+
+              {isOwner && isEditingTrucks && (
+                <div data-screenshot-exclude="true" className="rounded-lg border border-slate-200 bg-slate-50 p-3 space-y-3">
+                  <p className="text-xs text-slate-500">
+                    Select assigned trucks. You must keep exactly {requiredTruckCount} truck{requiredTruckCount === 1 ? '' : 's'}.
+                  </p>
+                  <div className="space-y-2">
+                    {ownerTruckOptions.map((truck) => (
+                      <label key={truck} className="flex items-center gap-2 text-sm text-slate-700">
+                        <Checkbox
+                          checked={draftTrucks.includes(truck)}
+                          disabled={!draftTrucks.includes(truck) && draftTrucks.filter(Boolean).length >= requiredTruckCount}
+                          onCheckedChange={() => toggleDraftTruck(truck)}
+                        />
+                        <span className="font-mono">{truck}</span>
+                      </label>
+                    ))}
+                  </div>
+                  {truckEditMessage?.text && (
+                    <div className="rounded-md border border-red-200 bg-red-50 px-2.5 py-2 text-xs text-red-700">
+                      {truckEditMessage.text}
+                    </div>
+                  )}
+                  <Button
+                    type="button"
+                    size="sm"
+                    className="bg-emerald-600 hover:bg-emerald-700 text-white"
+                    disabled={!hasTruckDraftChanges || isSavingTrucks || draftTrucks.filter(Boolean).length !== requiredTruckCount}
+                    onClick={handleSaveTrucks}
+                  >
+                    {isSavingTrucks ? 'Saving…' : 'Save Truck Assignments'}
+                  </Button>
+                </div>
+              )}
+              </div>
           )}
 
           {dispatch.status !== 'Scheduled' && (
