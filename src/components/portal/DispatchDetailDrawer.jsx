@@ -30,6 +30,79 @@ const tollColors = {
 const UNASSIGNED_DRIVER_VALUE = '__unassigned__';
 let openDispatchDrawerCount = 0;
 
+function getActivityActorName(session) {
+  const candidates = [
+    session?.label,
+    session?.access_code_label,
+    session?.name,
+    session?.access_code_name,
+  ];
+
+  const resolved = candidates.find((value) => String(value || '').trim());
+  return resolved ? String(resolved).trim() : 'Company Owner';
+}
+
+function buildDriverAssignmentActivityEntries({ session, truckNumber, previousAssignment, nextAssignment }) {
+  if (session?.code_type !== 'CompanyOwner') return [];
+
+  const previousDriverId = previousAssignment?.driver_id || null;
+  const nextDriverId = nextAssignment?.driver_id || null;
+  if (previousDriverId === nextDriverId) return [];
+
+  const actorName = getActivityActorName(session);
+  const timestamp = new Date().toISOString();
+  const previousDriverName = previousAssignment?.driver_name || 'Unknown driver';
+  const nextDriverName = nextAssignment?.driver_name || 'Unknown driver';
+
+  if (!previousDriverId && nextDriverId) {
+    return [{
+      timestamp,
+      actor_type: 'CompanyOwner',
+      actor_id: session?.id,
+      actor_name: actorName,
+      action: 'owner_assigned_driver',
+      message: `${actorName} assigned driver ${nextDriverName} to Truck ${truckNumber}`,
+    }];
+  }
+
+  if (previousDriverId && !nextDriverId) {
+    return [{
+      timestamp,
+      actor_type: 'CompanyOwner',
+      actor_id: session?.id,
+      actor_name: actorName,
+      action: 'owner_removed_driver',
+      message: `${actorName} removed driver ${previousDriverName} from Truck ${truckNumber}`,
+    }];
+  }
+
+  return [{
+    timestamp,
+    actor_type: 'CompanyOwner',
+    actor_id: session?.id,
+    actor_name: actorName,
+    action: 'owner_changed_driver',
+    message: `${actorName} changed driver from ${previousDriverName} to ${nextDriverName} on Truck ${truckNumber}`,
+  }];
+}
+
+async function appendDispatchActivityEntries(dispatch, entries = []) {
+  if (!dispatch?.id || !Array.isArray(entries) || entries.length === 0) return;
+
+  try {
+    const latestDispatch = await base44.entities.Dispatch.filter({ id: dispatch.id }, '-created_date', 1);
+    const currentLog = Array.isArray(latestDispatch?.[0]?.admin_activity_log)
+      ? latestDispatch[0].admin_activity_log
+      : (Array.isArray(dispatch.admin_activity_log) ? dispatch.admin_activity_log : []);
+
+    await base44.entities.Dispatch.update(dispatch.id, {
+      admin_activity_log: [...entries, ...currentLog],
+    });
+  } catch (error) {
+    console.error('Failed to append dispatch activity entries for driver assignment changes:', error);
+  }
+}
+
 function announceDispatchDrawerState() {
   if (typeof window === 'undefined') return;
   const isOpen = openDispatchDrawerCount > 0;
@@ -317,6 +390,7 @@ export default function DispatchDetailDrawer({
       if (!driver) throw new Error('Selected driver was not found.');
 
       const existing = driverAssignments.find((entry) => entry.truck_number === truckNumber);
+      const previousAssignment = existing && existing.active_flag !== false ? existing : null;
       const payload = {
         dispatch_id: dispatch.id,
         company_id: dispatch.company_id,
@@ -340,12 +414,22 @@ export default function DispatchDetailDrawer({
         .filter((entry) => entry?.id !== existing?.id)
         .concat(savedAssignment);
 
+      const activityEntries = buildDriverAssignmentActivityEntries({
+        session,
+        truckNumber,
+        previousAssignment,
+        nextAssignment: savedAssignment,
+      });
+      await appendDispatchActivityEntries(dispatch, activityEntries);
+
       await notifyDriverAssignmentChanges(dispatch, previousAssignments, nextAssignments);
 
       return savedAssignment;
     },
     onSuccess: async () => {
       await refetchDriverAssignments();
+      queryClient.invalidateQueries({ queryKey: ['portal-dispatches', dispatch?.company_id] });
+      queryClient.invalidateQueries({ queryKey: ['dispatches-admin'] });
       queryClient.invalidateQueries({ queryKey: ['driver-dispatch-assignments', dispatch?.id] });
       toast.success('Driver assignment saved.');
     },
@@ -366,9 +450,19 @@ export default function DispatchDetailDrawer({
         active_flag: false,
       });
 
+      const activityEntries = buildDriverAssignmentActivityEntries({
+        session,
+        truckNumber,
+        previousAssignment: existing,
+        nextAssignment: null,
+      });
+      await appendDispatchActivityEntries(dispatch, activityEntries);
+
       const nextAssignments = previousAssignments.filter((entry) => entry.id !== existing.id);
       await notifyDriverAssignmentChanges(dispatch, previousAssignments, nextAssignments);
       await refetchDriverAssignments();
+      queryClient.invalidateQueries({ queryKey: ['portal-dispatches', dispatch?.company_id] });
+      queryClient.invalidateQueries({ queryKey: ['dispatches-admin'] });
       queryClient.invalidateQueries({ queryKey: ['driver-dispatch-assignments', dispatch?.id] });
       toast.success('Driver assignment removed.');
       return;
