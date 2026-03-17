@@ -13,7 +13,7 @@ import {
   Plus, Pencil, Trash2, Copy, FileText,
   Sun, Moon, Truck, Filter, ChevronDown, ChevronUp, Eye, CheckCircle2, XCircle, History, Archive, ArchiveX, Lock, ChevronLeft, ChevronRight, Search } from
 'lucide-react';
-import { addDays, format, parseISO, startOfDay, subDays } from 'date-fns';
+import { addDays, format, parseISO, startOfDay } from 'date-fns';
 import { getDispatchBucket } from '../components/portal/dispatchBuckets';
 import DispatchForm from '../components/admin/DispatchForm';
 import DispatchDetailDrawer from '../components/portal/DispatchDetailDrawer';
@@ -181,10 +181,43 @@ const formatDispatchTime = (startTime) => {
 
 const buildLiveLineKey = (dispatchId, truckNumber) => `${dispatchId}:${truckNumber || 'unassigned'}`;
 
-const deriveTruckStartTime = (dispatch, truckNumber) => {
+const getAssignmentSortValue = (startTime) => {
+  if (!startTime) return Number.MAX_SAFE_INTEGER;
+  const time = String(startTime).trim();
+  if (!time) return Number.MAX_SAFE_INTEGER;
+
+  const plainMatch = time.match(/^(\d{1,2}):(\d{2})(?::\d{2})?$/);
+  if (plainMatch) {
+    return Number(plainMatch[1]) * 60 + Number(plainMatch[2]);
+  }
+
+  const meridiemMatch = time.match(/^(\d{1,2}):(\d{2})\s*([AP]M)$/i);
+  if (meridiemMatch) {
+    const rawHour = Number(meridiemMatch[1]) % 12;
+    const minute = Number(meridiemMatch[2]);
+    const isPm = meridiemMatch[3].toUpperCase() === 'PM';
+    return (rawHour + (isPm ? 12 : 0)) * 60 + minute;
+  }
+
+  return Number.MAX_SAFE_INTEGER;
+};
+
+const getDispatchAssignmentsForTruck = (dispatch, truckNumber) => {
   const assignments = Array.isArray(dispatch?.assignments) ? dispatch.assignments : Array.isArray(dispatch?.additional_assignments) ? dispatch.additional_assignments : [];
-  const match = assignments.find((entry) => String(entry?.truck_number || '').trim() === String(truckNumber || '').trim());
-  return formatDispatchTime(match?.start_time || match?.startTime || dispatch?.start_time);
+  const normalizedTruck = String(truckNumber || '').trim();
+
+  return assignments
+    .filter((entry) => String(entry?.truck_number || '').trim() === normalizedTruck)
+    .map((entry) => ({
+      jobNumber: entry?.job_number || dispatch?.job_number || '',
+      startTime: formatDispatchTime(entry?.start_time || entry?.startTime)
+    }))
+    .sort((a, b) => getAssignmentSortValue(a.startTime) - getAssignmentSortValue(b.startTime));
+};
+
+const deriveTruckStartTime = (dispatch, truckNumber) => {
+  const assignmentsForTruck = getDispatchAssignmentsForTruck(dispatch, truckNumber);
+  return assignmentsForTruck[0]?.startTime || formatDispatchTime(dispatch?.start_time);
 };
 
 const getShiftSort = (shift) => shift === 'Night Shift' ? 1 : 0;
@@ -288,9 +321,8 @@ function AdminConfirmationsPanel({ dispatch, confirmations }) {
 
 
 function LiveDispatchBoard({
-  groupedDates,
-  rangeStart,
-  rangeEnd,
+  selectedDate,
+  groupedShifts,
   onMoveWindow,
   boardSearch,
   onBoardSearch,
@@ -309,8 +341,8 @@ function LiveDispatchBoard({
               <ChevronLeft className="h-4 w-4" />
             </Button>
             <div>
-              <p className="text-xs text-slate-500">Visible range</p>
-              <p className="text-sm font-semibold text-slate-900">{format(rangeStart, 'EEE, MMM d')} - {format(rangeEnd, 'EEE, MMM d, yyyy')}</p>
+              <p className="text-xs text-slate-500">Viewing date</p>
+              <p className="text-lg sm:text-xl font-bold text-slate-900 tracking-tight">{format(selectedDate, 'EEEE, MMMM d, yyyy')}</p>
             </div>
             <Button variant="outline" size="icon" onClick={() => onMoveWindow(1)} className="h-8 w-8">
               <ChevronRight className="h-4 w-4" />
@@ -323,23 +355,22 @@ function LiveDispatchBoard({
         </CardContent>
       </Card>
 
-      {groupedDates.length === 0 ? (
-        <div className="text-center py-12 text-sm text-slate-500">No live dispatch activity in this window.</div>
+      {groupedShifts.every((shiftGroup) => shiftGroup.jobs.length === 0) ? (
+        <div className="text-center py-12 text-sm text-slate-500">No live dispatch activity for this date.</div>
       ) : (
         <div className="space-y-4">
-          {groupedDates.map((dateGroup) => (
-            <Card key={dateGroup.date}>
+          <Card>
               <CardContent className="p-4 space-y-4">
-                <div className="border-b border-slate-200 pb-2">
-                  <h3 className="text-sm font-semibold text-slate-900">{format(parseISO(dateGroup.date), 'EEEE, MMM d, yyyy')}</h3>
-                </div>
-                {dateGroup.shifts.map((shiftGroup) => (
-                  <div key={`${dateGroup.date}-${shiftGroup.shift}`} className="space-y-2">
-                    <div className="flex items-center gap-1.5 text-xs font-medium text-slate-600">
-                      {shiftGroup.shift === 'Day Shift' ? <Sun className="h-3 w-3 text-amber-500" /> : <Moon className="h-3 w-3 text-slate-500" />}
+                {groupedShifts.map((shiftGroup) => (
+                  <div key={shiftGroup.shift} className="space-y-2">
+                    <div className="flex items-center gap-2 text-lg sm:text-xl font-bold text-slate-800 border-b border-slate-200 pb-2">
+                      {shiftGroup.shift === 'Day Shift' ? <Sun className="h-5 w-5 text-amber-500" /> : <Moon className="h-5 w-5 text-slate-500" />}
                       {shiftGroup.shift}
                     </div>
                     <div className="space-y-2">
+                      {shiftGroup.jobs.length === 0 && (
+                        <p className="text-xs text-slate-400 px-1 py-1">No active jobs in this shift.</p>
+                      )}
                       {shiftGroup.jobs.map((job) => (
                         <div key={job.groupKey} className="rounded-lg border border-slate-200 bg-slate-50/70 p-3">
                           <div className="flex items-start justify-between gap-3 mb-2">
@@ -377,12 +408,12 @@ function LiveDispatchBoard({
                                       </Select>
                                     </div>
                                     {statusUpdatingKey === line.statusKey && <p className="text-[10px] text-slate-400">Saving status...</p>}
-                                    {line.secondaryAssignments.length > 0 && (
+                                    {line.additionalAssignments.length > 0 && (
                                       <div className="pl-2 border-l-2 border-indigo-200 space-y-1">
-                                        {line.secondaryAssignments.map((assignment) => (
-                                          <button key={assignment.lineKey} type="button" className="block text-left text-xs text-indigo-700 hover:underline" onClick={() => onOpenDispatch(assignment.dispatch)}>
-                                            Also assigned: Job #{assignment.jobNumber || 'No Job #'} • {assignment.startTime || 'TBD'}
-                                          </button>
+                                        {line.additionalAssignments.map((assignment) => (
+                                          <p key={assignment.lineKey} className="text-xs text-indigo-700">
+                                            Additional assignment: Job #{assignment.jobNumber || 'No Job #'} • {assignment.startTime || 'TBD'}
+                                          </p>
                                         ))}
                                       </div>
                                     )}
@@ -398,7 +429,6 @@ function LiveDispatchBoard({
                 ))}
               </CardContent>
             </Card>
-          ))}
         </div>
       )}
     </div>
@@ -865,18 +895,9 @@ export default function AdminDispatches() {
 
   const currentList = tab === 'upcoming' ? upcomingDispatches : tab === 'today' ? todayDispatches : historyDispatches;
 
-  const liveBoardRangeStart = useMemo(() => subDays(startOfDay(liveBoardCenterDate), 3), [liveBoardCenterDate]);
-  const liveBoardRangeEnd = useMemo(() => addDays(startOfDay(liveBoardCenterDate), 3), [liveBoardCenterDate]);
+  const liveBoardSelectedDateKey = useMemo(() => format(startOfDay(liveBoardCenterDate), 'yyyy-MM-dd'), [liveBoardCenterDate]);
 
-  const liveBoardDateKeys = useMemo(() => {
-    const keys = [];
-    for (let i = 0; i < 7; i += 1) {
-      keys.push(format(addDays(liveBoardRangeStart, i), 'yyyy-MM-dd'));
-    }
-    return new Set(keys);
-  }, [liveBoardRangeStart]);
-
-  const liveBoardGroupedDates = useMemo(() => {
+  const liveBoardGroupedShifts = useMemo(() => {
     const search = boardSearch.trim().toLowerCase();
     const byDispatchTruckDriver = driverAssignments
       .filter((assignment) => assignment.active_flag !== false)
@@ -888,9 +909,12 @@ export default function AdminDispatches() {
 
     const filteredDispatches = dispatches
       .filter((dispatch) => !ACTIVE_LIVE_EXCLUDED_STATUSES.has(dispatch.status))
-      .filter((dispatch) => liveBoardDateKeys.has(dispatch.date));
+      .filter((dispatch) => dispatch.date === liveBoardSelectedDateKey);
 
-    const dateMap = new Map();
+    const shiftGroups = [
+      { shift: 'Day Shift', jobs: [] },
+      { shift: 'Night Shift', jobs: [] }
+    ];
     const allJobMap = new Map();
 
     filteredDispatches.forEach((dispatch) => {
@@ -926,7 +950,7 @@ export default function AdminDispatches() {
     });
 
     liveBoardRequests.forEach((request) => {
-      if (!liveBoardDateKeys.has(request.date)) return;
+      if (request.date !== liveBoardSelectedDateKey) return;
       const shift = request.shift_time || 'Day Shift';
       const jobKey = `${request.date}|${shift}|${request.job_number || ''}`;
       if (!allJobMap.has(jobKey)) {
@@ -942,16 +966,6 @@ export default function AdminDispatches() {
       }
     });
 
-    const truckAssignmentsByTruck = filteredDispatches.reduce((acc, dispatch) => {
-      (dispatch.trucks_assigned || []).forEach((truck) => {
-        const key = String(truck || '').trim();
-        if (!key) return;
-        if (!acc[key]) acc[key] = [];
-        acc[key].push(dispatch);
-      });
-      return acc;
-    }, {});
-
     allJobMap.forEach((job) => {
       const requestEntry = liveBoardRequests.find((entry) =>
         entry.date === job.date &&
@@ -963,17 +977,13 @@ export default function AdminDispatches() {
 
       job.lines = job.lines.map((line) => {
         if (line.isPlaceholder) return line;
-        const siblingDispatches = (truckAssignmentsByTruck[line.truckNumber] || [])
-          .filter((dispatch) => dispatch.id !== line.dispatch.id)
-          .sort((a, b) => `${a.date} ${a.start_time || ''}`.localeCompare(`${b.date} ${b.start_time || ''}`));
+        const assignmentsForTruck = getDispatchAssignmentsForTruck(line.dispatch, line.truckNumber);
 
         return {
           ...line,
-          secondaryAssignments: siblingDispatches.slice(0, 2).map((dispatch) => ({
-            lineKey: `${line.lineKey}:${dispatch.id}`,
-            dispatch,
-            jobNumber: dispatch.job_number,
-            startTime: formatDispatchTime(dispatch.start_time)
+          additionalAssignments: assignmentsForTruck.slice(1).map((assignment, assignmentIndex) => ({
+            ...assignment,
+            lineKey: `${line.lineKey}:assignment:${assignmentIndex}`
           }))
         };
       });
@@ -996,24 +1006,17 @@ export default function AdminDispatches() {
         if (!hasJobMatch && !hasLineMatch) return;
       }
 
-      if (!dateMap.has(job.date)) dateMap.set(job.date, new Map());
-      const shiftMap = dateMap.get(job.date);
-      if (!shiftMap.has(job.shift)) shiftMap.set(job.shift, []);
-      shiftMap.get(job.shift).push(job);
+      const existingShiftGroup = shiftGroups.find((group) => group.shift === job.shift);
+      if (existingShiftGroup) {
+        existingShiftGroup.jobs.push(job);
+      }
     });
 
-    return Array.from(dateMap.entries())
-      .sort((a, b) => a[0].localeCompare(b[0]))
-      .map(([date, shiftMap]) => ({
-        date,
-        shifts: Array.from(shiftMap.entries())
-          .sort((a, b) => getShiftSort(a[0]) - getShiftSort(b[0]))
-          .map(([shift, jobs]) => ({
-            shift,
-            jobs: jobs.sort((a, b) => String(a.jobNumber || '').localeCompare(String(b.jobNumber || '')))
-          }))
-      }));
-  }, [boardSearch, dispatches, driverAssignments, liveBoardDateKeys, liveBoardRequests]);
+    return shiftGroups.map((group) => ({
+      ...group,
+      jobs: group.jobs.sort((a, b) => String(a.jobNumber || '').localeCompare(String(b.jobNumber || '')))
+    }));
+  }, [boardSearch, dispatches, driverAssignments, liveBoardRequests, liveBoardSelectedDateKey]);
 
   const openNew = () => {
     setEditing(null);
@@ -1113,14 +1116,14 @@ export default function AdminDispatches() {
     navigate({ search: nextParams.toString() ? `?${nextParams.toString()}` : '' }, { replace: true });
   };
 
-  const liveBoardDispatchCount = useMemo(() => liveBoardGroupedDates.reduce((sum, dateGroup) =>
-    sum + dateGroup.shifts.reduce((shiftSum, shiftGroup) => shiftSum + shiftGroup.jobs.reduce((jobSum, job) => jobSum + job.assignedCount, 0), 0),
-  0), [liveBoardGroupedDates]);
+  const liveBoardDispatchCount = useMemo(() => liveBoardGroupedShifts.reduce((sum, shiftGroup) =>
+    sum + shiftGroup.jobs.reduce((jobSum, job) => jobSum + job.assignedCount, 0),
+  0), [liveBoardGroupedShifts]);
 
   const dispatchCountLabel = tab === 'live-board' ? `${liveBoardDispatchCount} active truck lines` : `${currentList.length} dispatches`;
 
   const shiftLiveBoardWindow = (direction) => {
-    setLiveBoardCenterDate((prev) => addDays(prev, direction * 7));
+    setLiveBoardCenterDate((prev) => addDays(prev, direction));
   };
 
   const handleSave = (formData) => {
@@ -1217,9 +1220,8 @@ export default function AdminDispatches() {
           <div className="animate-spin h-6 w-6 border-2 border-slate-300 border-t-slate-700 rounded-full" />
         </div> : tab === 'live-board' ?
       <LiveDispatchBoard
-        groupedDates={liveBoardGroupedDates}
-        rangeStart={liveBoardRangeStart}
-        rangeEnd={liveBoardRangeEnd}
+        selectedDate={liveBoardCenterDate}
+        groupedShifts={liveBoardGroupedShifts}
         onMoveWindow={shiftLiveBoardWindow}
         boardSearch={boardSearch}
         onBoardSearch={setBoardSearch}
