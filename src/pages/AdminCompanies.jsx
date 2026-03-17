@@ -11,7 +11,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Building2, Plus, Pencil, Trash2, X, Truck, TrendingUp, TrendingDown, Minus } from 'lucide-react';
-import { calculateCompanyScore, SCORING_EVENT_TYPES } from '@/lib/companyScoring';
+import { format } from 'date-fns';
+import { calculateCompanyScore, SCORING_EVENT_TYPES, SCORING_PERIODS } from '@/lib/companyScoring';
 
 const CONTACT_TYPE_OPTIONS = ['Office', 'Cell', 'Email', 'Fax', 'Other'];
 const PHONE_CONTACT_TYPES = ['Office', 'Cell', 'Fax'];
@@ -48,6 +49,28 @@ const initialEventForm = {
   include_in_trends: true,
 };
 
+const parseDate = (value) => {
+  if (!value) return null;
+  const date = new Date(value);
+  return Number.isNaN(date.getTime()) ? null : date;
+};
+
+const formatDispatchOptionLabel = (dispatch) => {
+  const date = parseDate(dispatch.date);
+  const dateLabel = date ? format(date, 'MMM d, yyyy') : 'Unknown date';
+  const withStartTime = dispatch.start_time && date ? parseDate(`${dispatch.date}T${dispatch.start_time}`) : null;
+  const timeSource = withStartTime || parseDate(dispatch.start_datetime);
+  const timeLabel = timeSource ? format(timeSource, 'h:mm a') : 'No time';
+  const idLabel = dispatch.job_number || dispatch.reference_tag || dispatch.dispatch_number || dispatch.id;
+  return `${dateLabel} • ${timeLabel} • Job #${idLabel}`;
+};
+
+const getTrendStyling = (trend) => {
+  if (trend === 'Trending Up') return { icon: TrendingUp, color: 'text-emerald-600' };
+  if (trend === 'Trending Down') return { icon: TrendingDown, color: 'text-red-600' };
+  return { icon: Minus, color: 'text-slate-500' };
+};
+
 const MetricCard = ({ metric }) => (
   <div className="rounded-lg border border-slate-200 bg-white p-3">
     <p className="text-xs text-slate-500">{metric.label}</p>
@@ -56,105 +79,75 @@ const MetricCard = ({ metric }) => (
   </div>
 );
 
-function CompanyScoringTab({ company, trucks }) {
-  const queryClient = useQueryClient();
-  const [eventForm, setEventForm] = useState(initialEventForm);
+function ScoringDetailDialog({ company, score, eventForm, setEventForm, onCreate, onDelete, isSaving, isDeleting, dispatchOptions, drivers, trucks }) {
+  if (!company || !score) return null;
+  const trend = getTrendStyling(score.trend);
+  const TrendIcon = trend.icon;
 
-  const { data: dispatches = [] } = useQuery({ queryKey: ['scoring-dispatches'], queryFn: () => base44.entities.Dispatch.list('-date', 1000) });
-  const { data: confirmations = [] } = useQuery({ queryKey: ['scoring-confirmations'], queryFn: () => base44.entities.Confirmation.list('-confirmed_at', 1000) });
-  const { data: incidents = [] } = useQuery({ queryKey: ['scoring-incidents'], queryFn: () => base44.entities.IncidentReport.list('-created_date', 1000) });
-  const { data: drivers = [] } = useQuery({ queryKey: ['scoring-drivers'], queryFn: () => base44.entities.Driver.list('-created_date', 1000) });
-  const { data: assignments = [] } = useQuery({ queryKey: ['scoring-driver-assignments'], queryFn: () => base44.entities.DriverDispatchAssignment.list('-assigned_datetime', 1000) });
-  const { data: events = [] } = useQuery({ queryKey: ['company-scoring-events'], queryFn: () => base44.entities.CompanyScoringEvent.list('-event_date', 1000) });
-
-  const saveEventMutation = useMutation({
-    mutationFn: (payload) => base44.entities.CompanyScoringEvent.create(payload),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['company-scoring-events'] });
-      setEventForm(initialEventForm);
-    },
-  });
-
-  const deleteEventMutation = useMutation({
-    mutationFn: (id) => base44.entities.CompanyScoringEvent.delete(id),
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['company-scoring-events'] }),
-  });
-
-  const companyDispatches = useMemo(
-    () => dispatches.filter((dispatch) => dispatch.company_id === company.id),
-    [dispatches, company.id]
-  );
-
-  const score = useMemo(() => calculateCompanyScore({
-    company,
-    dispatches,
-    confirmations,
-    incidents,
-    events,
-    drivers,
-    driverAssignments: assignments,
-  }), [company, dispatches, confirmations, incidents, events, drivers, assignments]);
-
-  if (!score) return <p className="text-sm text-slate-500">Unable to calculate score yet.</p>;
-
-  const trendIcon = score.trend === 'Trending Up' ? TrendingUp : score.trend === 'Trending Down' ? TrendingDown : Minus;
-  const TrendIcon = trendIcon;
-  const trendColor = score.trend === 'Trending Up' ? 'text-emerald-600' : score.trend === 'Trending Down' ? 'text-red-600' : 'text-slate-500';
+  const selectedDispatch = dispatchOptions.find((dispatch) => dispatch.id === eventForm.dispatch_id);
+  const dispatchTruckOptions = selectedDispatch?.trucks_assigned?.length ? selectedDispatch.trucks_assigned : trucks;
+  const dispatchDriverIds = selectedDispatch?.drivers_assigned || [];
+  const narrowedDrivers = dispatchDriverIds.length ? drivers.filter((driver) => dispatchDriverIds.includes(driver.id)) : drivers;
 
   return (
-    <div className="space-y-5">
+    <div className="space-y-5 max-h-[75vh] overflow-y-auto pr-1">
       <Card>
         <CardContent className="p-4 space-y-3">
-          <div className="flex flex-wrap items-center justify-between gap-3">
+          <div className="flex justify-between items-start gap-4">
             <div>
               <p className="text-xs uppercase tracking-wide text-slate-500">Company Reliability Score</p>
               <p className="text-3xl font-bold text-slate-900 mt-1">{score.score} / 100</p>
-              <p className={`text-sm mt-1 flex items-center gap-1 ${trendColor}`}><TrendIcon className="h-4 w-4" />{score.trend}</p>
+              <p className={`text-sm mt-1 flex items-center gap-1 ${trend.color}`}><TrendIcon className="h-4 w-4" />{score.trend}</p>
             </div>
             <div className="text-right text-xs text-slate-500">
-              <p>Current period: {score.trendCurrentScore}</p>
-              <p>Previous period: {score.trendPreviousScore}</p>
+              <p>{score.periodComparisonLabels.current}: {score.trendCurrentScore}</p>
+              <p>{score.periodComparisonLabels.previous}: {score.trendPreviousScore}</p>
+              <p>{score.additional.periodDateRangeLabel}</p>
             </div>
           </div>
-          <div className="flex flex-wrap gap-2">
-            {score.warningBadges.length === 0 ? (
-              <Badge variant="outline">No warning flags</Badge>
-            ) : score.warningBadges.map((warning) => (
-              <Badge key={warning} variant="secondary">{warning}</Badge>
-            ))}
+          <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-3">
+            {Object.values(score.metrics).map((metric) => <MetricCard key={metric.label} metric={metric} />)}
           </div>
         </CardContent>
       </Card>
 
-      <div>
-        <p className="text-sm font-semibold text-slate-800 mb-2">Metrics Overview</p>
-        <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-3">
-          {Object.values(score.metrics).map((metric) => <MetricCard key={metric.label} metric={metric} />)}
-        </div>
-      </div>
+      <Card>
+        <CardContent className="p-4 space-y-2">
+          <details open>
+            <summary className="cursor-pointer font-semibold text-slate-800">How this scoring works</summary>
+            <div className="mt-3 text-sm text-slate-600 space-y-1">
+              <p>Reliability Score combines confirmation speed, missed confirmations, completion rate, truck utilization, breakdowns, manual late events, cancellations, and scheduled confirmation performance.</p>
+              <p>Only true mechanical/breakdown incident types from incident reports are counted automatically for breakdown scoring.</p>
+              <p>Delay incidents do not automatically count as late issues. Late issues are tracked via manual events like "Late Arrival".</p>
+              <p>Accidents from incident reports do not automatically reduce completion or reliability.</p>
+              <p>Completion defaults to complete for dispatches before today unless manual non-completion flags are logged, or a true mechanical/breakdown incident is attached.</p>
+              <p>Manual event checkboxes mean: <strong>Impacts completion rate</strong> will reduce completion, and <strong>Include in trend analysis</strong> allows the event to influence trend calculations.</p>
+              <p>Exceptional Performance gives a small positive adjustment to score/trend (modest and intentionally limited).</p>
+              <p>The selected period updates metrics, trend, warnings, truck/driver summaries, and event history. Current vs Previous period labels always match the selected period.</p>
+            </div>
+          </details>
+        </CardContent>
+      </Card>
 
       <div className="grid lg:grid-cols-2 gap-4">
         <Card>
-          <CardContent className="p-4 space-y-3">
+          <CardContent className="p-4 space-y-2">
             <p className="text-sm font-semibold text-slate-800">Truck Performance</p>
-            {score.truckSummaries.length === 0 ? (
-              <p className="text-sm text-slate-500">No truck data available.</p>
-            ) : score.truckSummaries.map((truck) => (
+            {score.truckSummaries.length === 0 ? <p className="text-sm text-slate-500">No truck data available.</p> : score.truckSummaries.map((truck) => (
               <div key={truck.truckNumber} className="rounded-lg border border-slate-200 p-3 text-sm">
-                <p className="font-mono font-semibold text-slate-800">Truck {truck.truckNumber}</p>
-                <p className="text-slate-600">Breakdowns: {truck.breakdowns} • Late issues: {truck.lateIssues}</p>
-                <p className="text-slate-600">Completion: {Math.round(truck.completionRate)}%</p>
+                <p className="font-semibold text-slate-800">Truck {truck.truckNumber}</p>
+                <p className="text-slate-600">Dispatches: {truck.dispatchCount} • Breakdowns: {truck.breakdowns} • Late events: {truck.lateIssues}</p>
+                <p className="text-slate-600">Completion rate: {Math.round(truck.completionRate)}%</p>
               </div>
             ))}
           </CardContent>
         </Card>
 
         <Card>
-          <CardContent className="p-4 space-y-3">
+          <CardContent className="p-4 space-y-2">
             <p className="text-sm font-semibold text-slate-800">Driver Performance</p>
-            {score.driverSummaries.length === 0 ? (
-              <p className="text-sm text-slate-500">No driver data available.</p>
-            ) : score.driverSummaries.map((driver) => (
+            <p className="text-xs text-slate-500">Confirmation rate is currently based on confirmations tied to assigned dispatches, not explicit per-driver confirmations.</p>
+            {score.driverSummaries.length === 0 ? <p className="text-sm text-slate-500">No driver data available.</p> : score.driverSummaries.map((driver) => (
               <div key={driver.driverId} className="rounded-lg border border-slate-200 p-3 text-sm">
                 <p className="font-semibold text-slate-800">{driver.driverName}</p>
                 <p className="text-slate-600">Dispatches: {driver.dispatchCount} • Confirmation rate: {Math.round(driver.confirmationRate)}%</p>
@@ -173,9 +166,7 @@ function CompanyScoringTab({ company, trucks }) {
               <Label>Event Type</Label>
               <Select value={eventForm.event_type} onValueChange={(value) => setEventForm((prev) => ({ ...prev, event_type: value }))}>
                 <SelectTrigger><SelectValue /></SelectTrigger>
-                <SelectContent>
-                  {SCORING_EVENT_TYPES.map((type) => <SelectItem key={type} value={type}>{type}</SelectItem>)}
-                </SelectContent>
+                <SelectContent>{SCORING_EVENT_TYPES.map((type) => <SelectItem key={type} value={type}>{type}</SelectItem>)}</SelectContent>
               </Select>
             </div>
             <div>
@@ -188,8 +179,8 @@ function CompanyScoringTab({ company, trucks }) {
                 <SelectTrigger><SelectValue /></SelectTrigger>
                 <SelectContent>
                   <SelectItem value="none">No linked dispatch</SelectItem>
-                  {companyDispatches.map((dispatch) => (
-                    <SelectItem key={dispatch.id} value={dispatch.id}>{dispatch.job_number || dispatch.reference_tag || dispatch.id}</SelectItem>
+                  {dispatchOptions.map((dispatch) => (
+                    <SelectItem key={dispatch.id} value={dispatch.id}>{formatDispatchOptionLabel(dispatch)}</SelectItem>
                   ))}
                 </SelectContent>
               </Select>
@@ -200,7 +191,7 @@ function CompanyScoringTab({ company, trucks }) {
                 <SelectTrigger><SelectValue /></SelectTrigger>
                 <SelectContent>
                   <SelectItem value="none">No linked truck</SelectItem>
-                  {trucks.map((truckNumber) => <SelectItem key={truckNumber} value={truckNumber}>{truckNumber}</SelectItem>)}
+                  {dispatchTruckOptions.map((truckNumber) => <SelectItem key={truckNumber} value={truckNumber}>{truckNumber}</SelectItem>)}
                 </SelectContent>
               </Select>
             </div>
@@ -210,7 +201,7 @@ function CompanyScoringTab({ company, trucks }) {
                 <SelectTrigger><SelectValue /></SelectTrigger>
                 <SelectContent>
                   <SelectItem value="none">No linked driver</SelectItem>
-                  {score.driverSummaries.map((driver) => <SelectItem key={driver.driverId} value={driver.driverId}>{driver.driverName}</SelectItem>)}
+                  {narrowedDrivers.map((driver) => <SelectItem key={driver.id} value={driver.id}>{driver.driver_name || 'Unknown Driver'}</SelectItem>)}
                 </SelectContent>
               </Select>
             </div>
@@ -231,41 +222,20 @@ function CompanyScoringTab({ company, trucks }) {
             <Textarea rows={3} value={eventForm.notes} onChange={(e) => setEventForm((prev) => ({ ...prev, notes: e.target.value }))} />
           </div>
           <div className="flex flex-wrap gap-4 text-sm">
-            <label className="flex items-center gap-2">
-              <input type="checkbox" checked={eventForm.impacts_completion_rate} onChange={(e) => setEventForm((prev) => ({ ...prev, impacts_completion_rate: e.target.checked }))} />
-              Impacts completion rate
-            </label>
-            <label className="flex items-center gap-2">
-              <input type="checkbox" checked={eventForm.include_in_trends} onChange={(e) => setEventForm((prev) => ({ ...prev, include_in_trends: e.target.checked }))} />
-              Include in trend analysis
-            </label>
+            <label className="flex items-center gap-2"><input type="checkbox" checked={eventForm.impacts_completion_rate} onChange={(e) => setEventForm((prev) => ({ ...prev, impacts_completion_rate: e.target.checked }))} />Impacts completion rate</label>
+            <label className="flex items-center gap-2"><input type="checkbox" checked={eventForm.include_in_trends} onChange={(e) => setEventForm((prev) => ({ ...prev, include_in_trends: e.target.checked }))} />Include in trend analysis</label>
           </div>
-          <Button
-            onClick={() => saveEventMutation.mutate({
-              ...eventForm,
-              company_id: company.id,
-              event_date: eventForm.event_date ? new Date(eventForm.event_date).toISOString() : new Date().toISOString(),
-            })}
-            disabled={saveEventMutation.isPending}
-            className="bg-slate-900 hover:bg-slate-800"
-          >
-            {saveEventMutation.isPending ? 'Saving Event...' : 'Add Performance Event'}
-          </Button>
+          <Button onClick={onCreate} disabled={isSaving} className="bg-slate-900 hover:bg-slate-800">{isSaving ? 'Saving Event...' : 'Add Performance Event'}</Button>
 
           <div className="space-y-2">
             <p className="text-xs uppercase text-slate-500">Event History</p>
-            {score.events.length === 0 ? (
-              <p className="text-sm text-slate-500">No manual reliability events yet.</p>
-            ) : score.events.map((event) => (
+            {score.events.length === 0 ? <p className="text-sm text-slate-500">No manual reliability events yet.</p> : score.events.map((event) => (
               <div key={event.id} className="rounded-lg border border-slate-200 p-3 text-sm flex items-start justify-between gap-3">
                 <div>
                   <p className="font-semibold text-slate-800">{event.event_type} • {event.severity || '—'}</p>
                   <p className="text-slate-500">{new Date(event.event_date || event.created_date).toLocaleDateString()} • {event.notes || 'No notes'}</p>
-                  <p className="text-xs text-slate-500 mt-1">Dispatch: {event.dispatch_id || '—'} • Truck: {event.truck_number || '—'} • Driver: {event.driver_id || '—'}</p>
                 </div>
-                <Button variant="ghost" size="icon" onClick={() => deleteEventMutation.mutate(event.id)} className="h-7 w-7 text-red-500 hover:text-red-600">
-                  <Trash2 className="h-3.5 w-3.5" />
-                </Button>
+                <Button variant="ghost" size="icon" onClick={() => onDelete(event.id)} disabled={isDeleting} className="h-7 w-7 text-red-500 hover:text-red-600"><Trash2 className="h-3.5 w-3.5" /></Button>
               </div>
             ))}
           </div>
@@ -279,17 +249,27 @@ export default function AdminCompanies() {
   const queryClient = useQueryClient();
   const [open, setOpen] = useState(false);
   const [editing, setEditing] = useState(null);
-  const [activeTab, setActiveTab] = useState('info');
+  const [pageTab, setPageTab] = useState('company-info');
   const [form, setForm] = useState({ name: '', address: '', contact_methods: [{ type: 'Office', value: '' }], trucks: [], status: 'active' });
   const [truckInput, setTruckInput] = useState('');
+  const [periodKey, setPeriodKey] = useState('last30');
+  const [selectedCompany, setSelectedCompany] = useState(null);
+  const [eventForm, setEventForm] = useState(initialEventForm);
 
   const { data: companies = [], isLoading } = useQuery({ queryKey: ['companies'], queryFn: () => base44.entities.Company.list() });
+  const { data: dispatches = [] } = useQuery({ queryKey: ['scoring-dispatches'], queryFn: () => base44.entities.Dispatch.list('-date', 1000) });
+  const { data: confirmations = [] } = useQuery({ queryKey: ['scoring-confirmations'], queryFn: () => base44.entities.Confirmation.list('-confirmed_at', 1000) });
+  const { data: incidents = [] } = useQuery({ queryKey: ['scoring-incidents'], queryFn: () => base44.entities.IncidentReport.list('-created_date', 1000) });
+  const { data: drivers = [] } = useQuery({ queryKey: ['scoring-drivers'], queryFn: () => base44.entities.Driver.list('-created_date', 1000) });
+  const { data: assignments = [] } = useQuery({ queryKey: ['scoring-driver-assignments'], queryFn: () => base44.entities.DriverDispatchAssignment.list('-assigned_datetime', 1000) });
+  const { data: events = [] } = useQuery({ queryKey: ['company-scoring-events'], queryFn: () => base44.entities.CompanyScoringEvent.list('-event_date', 1000) });
 
   const saveMutation = useMutation({
     mutationFn: (data) => (editing ? base44.entities.Company.update(editing.id, data) : base44.entities.Company.create(data)),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['companies'] });
-      closeDialog();
+      setOpen(false);
+      setEditing(null);
     },
   });
 
@@ -298,9 +278,45 @@ export default function AdminCompanies() {
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ['companies'] }),
   });
 
+  const saveEventMutation = useMutation({
+    mutationFn: (payload) => base44.entities.CompanyScoringEvent.create(payload),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['company-scoring-events'] });
+      setEventForm(initialEventForm);
+    },
+  });
+
+  const deleteEventMutation = useMutation({
+    mutationFn: (id) => base44.entities.CompanyScoringEvent.delete(id),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['company-scoring-events'] }),
+  });
+
+  const scoreByCompany = useMemo(() => new Map(companies.map((company) => [
+    company.id,
+    calculateCompanyScore({ company, dispatches, confirmations, incidents, events, drivers, driverAssignments: assignments, periodKey }),
+  ])), [companies, dispatches, confirmations, incidents, events, drivers, assignments, periodKey]);
+
+  const selectedScore = selectedCompany ? scoreByCompany.get(selectedCompany.id) : null;
+  const selectedCompanyDispatches = useMemo(() => {
+    const selectedEventDate = eventForm.event_date;
+    const byDateTime = (dispatch) => {
+      const dateTime = dispatch.start_time ? parseDate(`${dispatch.date}T${dispatch.start_time}`) : parseDate(dispatch.start_datetime) || parseDate(dispatch.date);
+      return dateTime ? dateTime.getTime() : 0;
+    };
+
+    return dispatches
+      .filter((dispatch) => dispatch.company_id === selectedCompany?.id)
+      .sort((a, b) => {
+        const aDateMatch = selectedEventDate && String(a.date || '').slice(0, 10) === selectedEventDate ? 1 : 0;
+        const bDateMatch = selectedEventDate && String(b.date || '').slice(0, 10) === selectedEventDate ? 1 : 0;
+        if (aDateMatch !== bDateMatch) return bDateMatch - aDateMatch;
+        return byDateTime(b) - byDateTime(a);
+      });
+  }, [dispatches, selectedCompany, eventForm.event_date]);
+  const selectedCompanyDrivers = useMemo(() => drivers.filter((driver) => driver.company_id === selectedCompany?.id), [drivers, selectedCompany]);
+
   const openNew = () => {
     setEditing(null);
-    setActiveTab('info');
     setForm({ name: '', address: '', contact_methods: [{ type: 'Office', value: '' }], trucks: [], status: 'active' });
     setTruckInput('');
     setOpen(true);
@@ -308,7 +324,6 @@ export default function AdminCompanies() {
 
   const openEdit = (company) => {
     setEditing(company);
-    setActiveTab('info');
     setForm({
       name: company.name || '',
       address: company.address || '',
@@ -320,18 +335,11 @@ export default function AdminCompanies() {
     setOpen(true);
   };
 
-  const closeDialog = () => {
-    setOpen(false);
-    setEditing(null);
-  };
-
   const addTruck = () => {
     const val = truckInput.trim();
     if (val && !form.trucks.includes(val)) setForm({ ...form, trucks: [...form.trucks, val] });
     setTruckInput('');
   };
-
-  const removeTruck = (t) => setForm({ ...form, trucks: form.trucks.filter((x) => x !== t) });
 
   const handleSave = () => {
     if (!form.name.trim()) return;
@@ -345,9 +353,6 @@ export default function AdminCompanies() {
       contact_info: cleanedContactMethods.map((method) => `${method.type}: ${method.value}`).join(' • '),
     });
   };
-
-  const addContactMethod = () => setForm((prev) => ({ ...prev, contact_methods: [...prev.contact_methods, { type: 'Office', value: '' }] }));
-  const removeContactMethod = (index) => setForm((prev) => ({ ...prev, contact_methods: prev.contact_methods.filter((_, i) => i !== index) }));
 
   const updateContactMethod = (index, key, nextValue) => {
     setForm((prev) => ({
@@ -372,117 +377,146 @@ export default function AdminCompanies() {
           <h2 className="text-2xl font-semibold text-slate-900">Companies</h2>
           <p className="text-sm text-slate-500">{companies.length} companies</p>
         </div>
-        <Button onClick={openNew} className="bg-slate-900 hover:bg-slate-800">
-          <Plus className="h-4 w-4 mr-2" />Add Company
-        </Button>
+        <Button onClick={openNew} className="bg-slate-900 hover:bg-slate-800"><Plus className="h-4 w-4 mr-2" />Add Company</Button>
       </div>
 
-      {isLoading ? (
-        <div className="flex justify-center py-12"><div className="animate-spin h-6 w-6 border-2 border-slate-300 border-t-slate-700 rounded-full" /></div>
-      ) : companies.length === 0 ? (
-        <div className="text-center py-16 text-slate-500 text-sm">No companies yet</div>
-      ) : (
-        <div className="grid gap-3">
-          {companies.map((c) => (
-            <Card key={c.id} className="hover:shadow-sm transition-shadow">
-              <CardContent className="p-4 sm:p-5">
-                <div className="flex items-start justify-between gap-3">
-                  <div className="flex items-start gap-3">
-                    <div className="h-10 w-10 rounded-lg bg-slate-100 flex items-center justify-center shrink-0"><Building2 className="h-5 w-5 text-slate-500" /></div>
-                    <div>
-                      <div className="flex items-center gap-2">
-                        <h3 className="text-sm font-semibold text-slate-700">{c.name}</h3>
-                        <Badge variant={c.status === 'active' ? 'default' : 'secondary'} className="text-xs">{c.status}</Badge>
-                      </div>
-                      {c.address && <p className="text-sm text-slate-500 mt-0.5 whitespace-pre-line">{c.address}</p>}
-                      {(Array.isArray(c.contact_methods) && c.contact_methods.length > 0) ? (
-                        <div className="mt-1.5 space-y-0.5">
-                          {c.contact_methods.filter((method) => method?.value).map((method, index) => (
-                            <p key={`${c.id}-contact-${index}`} className="text-sm text-slate-500"><span className="font-medium text-slate-600">{method.type}:</span> {method.value}</p>
-                          ))}
+      <Tabs value={pageTab} onValueChange={setPageTab} className="space-y-4">
+        <TabsList>
+          <TabsTrigger value="company-info">Company Info</TabsTrigger>
+          <TabsTrigger value="company-scoring">Company Scoring</TabsTrigger>
+        </TabsList>
+
+        <TabsContent value="company-info">
+          {isLoading ? (
+            <div className="flex justify-center py-12"><div className="animate-spin h-6 w-6 border-2 border-slate-300 border-t-slate-700 rounded-full" /></div>
+          ) : companies.length === 0 ? (
+            <div className="text-center py-16 text-slate-500 text-sm">No companies yet</div>
+          ) : (
+            <div className="grid gap-3">
+              {companies.map((c) => (
+                <Card key={c.id} className="hover:shadow-sm transition-shadow">
+                  <CardContent className="p-4 sm:p-5">
+                    <div className="flex items-start justify-between gap-3">
+                      <div className="flex items-start gap-3">
+                        <div className="h-10 w-10 rounded-lg bg-slate-100 flex items-center justify-center shrink-0"><Building2 className="h-5 w-5 text-slate-500" /></div>
+                        <div>
+                          <div className="flex items-center gap-2"><h3 className="text-sm font-semibold text-slate-700">{c.name}</h3><Badge variant={c.status === 'active' ? 'default' : 'secondary'} className="text-xs">{c.status}</Badge></div>
+                          {c.address && <p className="text-sm text-slate-500 mt-0.5 whitespace-pre-line">{c.address}</p>}
+                          {(Array.isArray(c.contact_methods) && c.contact_methods.length > 0) ? (
+                            <div className="mt-1.5 space-y-0.5">{c.contact_methods.filter((method) => method?.value).map((method, index) => <p key={`${c.id}-contact-${index}`} className="text-sm text-slate-500"><span className="font-medium text-slate-600">{method.type}:</span> {method.value}</p>)}</div>
+                          ) : c.contact_info && <p className="text-sm text-slate-500 mt-0.5">{c.contact_info}</p>}
+                          <div className="flex items-center gap-1.5 mt-2 flex-wrap"><Truck className="h-3.5 w-3.5 text-slate-400" />{(c.trucks || []).length === 0 ? <span className="text-xs text-slate-400">No trucks</span> : (c.trucks || []).map((t) => <Badge key={t} variant="outline" className="text-xs font-mono">{t}</Badge>)}</div>
                         </div>
-                      ) : c.contact_info && <p className="text-sm text-slate-500 mt-0.5">{c.contact_info}</p>}
-                      <div className="flex items-center gap-1.5 mt-2 flex-wrap">
-                        <Truck className="h-3.5 w-3.5 text-slate-400" />
-                        {(c.trucks || []).length === 0 ? <span className="text-xs text-slate-400">No trucks</span> : (c.trucks || []).map((t) => <Badge key={t} variant="outline" className="text-xs font-mono">{t}</Badge>)}
+                      </div>
+                      <div className="flex gap-1">
+                        <Button variant="ghost" size="icon" onClick={() => openEdit(c)} className="h-8 w-8"><Pencil className="h-3.5 w-3.5" /></Button>
+                        <Button variant="ghost" size="icon" onClick={() => deleteMutation.mutate(c.id)} className="h-8 w-8 text-red-500 hover:text-red-600"><Trash2 className="h-3.5 w-3.5" /></Button>
                       </div>
                     </div>
-                  </div>
-                  <div className="flex gap-1">
-                    <Button variant="ghost" size="icon" onClick={() => openEdit(c)} className="h-8 w-8"><Pencil className="h-3.5 w-3.5" /></Button>
-                    <Button variant="ghost" size="icon" onClick={() => deleteMutation.mutate(c.id)} className="h-8 w-8 text-red-500 hover:text-red-600"><Trash2 className="h-3.5 w-3.5" /></Button>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-          ))}
-        </div>
-      )}
+                  </CardContent>
+                </Card>
+              ))}
+            </div>
+          )}
+        </TabsContent>
+
+        <TabsContent value="company-scoring" className="space-y-4">
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <p className="text-sm text-slate-500">Click a company to view full scoring breakdown, performance details, and manual event logging.</p>
+            <Select value={periodKey} onValueChange={setPeriodKey}>
+              <SelectTrigger className="w-56"><SelectValue /></SelectTrigger>
+              <SelectContent>{Object.values(SCORING_PERIODS).map((period) => <SelectItem key={period.key} value={period.key}>{period.label}</SelectItem>)}</SelectContent>
+            </Select>
+          </div>
+          <div className="grid sm:grid-cols-2 xl:grid-cols-3 gap-4">
+            {companies.map((company) => {
+              const score = scoreByCompany.get(company.id);
+              if (!score) return null;
+              const trend = getTrendStyling(score.trend);
+              const TrendIcon = trend.icon;
+              return (
+                <Card key={company.id} className="cursor-pointer hover:shadow-md transition-shadow" onClick={() => { setSelectedCompany(company); setEventForm(initialEventForm); }}>
+                  <CardContent className="p-4 space-y-3">
+                    <div className="flex justify-between items-start">
+                      <div>
+                        <p className="font-semibold text-slate-800">{company.name}</p>
+                        <p className="text-2xl font-bold text-slate-900">{score.score}</p>
+                      </div>
+                      <p className={`text-xs flex items-center gap-1 ${trend.color}`}><TrendIcon className="h-3.5 w-3.5" />{score.trend}</p>
+                    </div>
+                    <div className="grid grid-cols-2 gap-2 text-xs text-slate-600">
+                      <p>Avg Confirm: {score.metrics.confirmationSpeed.display}</p>
+                      <p>Completion: {Math.round(score.metrics.dispatchCompletionRate.value)}%</p>
+                      <p>Breakdown: {Math.round(score.metrics.breakdownRate.value)}%</p>
+                      <p>Missed Conf: {score.metrics.missedConfirmations.display}</p>
+                    </div>
+                    <div className="flex flex-wrap gap-1.5">
+                      {score.warningBadges.length ? score.warningBadges.map((warning) => <Badge key={warning} variant="destructive" className="text-xs">{warning}</Badge>) : <Badge variant="outline" className="text-xs">No warning flags</Badge>}
+                    </div>
+                  </CardContent>
+                </Card>
+              );
+            })}
+          </div>
+        </TabsContent>
+      </Tabs>
 
       <Dialog open={open} onOpenChange={setOpen}>
-        <DialogContent className="sm:max-w-4xl max-h-[90vh] overflow-y-auto">
+        <DialogContent className="sm:max-w-2xl max-h-[90vh] overflow-y-auto">
           <DialogHeader><DialogTitle>{editing ? 'Edit Company' : 'New Company'}</DialogTitle></DialogHeader>
-          <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-4">
-            <TabsList>
-              <TabsTrigger value="info">Company Info</TabsTrigger>
-              {editing && <TabsTrigger value="scoring">Company Scoring</TabsTrigger>}
-            </TabsList>
+          <div className="space-y-4">
+            <div><Label>Company Name *</Label><Input value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} /></div>
+            <div><Label>Address</Label><Textarea rows={3} value={form.address} onChange={(e) => setForm({ ...form, address: e.target.value })} placeholder="Street address\nCity, State ZIP" /></div>
+            <div>
+              <Label>Contact Info</Label>
+              <div className="space-y-2 mt-1">
+                {form.contact_methods.map((method, index) => {
+                  const isPhoneType = PHONE_CONTACT_TYPES.includes(method.type);
+                  return (
+                    <div key={`contact-method-${index}`} className="flex gap-2 items-start">
+                      <Select value={method.type} onValueChange={(v) => updateContactMethod(index, 'type', v)}>
+                        <SelectTrigger className="w-32 shrink-0"><SelectValue /></SelectTrigger>
+                        <SelectContent>{CONTACT_TYPE_OPTIONS.map((option) => <SelectItem key={option} value={option}>{option}</SelectItem>)}</SelectContent>
+                      </Select>
+                      <Input value={method.value} placeholder={isPhoneType ? '(555) 123-4567' : 'Enter value'} onChange={(e) => updateContactMethod(index, 'value', e.target.value)} />
+                      {form.contact_methods.length > 1 && <Button type="button" size="icon" variant="ghost" onClick={() => setForm((prev) => ({ ...prev, contact_methods: prev.contact_methods.filter((_, i) => i !== index) }))} className="h-9 w-9 shrink-0"><X className="h-4 w-4" /></Button>}
+                    </div>
+                  );
+                })}
+                <Button type="button" variant="outline" size="sm" onClick={() => setForm((prev) => ({ ...prev, contact_methods: [...prev.contact_methods, { type: 'Office', value: '' }] }))}><Plus className="h-3.5 w-3.5 mr-1" />Add Contact</Button>
+              </div>
+            </div>
+            <div><Label>Status</Label><Select value={form.status} onValueChange={(v) => setForm({ ...form, status: v })}><SelectTrigger><SelectValue /></SelectTrigger><SelectContent><SelectItem value="active">Active</SelectItem><SelectItem value="inactive">Inactive</SelectItem></SelectContent></Select></div>
+            <div>
+              <Label>Trucks</Label>
+              <div className="flex gap-2 mt-1"><Input value={truckInput} onChange={(e) => setTruckInput(e.target.value)} placeholder="Truck number" onKeyDown={(e) => e.key === 'Enter' && (e.preventDefault(), addTruck())} /><Button type="button" variant="outline" onClick={addTruck}>Add</Button></div>
+              <div className="flex gap-1.5 flex-wrap mt-2">{form.trucks.map((t) => <Badge key={t} variant="secondary" className="gap-1 pr-1">{t}<button onClick={() => setForm({ ...form, trucks: form.trucks.filter((x) => x !== t) })} className="hover:bg-slate-300 rounded-full p-0.5"><X className="h-3 w-3" /></button></Badge>)}</div>
+            </div>
+            <Button onClick={handleSave} disabled={saveMutation.isPending} className="w-full bg-slate-900 hover:bg-slate-800">{saveMutation.isPending ? 'Saving...' : 'Save Company'}</Button>
+          </div>
+        </DialogContent>
+      </Dialog>
 
-            <TabsContent value="info" className="space-y-4">
-              <div><Label>Company Name *</Label><Input value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} /></div>
-              <div>
-                <Label>Address</Label>
-                <Textarea rows={3} value={form.address} onChange={(e) => setForm({ ...form, address: e.target.value })} placeholder="Street address\nCity, State ZIP" />
-              </div>
-              <div>
-                <Label>Contact Info</Label>
-                <div className="space-y-2 mt-1">
-                  {form.contact_methods.map((method, index) => {
-                    const isPhoneType = PHONE_CONTACT_TYPES.includes(method.type);
-                    return (
-                      <div key={`contact-method-${index}`} className="flex gap-2 items-start">
-                        <Select value={method.type} onValueChange={(v) => updateContactMethod(index, 'type', v)}>
-                          <SelectTrigger className="w-32 shrink-0"><SelectValue /></SelectTrigger>
-                          <SelectContent>{CONTACT_TYPE_OPTIONS.map((option) => <SelectItem key={option} value={option}>{option}</SelectItem>)}</SelectContent>
-                        </Select>
-                        <Input value={method.value} placeholder={isPhoneType ? '(555) 123-4567' : 'Enter value'} onChange={(e) => updateContactMethod(index, 'value', e.target.value)} />
-                        {form.contact_methods.length > 1 && (
-                          <Button type="button" size="icon" variant="ghost" onClick={() => removeContactMethod(index)} className="h-9 w-9 shrink-0"><X className="h-4 w-4" /></Button>
-                        )}
-                      </div>
-                    );
-                  })}
-                  <Button type="button" variant="outline" size="sm" onClick={addContactMethod}><Plus className="h-3.5 w-3.5 mr-1" />Add Contact</Button>
-                </div>
-              </div>
-              <div>
-                <Label>Status</Label>
-                <Select value={form.status} onValueChange={(v) => setForm({ ...form, status: v })}>
-                  <SelectTrigger><SelectValue /></SelectTrigger>
-                  <SelectContent><SelectItem value="active">Active</SelectItem><SelectItem value="inactive">Inactive</SelectItem></SelectContent>
-                </Select>
-              </div>
-              <div>
-                <Label>Trucks</Label>
-                <div className="flex gap-2 mt-1">
-                  <Input value={truckInput} onChange={(e) => setTruckInput(e.target.value)} placeholder="Truck number" onKeyDown={(e) => e.key === 'Enter' && (e.preventDefault(), addTruck())} />
-                  <Button type="button" variant="outline" onClick={addTruck}>Add</Button>
-                </div>
-                <div className="flex gap-1.5 flex-wrap mt-2">
-                  {form.trucks.map((t) => (
-                    <Badge key={t} variant="secondary" className="gap-1 pr-1">{t}<button onClick={() => removeTruck(t)} className="hover:bg-slate-300 rounded-full p-0.5"><X className="h-3 w-3" /></button></Badge>
-                  ))}
-                </div>
-              </div>
-              <Button onClick={handleSave} disabled={saveMutation.isPending} className="w-full bg-slate-900 hover:bg-slate-800">{saveMutation.isPending ? 'Saving...' : 'Save Company'}</Button>
-            </TabsContent>
-
-            {editing && (
-              <TabsContent value="scoring">
-                <CompanyScoringTab company={editing} trucks={form.trucks} />
-              </TabsContent>
-            )}
-          </Tabs>
+      <Dialog open={!!selectedCompany} onOpenChange={(openState) => !openState && setSelectedCompany(null)}>
+        <DialogContent className="sm:max-w-6xl">
+          <DialogHeader><DialogTitle>{selectedCompany?.name} — Scoring Detail ({SCORING_PERIODS[periodKey].label})</DialogTitle></DialogHeader>
+          <ScoringDetailDialog
+            company={selectedCompany}
+            score={selectedScore}
+            eventForm={eventForm}
+            setEventForm={setEventForm}
+            dispatchOptions={selectedCompanyDispatches}
+            drivers={selectedCompanyDrivers}
+            trucks={selectedCompany?.trucks || []}
+            isSaving={saveEventMutation.isPending}
+            isDeleting={deleteEventMutation.isPending}
+            onCreate={() => saveEventMutation.mutate({
+              ...eventForm,
+              company_id: selectedCompany.id,
+              event_date: eventForm.event_date ? new Date(eventForm.event_date).toISOString() : new Date().toISOString(),
+            })}
+            onDelete={(id) => deleteEventMutation.mutate(id)}
+          />
         </DialogContent>
       </Dialog>
     </div>

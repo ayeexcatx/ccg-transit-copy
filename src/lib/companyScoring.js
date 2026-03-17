@@ -1,4 +1,4 @@
-import { differenceInCalendarDays } from 'date-fns';
+import { differenceInCalendarDays, startOfDay, subDays, subMonths, startOfYear, format } from 'date-fns';
 
 export const SCORING_EVENT_TYPES = [
   'Company Cancellation',
@@ -17,11 +17,37 @@ export const SCORING_WEIGHTS = {
   missedConfirmations: 0.15,
   dispatchCompletionRate: 0.25,
   truckUtilization: 0.1,
-  breakdownRate: 0.1,
-  lateIssueRate: 0.1,
+  breakdownRate: 0.15,
+  lateIssueRate: 0.05,
   cancellationRate: 0.1,
   responsePerformance: 0.05,
 };
+
+export const SCORING_PERIODS = {
+  last30: { key: 'last30', label: 'Last 30 Days', shortLabel: '30-Day', getRange: (now) => ({ start: subDays(startOfDay(now), 30), end: startOfDay(now) }) },
+  last90: { key: 'last90', label: 'Last 90 Days', shortLabel: '90-Day', getRange: (now) => ({ start: subDays(startOfDay(now), 90), end: startOfDay(now) }) },
+  ytd: { key: 'ytd', label: 'Year to Date', shortLabel: 'YTD', getRange: (now) => ({ start: startOfYear(startOfDay(now)), end: startOfDay(now) }) },
+  last12m: { key: 'last12m', label: 'Last 12 Months', shortLabel: '12-Month', getRange: (now) => ({ start: subMonths(startOfDay(now), 12), end: startOfDay(now) }) },
+};
+
+const EVENT_IMPACT = {
+  negative: {
+    'Company Cancellation': 4,
+    'Last-Minute Cancellation': 6,
+    'Late Arrival': 2,
+    'No Show': 8,
+    'Truck Issue': 5,
+    'Driver Issue': 3,
+    'Customer Complaint': 3,
+    Other: 1,
+  },
+  positive: {
+    'Exceptional Performance': 2,
+  },
+};
+
+const NON_COMPLETION_EVENT_TYPES = new Set(['Company Cancellation', 'Last-Minute Cancellation', 'No Show']);
+const CANCELLATION_EVENT_TYPES = new Set(['Company Cancellation', 'Last-Minute Cancellation']);
 
 const clamp = (value, min = 0, max = 100) => Math.max(min, Math.min(max, value));
 
@@ -34,7 +60,6 @@ const parseDate = (value) => {
 const toPercent = (numerator, denominator) => (denominator > 0 ? (numerator / denominator) * 100 : 100);
 
 const scoreFromRate = (rate) => clamp(rate);
-
 const scoreFromInverseRate = (rate) => clamp(100 - rate);
 
 const scoreFromHours = (hours) => {
@@ -46,30 +71,23 @@ const scoreFromHours = (hours) => {
   return 20;
 };
 
-const NON_COMPLETION_EVENT_TYPES = new Set([
-  'Company Cancellation',
-  'Last-Minute Cancellation',
-  'No Show',
-]);
+const inRange = (date, start, end) => date && date >= start && date < end;
 
-const NEGATIVE_EVENT_TYPES = new Set([
-  'Company Cancellation',
-  'Last-Minute Cancellation',
-  'Late Arrival',
-  'No Show',
-  'Truck Issue',
-  'Driver Issue',
-  'Customer Complaint',
-]);
+const isTrueBreakdownIncident = (incident) => {
+  const type = String(incident?.incident_type || '').trim().toLowerCase();
+  if (!type) return false;
+  if (type.includes('non-mechanical') || type.includes('damage/non-mechanical')) return false;
 
-const breakdownIncident = (incident) => {
-  const type = String(incident?.incident_type || '').toLowerCase();
-  return type.includes('mechanical') || type.includes('breakdown');
-};
+  const allowed = [
+    'mechanical breakdown',
+    'mechanical failure',
+    'engine failure',
+    'truck breakdown',
+    'breakdown',
+    'mechanical issue',
+  ];
 
-const delayIncident = (incident) => {
-  const type = String(incident?.incident_type || '').toLowerCase();
-  return type.includes('delay');
+  return allowed.some((keyword) => type === keyword || type.startsWith(`${keyword} `) || type.includes(` ${keyword}`));
 };
 
 export const getTrendLabel = (currentScore, previousScore) => {
@@ -79,9 +97,29 @@ export const getTrendLabel = (currentScore, previousScore) => {
   return 'Stable';
 };
 
-const metricRate = (items, predicate) => {
-  if (!items.length) return 0;
-  return (items.filter(predicate).length / items.length) * 100;
+const buildPeriodRange = (periodKey, now) => {
+  const period = SCORING_PERIODS[periodKey] || SCORING_PERIODS.last30;
+  return period.getRange(now);
+};
+
+const previousPeriodRange = (periodKey, currentStart) => {
+  if (periodKey === 'ytd') {
+    const priorStart = startOfYear(subMonths(currentStart, 12));
+    return { start: priorStart, end: subMonths(currentStart, 12) };
+  }
+  if (periodKey === 'last12m') {
+    return { start: subMonths(currentStart, 12), end: currentStart };
+  }
+  const days = periodKey === 'last90' ? 90 : 30;
+  return { start: subDays(currentStart, days), end: currentStart };
+};
+
+export const getPeriodComparisonLabels = (periodKey) => {
+  const period = SCORING_PERIODS[periodKey] || SCORING_PERIODS.last30;
+  if (periodKey === 'ytd') {
+    return { current: 'Current Year-to-Date Period', previous: 'Previous Year-to-Date Period' };
+  }
+  return { current: `Current ${period.shortLabel} Period`, previous: `Previous ${period.shortLabel} Period` };
 };
 
 export const calculateCompanyScore = ({
@@ -92,104 +130,77 @@ export const calculateCompanyScore = ({
   events,
   drivers,
   driverAssignments,
-  periodDays = 30,
+  periodKey = 'last30',
   now = new Date(),
 }) => {
   if (!company?.id) return null;
 
   const companyDispatches = dispatches.filter((dispatch) => dispatch.company_id === company.id);
   const dispatchById = new Map(companyDispatches.map((dispatch) => [dispatch.id, dispatch]));
-
   const companyConfirmations = confirmations.filter((confirmation) => dispatchById.has(confirmation.dispatch_id));
-  const companyIncidents = incidents.filter((incident) => {
-    if (incident.company_id === company.id) return true;
-    return incident.dispatch_id && dispatchById.has(incident.dispatch_id);
-  });
+  const companyIncidents = incidents.filter((incident) => incident.company_id === company.id || (incident.dispatch_id && dispatchById.has(incident.dispatch_id)));
   const companyEvents = events.filter((event) => event.company_id === company.id);
   const companyDrivers = drivers.filter((driver) => driver.company_id === company.id);
   const companyDriverIds = new Set(companyDrivers.map((driver) => driver.id));
-  const companyAssignments = driverAssignments.filter((assignment) =>
-    dispatchById.has(assignment.dispatch_id) || companyDriverIds.has(assignment.driver_id)
-  );
+  const companyAssignments = driverAssignments.filter((assignment) => dispatchById.has(assignment.dispatch_id) || companyDriverIds.has(assignment.driver_id));
 
-  const today = new Date(now);
-  today.setHours(0, 0, 0, 0);
-  const rangeStart = new Date(today);
-  rangeStart.setDate(today.getDate() - periodDays);
-  const previousRangeStart = new Date(rangeStart);
-  previousRangeStart.setDate(rangeStart.getDate() - periodDays);
+  const today = startOfDay(now);
+  const { start: rangeStart, end: rangeEnd } = buildPeriodRange(periodKey, now);
+  const { start: previousRangeStart, end: previousRangeEnd } = previousPeriodRange(periodKey, rangeStart);
 
-  const inRange = (date, start, end) => date && date >= start && date < end;
-
-  const relevantDispatches = companyDispatches.filter((dispatch) => {
-    const dispatchDate = parseDate(dispatch.date);
-    return inRange(dispatchDate, previousRangeStart, today);
+  const relevantDispatches = companyDispatches.filter((dispatch) => inRange(parseDate(dispatch.date), rangeStart, rangeEnd));
+  const scopedConfirmations = companyConfirmations.filter((confirmation) => {
+    const dispatch = dispatchById.get(confirmation.dispatch_id);
+    return dispatch && inRange(parseDate(dispatch.date), rangeStart, rangeEnd);
   });
+  const scopedIncidents = companyIncidents.filter((incident) => inRange(parseDate(incident.incident_datetime || incident.created_date), rangeStart, rangeEnd));
+  const scopedEvents = companyEvents.filter((event) => inRange(parseDate(event.event_date || event.created_date), rangeStart, rangeEnd));
+  const trendScopedEvents = scopedEvents.filter((event) => event.include_in_trends !== false);
 
   const completedDispatches = relevantDispatches.filter((dispatch) => {
     const dispatchDate = parseDate(dispatch.date);
     if (!dispatchDate || dispatchDate >= today) return false;
 
-    const dispatchEvents = companyEvents.filter((event) => event.dispatch_id === dispatch.id);
-    const hasManualNonCompletion = dispatchEvents.some((event) =>
-      NON_COMPLETION_EVENT_TYPES.has(event.event_type) || event.impacts_completion_rate
-    );
+    const dispatchEvents = scopedEvents.filter((event) => event.dispatch_id === dispatch.id);
+    const hasManualNonCompletion = dispatchEvents.some((event) => NON_COMPLETION_EVENT_TYPES.has(event.event_type) || event.impacts_completion_rate);
+    const hasBreakdownFailure = scopedIncidents.some((incident) => incident.dispatch_id === dispatch.id && isTrueBreakdownIncident(incident));
 
-    const hasIncidentFailure = companyIncidents.some((incident) => {
-      if (incident.dispatch_id !== dispatch.id) return false;
-      const type = String(incident.incident_type || '').toLowerCase();
-      return type.includes('accident') || type.includes('mechanical') || type.includes('breakdown');
-    });
-
-    return !hasManualNonCompletion && !hasIncidentFailure;
+    return !hasManualNonCompletion && !hasBreakdownFailure;
   });
 
   const expectedConfirmationDispatches = relevantDispatches.filter((dispatch) => dispatch.status !== 'Cancelled');
 
-  const confirmationHours = companyConfirmations
-    .map((confirmation) => {
-      const dispatch = dispatchById.get(confirmation.dispatch_id);
-      if (!dispatch) return null;
-      const createdAt = parseDate(dispatch.created_date);
-      const confirmedAt = parseDate(confirmation.confirmed_at || confirmation.created_date);
-      if (!createdAt || !confirmedAt) return null;
-      const diffMs = confirmedAt.getTime() - createdAt.getTime();
-      return diffMs >= 0 ? diffMs / (1000 * 60 * 60) : null;
-    })
-    .filter((value) => value !== null);
+  const confirmationHours = scopedConfirmations.map((confirmation) => {
+    const dispatch = dispatchById.get(confirmation.dispatch_id);
+    const createdAt = parseDate(dispatch?.created_date);
+    const confirmedAt = parseDate(confirmation.confirmed_at || confirmation.created_date);
+    if (!createdAt || !confirmedAt) return null;
+    const diffMs = confirmedAt.getTime() - createdAt.getTime();
+    return diffMs >= 0 ? diffMs / (1000 * 60 * 60) : null;
+  }).filter((value) => value !== null);
 
-  const avgConfirmationHours = confirmationHours.length
-    ? confirmationHours.reduce((sum, value) => sum + value, 0) / confirmationHours.length
-    : null;
+  const avgConfirmationHours = confirmationHours.length ? confirmationHours.reduce((sum, value) => sum + value, 0) / confirmationHours.length : null;
 
-  const confirmedDispatchIds = new Set(companyConfirmations.map((confirmation) => confirmation.dispatch_id));
+  const confirmedDispatchIds = new Set(scopedConfirmations.map((confirmation) => confirmation.dispatch_id));
   const missedConfirmationsCount = expectedConfirmationDispatches.filter((dispatch) => !confirmedDispatchIds.has(dispatch.id)).length;
 
   const trucks = Array.isArray(company.trucks) ? company.trucks : [];
   const usedTruckNumbers = new Set();
   relevantDispatches.forEach((dispatch) => {
-    (dispatch.trucks_assigned || []).forEach((truckNumber) => {
-      if (!truckNumber) return;
-      usedTruckNumbers.add(truckNumber);
-    });
+    (dispatch.trucks_assigned || []).forEach((truckNumber) => truckNumber && usedTruckNumbers.add(truckNumber));
   });
 
-  const breakdownCount = companyIncidents.filter(breakdownIncident).length +
-    companyEvents.filter((event) => event.event_type === 'Truck Issue').length;
+  const breakdownIncidentCount = scopedIncidents.filter(isTrueBreakdownIncident).length;
+  const breakdownEventCount = scopedEvents.filter((event) => event.event_type === 'Truck Issue').length;
+  const breakdownCount = breakdownIncidentCount + breakdownEventCount;
 
-  const lateIssueCount = companyIncidents.filter(delayIncident).length +
-    companyEvents.filter((event) => event.event_type === 'Late Arrival').length;
-
-  const cancellationCount = companyEvents.filter((event) =>
-    event.event_type === 'Company Cancellation' || event.event_type === 'Last-Minute Cancellation'
-  ).length;
+  const lateIssueCount = scopedEvents.filter((event) => event.event_type === 'Late Arrival').length;
+  const cancellationCount = scopedEvents.filter((event) => CANCELLATION_EVENT_TYPES.has(event.event_type)).length;
 
   const scheduledDispatches = relevantDispatches.filter((dispatch) => dispatch.status === 'Scheduled');
-  const scheduledConfirmedCount = scheduledDispatches.filter((dispatch) =>
-    companyConfirmations.some((confirmation) =>
-      confirmation.dispatch_id === dispatch.id && (confirmation.confirmation_type === 'Scheduled' || !confirmation.confirmation_type)
-    )
-  ).length;
+  const scheduledConfirmedCount = scheduledDispatches.filter((dispatch) => scopedConfirmations.some((confirmation) =>
+    confirmation.dispatch_id === dispatch.id && (confirmation.confirmation_type === 'Scheduled' || !confirmation.confirmation_type)
+  )).length;
 
   const metrics = {
     confirmationSpeed: {
@@ -225,7 +236,7 @@ export const calculateCompanyScore = ({
     lateIssueRate: {
       label: 'Late Issue Rate',
       value: toPercent(lateIssueCount, relevantDispatches.length),
-      display: `${lateIssueCount} issues`,
+      display: `${lateIssueCount} manual late events`,
       score: scoreFromInverseRate(toPercent(lateIssueCount, relevantDispatches.length)),
     },
     cancellationRate: {
@@ -242,69 +253,47 @@ export const calculateCompanyScore = ({
     },
   };
 
-  const overallScore = Object.entries(SCORING_WEIGHTS).reduce((sum, [key, weight]) => {
-    return sum + (metrics[key]?.score || 0) * weight;
-  }, 0);
+  const weightedScore = Object.entries(SCORING_WEIGHTS).reduce((sum, [key, weight]) => sum + (metrics[key]?.score || 0) * weight, 0);
+  const eventPenalty = trendScopedEvents.reduce((sum, event) => sum + (EVENT_IMPACT.negative[event.event_type] || 0), 0);
+  const eventBonus = trendScopedEvents.reduce((sum, event) => sum + (EVENT_IMPACT.positive[event.event_type] || 0), 0);
+  const overallScore = clamp(weightedScore - eventPenalty + eventBonus);
 
   const buildSnapshot = (start, end) => {
     const scopedDispatches = companyDispatches.filter((dispatch) => inRange(parseDate(dispatch.date), start, end));
-    const scopedEvents = companyEvents.filter((event) => inRange(parseDate(event.event_date || event.created_date), start, end));
-    const scopedIncidents = companyIncidents.filter((incident) => inRange(parseDate(incident.incident_datetime || incident.created_date), start, end));
-    const negativeEventRate = metricRate(scopedEvents, (event) => NEGATIVE_EVENT_TYPES.has(event.event_type));
-    const incidentRate = toPercent(scopedIncidents.length, scopedDispatches.length || 1);
-    const completionRate = toPercent(
-      scopedDispatches.filter((dispatch) => parseDate(dispatch.date) < today).length,
-      scopedDispatches.length || 1
-    );
-    const score = clamp(100 - negativeEventRate * 0.4 - incidentRate * 0.3 + completionRate * 0.3);
-    return { score, dispatchCount: scopedDispatches.length };
+    const scopedRangeEvents = companyEvents.filter((event) => inRange(parseDate(event.event_date || event.created_date), start, end) && event.include_in_trends !== false);
+    const scopedRangeIncidents = companyIncidents.filter((incident) => inRange(parseDate(incident.incident_datetime || incident.created_date), start, end));
+    const negativeRate = toPercent(scopedRangeEvents.filter((event) => EVENT_IMPACT.negative[event.event_type]).length, scopedDispatches.length || 1);
+    const breakdownRate = toPercent(scopedRangeIncidents.filter(isTrueBreakdownIncident).length, scopedDispatches.length || 1);
+    const positiveRate = toPercent(scopedRangeEvents.filter((event) => event.event_type === 'Exceptional Performance').length, scopedDispatches.length || 1);
+    return clamp(100 - negativeRate * 0.35 - breakdownRate * 0.35 + positiveRate * 0.2);
   };
 
-  const currentSnapshot = buildSnapshot(rangeStart, today);
-  const previousSnapshot = buildSnapshot(previousRangeStart, rangeStart);
+  const currentSnapshot = buildSnapshot(rangeStart, rangeEnd);
+  const previousSnapshot = buildSnapshot(previousRangeStart, previousRangeEnd);
 
   const truckSummaries = trucks.map((truckNumber) => {
     const truckDispatches = relevantDispatches.filter((dispatch) => (dispatch.trucks_assigned || []).includes(truckNumber));
     const truckDispatchIds = new Set(truckDispatches.map((dispatch) => dispatch.id));
-    const truckBreakdowns = companyIncidents.filter((incident) => truckDispatchIds.has(incident.dispatch_id) && breakdownIncident(incident)).length;
-    const truckLateIssues = companyIncidents.filter((incident) => truckDispatchIds.has(incident.dispatch_id) && delayIncident(incident)).length;
-    const truckCancellationEvents = companyEvents.filter((event) =>
-      truckDispatchIds.has(event.dispatch_id) && (
-        event.event_type === 'Company Cancellation' ||
-        event.event_type === 'Last-Minute Cancellation' ||
-        event.event_type === 'No Show'
-      )
-    ).length;
-    const truckCompletionRate = toPercent(
-      Math.max(0, truckDispatches.length - truckCancellationEvents),
-      truckDispatches.length || 1
-    );
-
     return {
       truckNumber,
       dispatchCount: truckDispatches.length,
-      breakdowns: truckBreakdowns,
-      lateIssues: truckLateIssues,
-      completionRate: truckCompletionRate,
+      breakdowns: scopedIncidents.filter((incident) => truckDispatchIds.has(incident.dispatch_id) && isTrueBreakdownIncident(incident)).length,
+      lateIssues: scopedEvents.filter((event) => truckDispatchIds.has(event.dispatch_id) && event.event_type === 'Late Arrival').length,
+      completionRate: toPercent(Math.max(0, truckDispatches.length - scopedEvents.filter((event) => truckDispatchIds.has(event.dispatch_id) && (NON_COMPLETION_EVENT_TYPES.has(event.event_type) || event.impacts_completion_rate)).length), truckDispatches.length || 1),
     };
   });
 
   const driverSummaries = companyDrivers.map((driver) => {
-    const assignmentDispatchIds = new Set(
-      companyAssignments
-        .filter((assignment) => assignment.driver_id === driver.id)
-        .map((assignment) => assignment.dispatch_id)
-    );
+    const assignmentDispatchIds = new Set(companyAssignments.filter((assignment) => assignment.driver_id === driver.id).map((assignment) => assignment.dispatch_id));
     const assignedDispatches = relevantDispatches.filter((dispatch) => assignmentDispatchIds.has(dispatch.id));
-    const assignedConfirmations = companyConfirmations.filter((confirmation) => assignmentDispatchIds.has(confirmation.dispatch_id));
-    const driverEventCount = companyEvents.filter((event) => event.driver_id === driver.id).length;
+    const assignedConfirmations = scopedConfirmations.filter((confirmation) => assignmentDispatchIds.has(confirmation.dispatch_id));
 
     return {
       driverId: driver.id,
       driverName: driver.driver_name || 'Unknown Driver',
       dispatchCount: assignedDispatches.length,
       confirmationRate: toPercent(assignedConfirmations.length, assignedDispatches.length || 1),
-      eventCount: driverEventCount,
+      eventCount: scopedEvents.filter((event) => event.driver_id === driver.id).length,
     };
   });
 
@@ -312,30 +301,33 @@ export const calculateCompanyScore = ({
   if (metrics.breakdownRate.value > 20) warningBadges.push('High Breakdown Rate');
   if (metrics.confirmationSpeed.value !== null && metrics.confirmationSpeed.value > 8) warningBadges.push('Slow Confirmations');
   if (metrics.cancellationRate.value > 15) warningBadges.push('High Cancellation Rate');
-  if (metrics.lateIssueRate.value > 15) warningBadges.push('Frequent Late Issues');
+  if (metrics.lateIssueRate.value > 15) warningBadges.push('Frequent Manual Late Events');
+
+  const labels = getPeriodComparisonLabels(periodKey);
 
   return {
     score: Math.round(overallScore),
     metrics,
-    trend: getTrendLabel(currentSnapshot.score, previousSnapshot.score),
-    trendCurrentScore: Math.round(currentSnapshot.score),
-    trendPreviousScore: Math.round(previousSnapshot.score),
+    trend: getTrendLabel(currentSnapshot, previousSnapshot),
+    trendCurrentScore: Math.round(currentSnapshot),
+    trendPreviousScore: Math.round(previousSnapshot),
     warningBadges,
     dispatchCount: relevantDispatches.length,
     truckSummaries,
     driverSummaries,
-    events: companyEvents
-      .slice()
-      .sort((a, b) => new Date(b.event_date || b.created_date || 0) - new Date(a.event_date || a.created_date || 0)),
-    periodLabel: `${periodDays} days`,
+    events: scopedEvents.slice().sort((a, b) => new Date(b.event_date || b.created_date || 0) - new Date(a.event_date || a.created_date || 0)),
+    periodLabel: SCORING_PERIODS[periodKey]?.label || SCORING_PERIODS.last30.label,
+    periodComparisonLabels: labels,
     generatedAt: new Date().toISOString(),
     additional: {
-      assumedCompletedRule: 'Dispatch dates before today are treated as completed unless a manual non-completion event or severe incident exists.',
+      assumedCompletedRule: 'Dispatches before today are treated as completed by default unless manual non-completion events or true mechanical/breakdown incidents are logged.',
       lateIssues: lateIssueCount,
       breakdowns: breakdownCount,
       cancellations: cancellationCount,
-      periodDays,
+      periodKey,
+      periodDateRangeLabel: `${format(rangeStart, 'MMM d, yyyy')} – ${format(subDays(rangeEnd, 1), 'MMM d, yyyy')}`,
       daysSinceCreation: company.created_date ? differenceInCalendarDays(today, parseDate(company.created_date) || today) : null,
+      exceptionalPerformanceBonus: EVENT_IMPACT.positive['Exceptional Performance'],
     },
   };
 };
