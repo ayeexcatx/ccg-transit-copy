@@ -21,7 +21,7 @@ import {
 import { NOTE_DISPLAY_WIDTH, NOTE_TYPES, normalizeTemplateNote, renderSimpleMarkupToHtml } from '@/lib/templateNotes';
 import { calculateWorkedHours, formatTime24h, formatWorkedHours } from '@/lib/timeLogs';
 import { toast } from 'sonner';
-import { notifyDriverAssignmentChanges } from '@/components/notifications/createNotifications';
+import { notifyDriverAssignmentChanges, notifyOwnerDriverConfirmed } from '@/components/notifications/createNotifications';
 import html2canvas from 'html2canvas';
 import DispatchDrawerTutorial from '@/components/tutorial/DispatchDrawerTutorial';
 import DispatchActivityLogSection from './DispatchActivityLogSection';
@@ -397,12 +397,18 @@ export default function DispatchDetailDrawer({
       await Promise.all(updates);
       return confirmedAt;
     },
-    onSuccess: async () => {
+    onSuccess: async (_confirmedAt, variables) => {
+      await notifyOwnerDriverConfirmed({
+        dispatch,
+        assignments: variables?.assignments || [],
+        driverName: session?.label || session?.driver_name || session?.name || variables?.assignments?.[0]?.driver_name,
+      });
       await Promise.all([
         refetchDriverAssignments(),
         queryClient.invalidateQueries({ queryKey: ['driver-dispatch-assignments', dispatch?.id, session?.driver_id] }),
       ]);
       queryClient.invalidateQueries({ queryKey: ['driver-dispatch-assignments', dispatch?.id] });
+      queryClient.invalidateQueries({ queryKey: ['notifications'] });
       toast.success('Receipt confirmed.');
     },
     onError: (error) => {

@@ -10,9 +10,10 @@ const statusLabels = {
   Cancelled: 'Cancelled',
 };
 
-const NON_CONFIRMATION_CATEGORIES = new Set(['dispatch_update_info']);
+const NON_CONFIRMATION_CATEGORIES = new Set(['dispatch_update_info', 'driver_dispatch_confirmed']);
 
 const DRIVER_NOTIFICATION_CATEGORY = 'driver_dispatch_update';
+const DRIVER_CONFIRMED_NOTIFICATION_CATEGORY = 'driver_dispatch_confirmed';
 
 function isDispatchCanceledStatus(status) {
   const normalized = String(status || '').toLowerCase();
@@ -70,6 +71,61 @@ async function createDriverDispatchNotification({
   });
 
   await sendNotificationSmsIfEligible(notification);
+}
+
+
+export async function notifyOwnerDriverConfirmed({
+  dispatch,
+  assignments = [],
+  driverName,
+}) {
+  try {
+    if (!dispatch?.id || !dispatch?.company_id) return;
+
+    const confirmedTrucks = [...new Set((assignments || [])
+      .filter((assignment) => assignment?.active_flag !== false)
+      .map((assignment) => assignment?.truck_number)
+      .filter(Boolean))];
+    if (!confirmedTrucks.length) return;
+
+    const ownerCodes = await base44.entities.AccessCode.filter({
+      company_id: dispatch.company_id,
+      active_flag: true,
+      code_type: 'CompanyOwner',
+    }, '-created_date', 200);
+
+    const jobTag = dispatch.reference_tag || dispatch.job_number || dispatch.id;
+    const statusText = statusLabels[dispatch.status] || dispatch.status || 'Dispatch';
+    const actorLabel = String(driverName || 'Driver').trim() || 'Driver';
+    const title = `${actorLabel} confirmed the dispatch`;
+
+    await Promise.all((ownerCodes || []).map(async (ownerCode) => {
+      const relevantTrucks = confirmedTrucks.filter((truck) => (ownerCode.allowed_trucks || []).includes(truck));
+      if (!relevantTrucks.length) return;
+
+      const lineTwo = [
+        dispatch.shift_time,
+        statusText,
+        jobTag,
+        relevantTrucks.length <= 3 ? `Trucks: ${relevantTrucks.join(', ')}` : `${relevantTrucks.length} trucks confirmed`,
+      ].filter(Boolean).join(' • ');
+
+      await base44.entities.Notification.create({
+        recipient_type: 'AccessCode',
+        recipient_access_code_id: ownerCode.id,
+        recipient_id: ownerCode.id,
+        recipient_company_id: dispatch.company_id,
+        title,
+        message: `${formatDispatchDateTimeLine(dispatch)}
+${lineTwo}`,
+        related_dispatch_id: dispatch.id,
+        read_flag: false,
+        notification_category: DRIVER_CONFIRMED_NOTIFICATION_CATEGORY,
+      });
+    }));
+  } catch (error) {
+    console.error('Error creating driver confirmed notifications for company owners:', error);
+  }
 }
 
 export async function notifyDriverAssignmentChanges(dispatch, previousAssignments = [], nextAssignments = []) {
