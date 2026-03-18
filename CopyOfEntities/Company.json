@@ -1,0 +1,61 @@
+{
+  "name": "Company",
+  "type": "object",
+  "properties": {
+    "name": {
+      "type": "string",
+      "description": "Company name"
+    },
+    "address": {
+      "type": "string",
+      "description": "Company address (supports multiple lines such as street, city, state, zip)"
+    },
+    "contact_methods": {
+      "type": "array",
+      "description": "List of company contact methods",
+      "items": {
+        "type": "object",
+        "properties": {
+          "type": {
+            "type": "string",
+            "enum": [
+              "Office",
+              "Cell",
+              "Email",
+              "Fax",
+              "Other"
+            ],
+            "description": "Type of contact method"
+          },
+          "value": {
+            "type": "string",
+            "description": "Contact value such as phone number or email"
+          }
+        },
+        "required": [
+          "type",
+          "value"
+        ]
+      }
+    },
+    "trucks": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      },
+      "description": "List of truck numbers"
+    },
+    "status": {
+      "type": "string",
+      "enum": [
+        "active",
+        "inactive"
+      ],
+      "default": "active",
+      "description": "Company status"
+    }
+  },
+  "required": [
+    "name"
+  ]
+}
