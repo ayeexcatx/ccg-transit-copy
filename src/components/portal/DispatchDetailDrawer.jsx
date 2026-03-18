@@ -21,6 +21,7 @@ import { notifyDriverAssignmentChanges } from '@/components/notifications/create
 import html2canvas from 'html2canvas';
 import DispatchDrawerTutorial from '@/components/tutorial/DispatchDrawerTutorial';
 import DispatchConfirmReceiptLogSection from './DispatchConfirmReceiptLogSection';
+import DispatchActivityLogSection from './DispatchActivityLogSection';
 
 const tollColors = {
   Authorized: 'bg-green-50 text-green-700',
@@ -1501,26 +1502,10 @@ export default function DispatchDetailDrawer({
 
               {/* Activity — Admin */}
               {isAdmin && (
-                <div className="rounded-lg border border-amber-200 bg-amber-50/70 px-3 py-2.5">
-                  <p className="text-[11px] text-amber-800 uppercase tracking-wide mb-1.5 flex items-center gap-1">
-                    <History className="h-3.5 w-3.5" />Activity
-                  </p>
-                  {Array.isArray(dispatch.admin_activity_log) && dispatch.admin_activity_log.length > 0 ? (
-                    <ul className="space-y-1">
-                      {dispatch.admin_activity_log.map((entry, idx) => (
-                        <li key={`${entry.timestamp || 'activity'}-${idx}`} className="text-[11px] leading-tight text-slate-700 flex items-start gap-1.5">
-                          <span className="text-amber-600 mt-[1px]">•</span>
-                          <span className="min-w-0">
-                            {entry.message || entry.action || 'Activity update'}
-                            <span className="text-slate-400">{' — '}{formatActivityTimestamp(entry.timestamp)}</span>
-                          </span>
-                        </li>
-                      ))}
-                    </ul>
-                  ) : (
-                    <p className="text-[11px] text-slate-500 italic">No activity yet.</p>
-                  )}
-                </div>
+                <DispatchActivityLogSection
+                  activityLog={dispatch.admin_activity_log}
+                  formatActivityTimestamp={formatActivityTimestamp}
+                />
               )}
             </div>
           )}
