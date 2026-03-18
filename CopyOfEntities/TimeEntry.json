@@ -1,0 +1,38 @@
+{
+  "name": "TimeEntry",
+  "type": "object",
+  "properties": {
+    "dispatch_id": {
+      "type": "string",
+      "description": "Dispatch ID"
+    },
+    "access_code_id": {
+      "type": "string",
+      "description": "Access code ID"
+    },
+    "truck_number": {
+      "type": "string",
+      "description": "Truck number"
+    },
+    "start_time": {
+      "type": "string",
+      "description": "Start time"
+    },
+    "end_time": {
+      "type": "string",
+      "description": "End time"
+    },
+    "entered_by_name": {
+      "type": "string",
+      "description": "Display name of the person who submitted the time entry"
+    },
+    "entered_by_type": {
+      "type": "string",
+      "description": "Type of submitter, such as Admin, CompanyOwner, Truck, Driver, or AccessCode"
+    }
+  },
+  "required": [
+    "dispatch_id",
+    "truck_number"
+  ]
+}
