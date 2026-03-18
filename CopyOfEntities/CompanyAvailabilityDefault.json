@@ -1,0 +1,37 @@
+{
+  "name": "CompanyAvailabilityDefault",
+  "type": "object",
+  "properties": {
+    "company_id": {
+      "type": "string",
+      "description": "Company ID"
+    },
+    "weekday": {
+      "type": "number",
+      "description": "Day of week (0=Sunday, 1=Monday, ..., 6=Saturday)"
+    },
+    "shift": {
+      "type": "string",
+      "description": "Shift name (e.g. Day Shift, Night Shift)"
+    },
+    "status": {
+      "type": "string",
+      "enum": [
+        "available",
+        "unavailable"
+      ],
+      "default": "available",
+      "description": "Availability status"
+    },
+    "available_truck_count": {
+      "type": "number",
+      "description": "Number of trucks available (optional)"
+    }
+  },
+  "required": [
+    "company_id",
+    "weekday",
+    "shift",
+    "status"
+  ]
+}
