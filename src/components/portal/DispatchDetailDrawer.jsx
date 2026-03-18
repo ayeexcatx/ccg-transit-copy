@@ -1356,27 +1356,29 @@ export default function DispatchDetailDrawer({
                 confirmations={confirmations}
               />
 
-              <DispatchTimeLogSection
-                isOwner={isOwner}
-                isDriverUser={isDriverUser}
-                isAdmin={isAdmin}
-                showOwnerAssignmentsAndTimeLogs={showOwnerAssignmentsAndTimeLogs}
-                dispatchStatus={dispatch.status}
-                myTrucks={myTrucks}
-                visibleTrucks={visibleTrucks}
-                assignedTrucks={dispatch.trucks_assigned || []}
-                timeLogSectionRef={timeLogSectionRef}
-                draftTimeEntries={draftTimeEntries}
-                timeEntries={timeEntries}
-                dispatch={dispatch}
-                onChangeDraft={handleChangeDraft}
-                onCopyToAll={handleCopyToAll}
-                onSaveAll={handleSaveAll}
-                hasUnsavedChanges={hasUnsavedChanges}
-                isSavingAll={isSavingAll}
-                entriesToSave={entriesToSave}
-                TruckTimeRow={TruckTimeRow}
-              />
+              {!isDriverUser && (
+                <DispatchTimeLogSection
+                  isOwner={isOwner}
+                  isDriverUser={isDriverUser}
+                  isAdmin={isAdmin}
+                  showOwnerAssignmentsAndTimeLogs={showOwnerAssignmentsAndTimeLogs}
+                  dispatchStatus={dispatch.status}
+                  myTrucks={myTrucks}
+                  visibleTrucks={visibleTrucks}
+                  assignedTrucks={dispatch.trucks_assigned || []}
+                  timeLogSectionRef={timeLogSectionRef}
+                  draftTimeEntries={draftTimeEntries}
+                  timeEntries={timeEntries}
+                  dispatch={dispatch}
+                  onChangeDraft={handleChangeDraft}
+                  onCopyToAll={handleCopyToAll}
+                  onSaveAll={handleSaveAll}
+                  hasUnsavedChanges={hasUnsavedChanges}
+                  isSavingAll={isSavingAll}
+                  entriesToSave={entriesToSave}
+                  TruckTimeRow={TruckTimeRow}
+                />
+              )}
 
 
               {/* Activity — Admin */}
