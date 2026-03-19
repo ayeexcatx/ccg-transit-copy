@@ -222,13 +222,6 @@ export const dispatchDrawerTutorialSteps = {
       description: 'Click here to edit the truck numbers assigned to this dispatch.',
     },
     {
-      id: 'driver-assignments',
-      target: '[data-tour="dispatch-driver-assignments"]',
-      title: 'Driver Assignments',
-      description: 'Click the dropdown menu to assign drivers to your dispatch.',
-      warningText: 'Please familiarize yourself with the instructions on the Drivers page before using this feature.',
-    },
-    {
       id: 'assignment-details',
       target: '[data-tour="dispatch-assignment-details"]',
       title: 'Assignment Details',
@@ -247,6 +240,13 @@ export const dispatchDrawerTutorialSteps = {
       description:
         'Click here to confirm receipt of the dispatch.',
       warningText: 'You must confirm any time you receive: a new dispatch, a new schedule, an amendment, a cancellation, or another important update.',
+    },
+    {
+      id: 'driver-assignments',
+      target: '[data-tour="dispatch-driver-assignments"]',
+      title: 'Driver Assignments',
+      description: 'After confirming receipt, use this dropdown menu to assign drivers to your dispatch.',
+      warningText: 'Please familiarize yourself with the instructions on the Drivers page before using this feature.',
     },
     {
       id: 'time-log',
@@ -278,13 +278,6 @@ export const dispatchDrawerTutorialSteps = {
       description: 'Clique aqui para editar os números dos camiões atribuídos a este despacho.',
     },
     {
-      id: 'driver-assignments',
-      target: '[data-tour="dispatch-driver-assignments"]',
-      title: 'Atribuições de Motoristas',
-      description: 'Clique no menu suspenso para atribuir motoristas ao seu despacho.',
-      warningText: 'Por favor, familiarize-se com as instruções na página de Motoristas antes de usar esta funcionalidade.',
-    },
-    {
       id: 'assignment-details',
       target: '[data-tour="dispatch-assignment-details"]',
       title: 'Detalhes da Atribuição',
@@ -302,6 +295,13 @@ export const dispatchDrawerTutorialSteps = {
       title: 'Confirmar Receção',
       description: 'Clique aqui para confirmar que recebeu o despacho.',
       warningText: 'Deve confirmar sempre que receber: um novo despacho, um novo horário, uma alteração, um cancelamento ou outra atualização importante.',
+    },
+    {
+      id: 'driver-assignments',
+      target: '[data-tour="dispatch-driver-assignments"]',
+      title: 'Atribuições de Motoristas',
+      description: 'Depois de confirmar a receção, utilize este menu suspenso para atribuir motoristas ao seu despacho.',
+      warningText: 'Por favor, familiarize-se com as instruções na página de Motoristas antes de usar esta funcionalidade.',
     },
     {
       id: 'time-log',
