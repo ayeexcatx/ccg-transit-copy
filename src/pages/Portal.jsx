@@ -6,6 +6,16 @@ import { useSession } from '../components/session/SessionContext';
 import DispatchCard from '../components/portal/DispatchCard';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Badge } from '@/components/ui/badge';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
 import { Truck, Inbox } from 'lucide-react';
 import { startOfDay, parseISO } from 'date-fns';
 import { areAllAssignedTrucksTimeComplete } from '@/lib/timeLogs';
@@ -24,9 +34,9 @@ import { useOwnerNotifications } from '../components/notifications/useOwnerNotif
 
 
 function formatConflictDispatchSummary(dispatch) {
-  const parts = [dispatch?.status, dispatch?.job_number, dispatch?.start_time]
+  const parts = [dispatch?.job_number, dispatch?.start_time, dispatch?.reference_tag]
     .filter((value) => value && String(value).trim());
-  return parts.join(' | ');
+  return parts.join(' • ');
 }
 
 function getOwnerDisplayName(session) {
@@ -117,6 +127,7 @@ export default function Portal() {
   const lastHandledDispatchIdRef = useRef('');
   const drawerDispatchIdRef = useRef('');
   const pendingOwnerConfirmationKeysRef = useRef(new Set());
+  const swapConfirmationResolverRef = useRef(null);
 
   const urlParams = new URLSearchParams(location.search);
   const targetDispatchId = normalizeId(urlParams.get('dispatchId'));
@@ -140,6 +151,12 @@ export default function Portal() {
   });
 
   const { data: confirmations = [] } = useConfirmationsQuery(true);
+  const [swapConfirmationState, setSwapConfirmationState] = useState({
+    open: false,
+    incomingTruck: '',
+    outgoingTruck: '',
+    conflictSummary: '',
+  });
 
   const { data: timeEntries = [] } = useQuery({
     queryKey: ['time-entries'],
@@ -156,6 +173,25 @@ export default function Portal() {
     mutationFn: (data) => base44.entities.Confirmation.create(data),
     onSuccess: () => queryClient.invalidateQueries({ queryKey: confirmationsQueryKey }),
   });
+
+  const requestTruckSwapConfirmation = ({ incomingTruck, outgoingTruck, conflictSummary }) =>
+    new Promise((resolve) => {
+      swapConfirmationResolverRef.current = resolve;
+      setSwapConfirmationState({
+        open: true,
+        incomingTruck,
+        outgoingTruck,
+        conflictSummary,
+      });
+    });
+
+  const closeTruckSwapConfirmation = (confirmed) => {
+    setSwapConfirmationState((current) => ({ ...current, open: false }));
+    if (swapConfirmationResolverRef.current) {
+      swapConfirmationResolverRef.current(confirmed);
+      swapConfirmationResolverRef.current = null;
+    }
+  };
 
   const today = startOfDay(new Date());
 
@@ -282,10 +318,11 @@ export default function Portal() {
         }
 
         const conflictSummary = formatConflictDispatchSummary(conflictingDispatch);
-        const promptMessage = `${incomingTruck} is currently assigned to another dispatch:
-${conflictSummary}
-Would you like to swap ${outgoingTruck} with ${incomingTruck}?`;
-        const confirmed = window.confirm(promptMessage);
+        const confirmed = await requestTruckSwapConfirmation({
+          incomingTruck,
+          outgoingTruck,
+          conflictSummary,
+        });
         if (!confirmed) return { updated: false, cancelled: true };
 
         const conflictingCurrent = conflictingDispatch.trucks_assigned || [];
@@ -760,6 +797,26 @@ Would you like to swap ${outgoingTruck} with ${incomingTruck}?`;
           })}
         </div>
       )}
+      <AlertDialog open={swapConfirmationState.open}>
+        <AlertDialogContent className="max-w-md">
+          <AlertDialogHeader>
+            <AlertDialogTitle>Confirm Truck Swap</AlertDialogTitle>
+            <AlertDialogDescription asChild>
+              <div className="space-y-4 text-left text-sm leading-6 text-slate-600">
+                <div>
+                  <p>{swapConfirmationState.incomingTruck} is currently assigned to another dispatch:</p>
+                  <p className="font-medium text-slate-900">{swapConfirmationState.conflictSummary}</p>
+                </div>
+                <p>Would you like to swap {swapConfirmationState.outgoingTruck} for {swapConfirmationState.incomingTruck}?</p>
+              </div>
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel onClick={() => closeTruckSwapConfirmation(false)}>Cancel</AlertDialogCancel>
+            <AlertDialogAction onClick={() => closeTruckSwapConfirmation(true)}>Swap</AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }
