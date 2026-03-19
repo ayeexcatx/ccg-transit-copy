@@ -35,6 +35,29 @@ function isDispatchCanceledStatus(status) {
   return normalized === 'cancelled' || normalized === 'canceled';
 }
 
+function getDriverDispatchStatusNotification(status) {
+  const normalized = String(status || '').toLowerCase();
+
+  if (normalized === 'amended') {
+    return {
+      title: 'Dispatch Amended',
+      message: 'Your dispatch has been amended',
+    };
+  }
+
+  if (normalized === 'cancelled' || normalized === 'canceled') {
+    return {
+      title: 'Dispatch Canceled',
+      message: 'Your dispatch has been canceled',
+    };
+  }
+
+  return {
+    title: 'Dispatch Updated',
+    message: 'Your dispatch has been updated',
+  };
+}
+
 function getUniqueDriverIds(assignments = []) {
   return [...new Set((assignments || [])
     .filter((assignment) => assignment?.active_flag !== false)
@@ -183,14 +206,13 @@ export async function notifyDriversForDispatchUpdate(dispatch, driverAssignments
     if (!assignedDriverIds.length) return;
 
     const driverAccessCodeMap = await buildDriverAccessCodeMap(assignedDriverIds);
+    const { title, message } = getDriverDispatchStatusNotification(dispatch.status);
 
     await Promise.all(assignedDriverIds.map((driverId) => createDriverDispatchNotification({
       dispatch,
       driverAccessCodeId: driverAccessCodeMap.get(driverId),
-      title: isDispatchCanceledStatus(dispatch.status) ? 'Dispatch Canceled' : 'Dispatch Updated',
-      message: isDispatchCanceledStatus(dispatch.status)
-        ? 'Your dispatch has been canceled'
-        : 'Your dispatch has been updated',
+      title,
+      message,
     })));
   } catch (error) {
     console.error('Error creating driver dispatch update notifications:', error);
@@ -208,16 +230,27 @@ export async function notifyDriversForDispatchEdit({
     const previousStatus = previousDispatch?.status ?? null;
     const nextStatus = nextDispatch?.status ?? null;
     const statusChanged = previousStatus !== nextStatus;
-
-    // Generic driver edit notifications are only for admin edits that do not
-    // change dispatch status. Status-based driver notification flows are handled
-    // separately, so skip the generic update path whenever the status changes.
-    if (statusChanged) return;
-
     const assignedDriverIds = getUniqueDriverIds(driverAssignments);
     if (!assignedDriverIds.length) return;
 
     const driverAccessCodeMap = await buildDriverAccessCodeMap(assignedDriverIds);
+
+    if (statusChanged) {
+      const normalizedNextStatus = String(nextStatus || '').toLowerCase();
+
+      if (normalizedNextStatus === 'amended' || isDispatchCanceledStatus(nextStatus)) {
+        const { title, message } = getDriverDispatchStatusNotification(nextStatus);
+
+        await Promise.all(assignedDriverIds.map((driverId) => createDriverDispatchNotification({
+          dispatch: nextDispatch,
+          driverAccessCodeId: driverAccessCodeMap.get(driverId),
+          title,
+          message,
+        })));
+      }
+
+      return;
+    }
 
     await Promise.all(assignedDriverIds.map((driverId) => createDriverDispatchNotification({
       dispatch: nextDispatch,
