@@ -126,8 +126,10 @@ async function createDriverDispatchNotification({
 export async function notifyOwnerDriverSeen({
   dispatch,
   assignments = [],
+  driverId = null,
   driverName,
   seenKind = 'assigned',
+  seenVersionKey = null,
 }) {
   try {
     if (!dispatch?.id || !dispatch?.company_id) return;
@@ -147,7 +149,10 @@ export async function notifyOwnerDriverSeen({
     const jobTag = dispatch.reference_tag || dispatch.job_number || dispatch.id;
     const statusText = statusLabels[dispatch.status] || dispatch.status || 'Dispatch';
     const title = getDriverSeenTitle(driverName, seenKind);
-    const seenStatusKey = `${dispatch.id}:${String(seenKind || 'assigned').toLowerCase()}:${String(driverName || '').trim().toLowerCase()}`;
+    const normalizedDriverKey = String(driverId || driverName || 'driver').trim().toLowerCase();
+    const normalizedSeenKind = String(seenKind || 'assigned').toLowerCase();
+    const normalizedSeenVersionKey = String(seenVersionKey || `${dispatch.id}:${normalizedSeenKind}`).trim().toLowerCase();
+    const seenStatusKey = `${dispatch.id}:${normalizedDriverKey}:${normalizedSeenKind}:${normalizedSeenVersionKey}`;
 
     await Promise.all((ownerCodes || []).map(async (ownerCode) => {
       const relevantTrucks = confirmedTrucks.filter((truck) => (ownerCode.allowed_trucks || []).includes(truck));

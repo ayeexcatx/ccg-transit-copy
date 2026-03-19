@@ -1,3 +1,4 @@
+import { useRef } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { base44 } from '@/api/base44Client';
 import { useConfirmationsQuery } from './useConfirmationsQuery';
@@ -18,6 +19,7 @@ function getDriverNotificationSeenKind(notification, dispatch = null) {
 
 export function useOwnerNotifications(session) {
   const queryClient = useQueryClient();
+  const pendingDriverSeenKeysRef = useRef(new Set());
 
   const queryKey = ['notifications', session?.id];
 
@@ -169,72 +171,110 @@ export function useOwnerNotifications(session) {
     );
 
     const unseenAssignments = matchingAssignments.filter((assignment) => !assignment?.receipt_confirmed_at);
-    const matchingNotifications = notifications.filter((notification) =>
-      notification.notification_category === 'driver_dispatch_update' &&
-      String(notification.related_dispatch_id ?? '') === String(dispatch.id) &&
-      (notification.recipient_access_code_id === session.id || notification.recipient_id === session.id) &&
-      (!notificationId || String(notification.id) === String(notificationId))
-    );
+    const matchingNotifications = notifications
+      .filter((notification) =>
+        notification.notification_category === 'driver_dispatch_update' &&
+        String(notification.related_dispatch_id ?? '') === String(dispatch.id) &&
+        (notification.recipient_access_code_id === session.id || notification.recipient_id === session.id)
+      )
+      .sort((a, b) => new Date(b.created_date || 0) - new Date(a.created_date || 0));
 
+    const targetNotification = notificationId
+      ? matchingNotifications.find((notification) => String(notification.id) === String(notificationId)) || null
+      : null;
+    const currentRelevantNotification = targetNotification || matchingNotifications[0] || null;
     const unreadNotifications = matchingNotifications.filter((notification) => !notification.read_flag);
-    const statusNotification = matchingNotifications[0] || null;
+    const seenKind = getDriverNotificationSeenKind(currentRelevantNotification, dispatch);
+    const seenVersionKey = String(currentRelevantNotification?.id || `${dispatch.id}:${seenKind}`).trim();
+    const seenActionKey = `${dispatch.id}:${session.driver_id}:${seenKind}:${seenVersionKey}`;
 
     if (!unseenAssignments.length && !unreadNotifications.length) return;
+    if (pendingDriverSeenKeysRef.current.has(seenActionKey)) return;
 
-    const seenAt = new Date().toISOString();
+    pendingDriverSeenKeysRef.current.add(seenActionKey);
 
-    if (unreadNotifications.length) {
-      await Promise.all(unreadNotifications.map((notification) =>
-        base44.entities.Notification.update(notification.id, { read_flag: true })
-      ));
+    try {
+      const seenAt = new Date().toISOString();
+
+      if (unreadNotifications.length) {
+        await Promise.all(unreadNotifications.map((notification) =>
+          base44.entities.Notification.update(notification.id, { read_flag: true })
+        ));
+      }
+
+      if (unseenAssignments.length) {
+        await Promise.all(unseenAssignments.map((assignment) =>
+          base44.entities.DriverDispatchAssignment.update(assignment.id, {
+            receipt_confirmed_flag: true,
+            receipt_confirmed_at: seenAt,
+            receipt_confirmed_by_driver_id: session.driver_id,
+            receipt_confirmed_by_name: session?.label || session?.driver_name || session?.name || assignment?.driver_name || undefined,
+          })
+        ));
+
+        await notifyOwnerDriverSeen({
+          dispatch,
+          assignments: matchingAssignments,
+          driverId: session.driver_id,
+          driverName: session?.label || session?.driver_name || session?.name || matchingAssignments[0]?.driver_name,
+          seenKind,
+          seenVersionKey,
+        });
+      }
+
+      await invalidateNotificationQueries();
+      await queryClient.invalidateQueries({ queryKey: ['driver-dispatch-assignments', dispatch.id] });
+    } finally {
+      pendingDriverSeenKeysRef.current.delete(seenActionKey);
     }
-
-    if (unseenAssignments.length) {
-      await Promise.all(unseenAssignments.map((assignment) =>
-        base44.entities.DriverDispatchAssignment.update(assignment.id, {
-          receipt_confirmed_flag: true,
-          receipt_confirmed_at: seenAt,
-          receipt_confirmed_by_driver_id: session.driver_id,
-          receipt_confirmed_by_name: session?.label || session?.driver_name || session?.name || assignment?.driver_name || undefined,
-        })
-      ));
-
-      await notifyOwnerDriverSeen({
-        dispatch,
-        assignments: matchingAssignments,
-        driverName: session?.label || session?.driver_name || session?.name || matchingAssignments[0]?.driver_name,
-        seenKind: getDriverNotificationSeenKind(statusNotification, dispatch),
-      });
-    }
-
-    await invalidateNotificationQueries();
-    await queryClient.invalidateQueries({ queryKey: ['driver-dispatch-assignments', dispatch.id] });
   };
 
   const markDriverRemovalNotificationSeenAsync = async ({ notification, dispatch = null } = {}) => {
     if (session?.code_type !== 'Driver' || !notification?.id) return;
-    if (!notification.read_flag) {
-      await base44.entities.Notification.update(notification.id, { read_flag: true });
+
+    const seenActionKey = `${notification.related_dispatch_id || 'removed'}:${session.driver_id}:removed:${notification.id}`;
+    if (pendingDriverSeenKeysRef.current.has(seenActionKey)) return;
+    pendingDriverSeenKeysRef.current.add(seenActionKey);
+
+    try {
+      const relatedRemovalNotifications = notifications.filter((entry) =>
+        entry.notification_category === 'driver_dispatch_update' &&
+        String(entry.related_dispatch_id ?? '') === String(notification.related_dispatch_id ?? '') &&
+        (entry.recipient_access_code_id === session.id || entry.recipient_id === session.id) &&
+        String(entry.notification_type || '').toLowerCase() === 'driver_removed' &&
+        !entry.read_flag
+      );
+
+      const notificationsToMarkRead = relatedRemovalNotifications.length ? relatedRemovalNotifications : (!notification.read_flag ? [notification] : []);
+      if (notificationsToMarkRead.length) {
+        await Promise.all(notificationsToMarkRead.map((entry) =>
+          base44.entities.Notification.update(entry.id, { read_flag: true })
+        ));
+      }
+
+      await notifyOwnerDriverSeen({
+        dispatch: dispatch || {
+          id: notification.related_dispatch_id,
+          company_id: notification.recipient_company_id || session?.company_id,
+          status: 'Dispatch',
+          shift_time: null,
+          reference_tag: null,
+          job_number: null,
+        },
+        assignments: (notification?.required_trucks || ['Removed']).map((truckNumber) => ({
+          active_flag: true,
+          truck_number: truckNumber,
+        })),
+        driverId: session.driver_id,
+        driverName: session?.label || session?.driver_name || session?.name || 'Driver',
+        seenKind: 'removed',
+        seenVersionKey: String(notification.id),
+      });
+
+      await invalidateNotificationQueries();
+    } finally {
+      pendingDriverSeenKeysRef.current.delete(seenActionKey);
     }
-
-    await notifyOwnerDriverSeen({
-      dispatch: dispatch || {
-        id: notification.related_dispatch_id,
-        company_id: notification.recipient_company_id || session?.company_id,
-        status: 'Dispatch',
-        shift_time: null,
-        reference_tag: null,
-        job_number: null,
-      },
-      assignments: (notification?.required_trucks || ['Removed']).map((truckNumber) => ({
-        active_flag: true,
-        truck_number: truckNumber,
-      })),
-      driverName: session?.label || session?.driver_name || session?.name || 'Driver',
-      seenKind: 'removed',
-    });
-
-    await invalidateNotificationQueries();
   };
 
   return {
