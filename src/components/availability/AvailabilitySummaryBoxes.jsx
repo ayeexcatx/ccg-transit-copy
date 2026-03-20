@@ -101,42 +101,52 @@ export default function AvailabilitySummaryBoxes({ companyId = null, includeAllC
   }, [companies, companyId, defaults, dispatches, includeAllCompanies, overrides]);
 
   return (
-    <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-5 gap-3">
+    <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-5">
       {summaryData.map((box) => (
-        <Card key={`${box.label}-${box.dateKey}-${box.shift}`} className="shadow-sm border-slate-200">
-          <CardContent className="p-3 space-y-3">
-            <div className="space-y-1">
-              <p className="text-sm font-semibold text-slate-900 leading-tight">{box.label}</p>
-              <p className="text-[11px] text-slate-500">{format(box.date, 'EEE, MMM d')}</p>
+        <Card
+          key={`${box.label}-${box.dateKey}-${box.shift}`}
+          className="overflow-hidden border-slate-200 bg-white shadow-sm"
+        >
+          <CardContent className="p-0">
+            <div className="border-b border-slate-200/80 bg-slate-50/80 px-3.5 py-3">
+              <p className="text-sm font-semibold leading-tight text-slate-900">{box.label}</p>
+              <p className="mt-1 text-[11px] font-medium text-slate-500">{format(box.date, 'EEE, MMM d')}</p>
             </div>
 
-            <div className="grid grid-cols-3 gap-3 rounded-md bg-slate-50/70 px-3 py-2.5">
-              <div>
-                <p className="text-[11px] font-medium uppercase tracking-wide text-slate-500">Total</p>
-                <p className="text-3xl leading-none font-semibold text-emerald-600 mt-1">{box.total}</p>
+            <div className="space-y-3 px-3.5 py-3">
+              <div className="grid grid-cols-3 gap-2 sm:gap-3">
+                <div className="rounded-lg border border-emerald-100 bg-emerald-50/70 px-2.5 py-2.5">
+                  <p className="text-[10px] font-semibold uppercase tracking-[0.14em] text-slate-500">Total</p>
+                  <p className="mt-1.5 text-2xl font-semibold leading-none text-emerald-600 sm:text-3xl">{box.total}</p>
+                </div>
+                <div className="rounded-lg border border-sky-100 bg-sky-50/70 px-2.5 py-2.5">
+                  <p className="text-[10px] font-semibold uppercase tracking-[0.14em] text-slate-500">Dispatched</p>
+                  <p className="mt-1.5 text-2xl font-semibold leading-none text-sky-700 sm:text-3xl">{box.dispatched}</p>
+                </div>
+                <div className="rounded-lg border border-slate-200 bg-slate-50 px-2.5 py-2.5">
+                  <p className="text-[10px] font-semibold uppercase tracking-[0.14em] text-slate-500">Remaining</p>
+                  <p className="mt-1.5 text-2xl font-semibold leading-none text-slate-700 sm:text-3xl">{box.remaining}</p>
+                </div>
               </div>
-              <div>
-                <p className="text-[11px] font-medium uppercase tracking-wide text-slate-500">Dispatched</p>
-                <p className="text-3xl leading-none font-semibold text-sky-700 mt-1">{box.dispatched}</p>
-              </div>
-              <div>
-                <p className="text-[11px] font-medium uppercase tracking-wide text-slate-500">Remaining</p>
-                <p className="text-3xl leading-none font-semibold text-slate-700 mt-1">{box.remaining}</p>
-              </div>
-            </div>
 
-            {box.rows.length === 0 ? (
-              <p className="text-[11px] text-slate-400">No counted availability</p>
-            ) : (
-              <ul className="space-y-1">
-                {box.rows.map((row) => (
-                  <li key={`${box.label}-${row.companyId}`} className="text-[11px] text-slate-600 leading-snug">
-                    <span className="font-medium text-slate-700">{row.companyName}</span>
-                    <span> — {row.total} total, {row.dispatched} dispatched, {row.remaining} remaining</span>
-                  </li>
-                ))}
-              </ul>
-            )}
+              {box.rows.length === 0 ? (
+                <div className="rounded-md border border-dashed border-slate-200 bg-slate-50/70 px-3 py-2 text-center">
+                  <p className="text-[11px] font-medium text-slate-500">No counted availability</p>
+                </div>
+              ) : (
+                <ul className="space-y-1.5">
+                  {box.rows.map((row) => (
+                    <li
+                      key={`${box.label}-${row.companyId}`}
+                      className="rounded-md bg-slate-50/70 px-2.5 py-2 text-[11px] leading-snug text-slate-600"
+                    >
+                      <span className="font-medium text-slate-700">{row.companyName}</span>
+                      <span> — {row.total} total, {row.dispatched} dispatched, {row.remaining} remaining</span>
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </div>
           </CardContent>
         </Card>
       ))}
