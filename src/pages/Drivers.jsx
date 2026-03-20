@@ -11,7 +11,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Switch } from '@/components/ui/switch';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
-import { UserRound, Plus, Pencil, KeyRound, Trash2, Check, Menu } from 'lucide-react';
+import { UserRound, Plus, Pencil, KeyRound, Trash2, Check, Menu, Phone, TriangleAlert } from 'lucide-react';
 import { formatPhoneNumber, getDriverSmsState } from '@/lib/sms';
 
 const defaultForm = {
@@ -31,22 +31,31 @@ async function syncDriverAccessCode(driver) {
   });
 }
 
-function DriverSmsStatus({ driver }) {
+function DriverSmsStatus({ driver, desktop = false }) {
   const smsState = getDriverSmsState(driver);
+  const items = [
+    { label: 'Owner enabled', value: smsState.ownerEnabled ? 'Yes' : 'No' },
+    { label: 'Driver opted in', value: smsState.driverOptedIn ? 'Yes' : 'No', muted: true },
+    {
+      label: 'Overall SMS',
+      value: smsState.effective ? 'Enabled' : 'Not enabled',
+      valueClassName: smsState.effective ? 'text-emerald-700' : 'text-slate-900',
+    },
+  ];
+
   return (
-    <div className="grid sm:grid-cols-3 gap-2 mt-3">
-      <div className="rounded-lg border bg-slate-50 px-3 py-2 text-xs">
-        <p className="text-slate-500">Owner enabled</p>
-        <p className="font-medium text-slate-900">{smsState.ownerEnabled ? 'Yes' : 'No'}</p>
-      </div>
-      <div className="rounded-lg border bg-slate-50 px-3 py-2 text-xs opacity-80">
-        <p className="text-slate-500">Driver opted in</p>
-        <p className="font-medium text-slate-900">{smsState.driverOptedIn ? 'Yes' : 'No'}</p>
-      </div>
-      <div className="rounded-lg border bg-slate-50 px-3 py-2 text-xs">
-        <p className="text-slate-500">Overall SMS</p>
-        <p className={`font-medium ${smsState.effective ? 'text-emerald-700' : 'text-slate-900'}`}>{smsState.effective ? 'Enabled' : 'Not enabled'}</p>
-      </div>
+    <div className="mt-3 grid grid-cols-2 gap-2 sm:grid-cols-3">
+      {items.map((item) => (
+        <div
+          key={item.label}
+          className={desktop
+            ? `rounded-lg border bg-slate-50 px-3 py-2 text-xs ${item.muted ? 'opacity-80' : ''}`
+            : `rounded-xl border border-slate-200 bg-slate-50 px-3 py-2.5 text-xs shadow-sm shadow-slate-200/50 ${item.muted ? 'opacity-80' : ''} ${item.label === 'Overall SMS' ? 'col-span-2' : ''}`}
+        >
+          <p className={desktop ? 'text-slate-500' : 'text-[11px] font-medium uppercase tracking-wide text-slate-500'}>{item.label}</p>
+          <p className={`${desktop ? 'font-medium text-slate-900' : `mt-1 text-sm font-semibold ${item.valueClassName || 'text-slate-900'}`}`}>{item.value}</p>
+        </div>
+      ))}
     </div>
   );
 }
@@ -162,7 +171,7 @@ export default function Drivers() {
           <h2 className="text-2xl font-semibold text-slate-900">Drivers</h2>
           <p className="text-sm text-slate-500">Manage driver records and the owner-controlled SMS permission layer.</p>
         </div>
-        <Button onClick={openCreate} className="bg-slate-900 hover:bg-slate-800">
+        <Button onClick={openCreate} className="w-full bg-slate-900 hover:bg-slate-800 sm:w-auto">
           <Plus className="h-4 w-4 mr-1" />Add Driver
         </Button>
       </div>
@@ -181,9 +190,54 @@ export default function Drivers() {
             const smsState = getDriverSmsState(driver);
 
             return (
-              <Card key={driver.id}>
-                <CardContent className="p-4">
-                  <div className="flex items-start justify-between gap-3">
+              <Card key={driver.id} className="overflow-hidden border-slate-200 shadow-sm shadow-slate-200/70 sm:shadow-none">
+                <CardContent className="p-3.5 sm:p-4">
+                  <div className="space-y-3 sm:hidden">
+                    <div className="flex items-start justify-between gap-3">
+                      <div className="min-w-0 flex-1">
+                        <div className="flex items-center gap-2">
+                          <p className="truncate text-base font-semibold text-slate-900">{driver.driver_name || 'Unnamed driver'}</p>
+                          <Badge variant={status === 'Active' ? 'default' : 'secondary'} className="shrink-0">{status}</Badge>
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-1.5 shrink-0">
+                        <Button variant="ghost" size="icon" onClick={() => openEdit(driver)} className="h-9 w-9 rounded-full"><Pencil className="h-4 w-4" /></Button>
+                        <Button variant="ghost" size="icon" onClick={() => setDriverToDelete(driver)} className="h-9 w-9 rounded-full text-red-500 hover:text-red-600"><Trash2 className="h-4 w-4" /></Button>
+                        <Button variant="outline" size="sm" onClick={() => requestCodeMutation.mutate(driver)} disabled={requestCodeMutation.isPending || !canRequestCode} className="h-9 rounded-full border-red-200 bg-red-600 px-3 text-xs font-medium text-white shadow-sm hover:bg-red-700"><KeyRound className="mr-1 h-3.5 w-3.5" />{requestLabel}</Button>
+                      </div>
+                    </div>
+
+                    <div className="flex flex-wrap gap-1.5">
+                      <Badge variant={smsState.effective ? 'default' : 'secondary'} className="text-[11px]">{smsState.effective ? <><Check className="mr-1 h-3 w-3" />SMS Active</> : 'SMS Not Active'}</Badge>
+                      <Badge variant="outline" className="text-[11px]">{accessCodeStatus}</Badge>
+                    </div>
+
+                    {driver.phone && (
+                      <div className="flex items-center gap-2 text-sm text-slate-600">
+                        <Phone className="h-4 w-4 text-slate-400" />
+                        <span>{formatPhoneNumber(driver.phone)}</span>
+                      </div>
+                    )}
+
+                    {driver.notes && <p className="text-sm text-slate-500">{driver.notes}</p>}
+
+                    <DriverSmsStatus driver={driver} />
+
+                    {driver.owner_sms_enabled ? (
+                      <div className="rounded-xl border border-red-200 bg-red-50 px-3 py-2 text-xs leading-5 text-red-700">
+                        <div className="flex items-start gap-2">
+                          <TriangleAlert className="mt-0.5 h-3.5 w-3.5 shrink-0" />
+                          <p>
+                            Please have your driver opt in to SMS notifications by clicking the menu button <Menu className="mx-0.5 inline h-3.5 w-3.5 align-text-bottom" /> then going to Profile and enabling SMS notifications.
+                          </p>
+                        </div>
+                      </div>
+                    ) : (
+                      <p className="text-xs text-slate-500">This driver will not receive notifications on their phone. They will only see pending notifications when they open the app.</p>
+                    )}
+                  </div>
+
+                  <div className="hidden items-start justify-between gap-3 sm:flex">
                     <div className="space-y-1 min-w-0 flex-1">
                       <div className="flex items-center gap-2 flex-wrap">
                         <UserRound className="h-4 w-4 text-slate-500" />
@@ -194,7 +248,7 @@ export default function Drivers() {
                       </div>
                       {driver.phone && <p className="text-sm text-slate-600">Phone: {driver.phone}</p>}
                       {driver.notes && <p className="text-sm text-slate-500">{driver.notes}</p>}
-                      <DriverSmsStatus driver={driver} />
+                      <DriverSmsStatus driver={driver} desktop />
                       {driver.owner_sms_enabled ? (
                         <p className="mt-2 pr-6 text-xs leading-5 text-red-600">
                           Please have your driver opt in to SMS notifications by clicking the menu button <Menu className="mx-0.5 inline h-3.5 w-3.5 align-text-bottom" /> then going to Profile and enabling SMS notifications.
