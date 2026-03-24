@@ -539,13 +539,14 @@ No owner-style confirmation UI is shown for drivers.
 
 ### Whether they can add time entries
 No.
-- drivers only get read-only time log view for visible assigned trucks
-- section hidden entirely when dispatch status is `Cancelled`
+- drivers do not see the Time Log section at all (no editable and no read-only subsection)
+- this remains true even if owner-entered time log data exists for the same dispatch/truck set
 
 ### Whether they can report incidents
 Yes.
 - report incident button shown
 - incident URL includes dispatch/company and single truck if only one visible truck
+- **Needs manual verification:** Product verification indicates the assigned truck is prefilled for drivers in this flow; code-level prefill is explicit for single-visible-truck cases and may rely on incident-form selection rules in multi-truck cases.
 
 ### Whether they can assign/remove drivers
 No.
@@ -575,7 +576,7 @@ When a driver deep-links to a removed assignment notification:
 - incident button
 - details body
 - truck chips for only their assigned trucks
-- read-only time log section for visible trucks, unless cancelled
+- no time log section
 - no confirmation section
 - no driver assignment section
 - no admin activity log
@@ -585,7 +586,7 @@ When a driver deep-links to a removed assignment notification:
 - no screenshot
 - no truck editing
 - no driver assignment changes
-- no editable time logs
+- no time log section (editable or read-only)
 
 ## Truck user behavior
 
@@ -1527,4 +1528,3 @@ Use this checklist after any refactor.
 - Whether Incidents page consumes every query param generated here exactly as assumed; this file pair only proves that those params are sent.
 - Whether owner/admin notification UX elsewhere depends on ordering or exact message text beyond what is visible in current helper code.
 - Whether there are backend automations tied to confirmation/time-entry/assignment entity changes outside the traced client code.
-

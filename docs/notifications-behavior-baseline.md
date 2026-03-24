@@ -558,6 +558,7 @@ Every send/skip/failure attempt records a `General` entity row with `record_type
    - owner-visible added trucks are unioned in,
    - message is rebuilt,
    - `read_flag` is recomputed as all-confirmed or not,
+   - existing notification is reused/updated rather than replaced, so previously “all confirmed” owner action state can move back to pending (for example `2/2 confirmed` -> `2/3 confirmed`) when the added truck is unconfirmed,
    - updated notification may trigger SMS only if newly added required trucks include at least one not already confirmed,
    - otherwise a new owner status notification is created if one did not exist, then SMS is evaluated.
 7. `reconcileOwnerNotificationsForDispatch` then re-normalizes current status notification state.
