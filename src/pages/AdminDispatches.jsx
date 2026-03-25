@@ -20,9 +20,10 @@ import DispatchDetailDrawer from '../components/portal/DispatchDetailDrawer';
 import { useSession } from '../components/session/SessionContext';
 import { Label } from '@/components/ui/label';
 import { statusBadgeColors, statusBorderAccent, scheduledStatusMessage } from '../components/portal/statusConfig';
-import { reconcileOwnerNotificationsForDispatch, notifyDriversForDispatchEdit, notifyDriverAssignmentChanges } from '@/components/notifications/createNotifications';
+import { reconcileOwnerNotificationsForDispatch, notifyDriversForDispatchEdit } from '@/components/notifications/createNotifications';
 import { syncDispatchHtmlToDrive } from '@/lib/dispatchDriveSync';
 import { toast } from 'sonner';
+import { clearRemovedTruckDriverAssignments } from '@/services/driverAssignmentMutationService';
 
 const STATUS_ORDER = ['Scheduled', 'Dispatch', 'Amended', 'Cancelled'];
 const ACTIVE_LIVE_EXCLUDED_STATUSES = new Set(['Cancelled', 'Scheduled']);
@@ -59,38 +60,6 @@ const getJobAccentByShift = (shift, index) => {
   const palette = shift === 'Night Shift' ? NIGHT_SHIFT_JOB_ACCENTS : DAY_SHIFT_JOB_ACCENTS;
   return palette[index % palette.length];
 };
-
-const normalizeTruckValue = (value) => String(value ?? '').trim();
-
-async function clearRemovedTruckDriverAssignments(dispatch, removedTrucks = []) {
-  if (!dispatch?.id || !removedTrucks.length) return;
-
-  const normalizedRemovedTrucks = [...new Set((removedTrucks || []).map((truck) => normalizeTruckValue(truck)).filter(Boolean))];
-  if (!normalizedRemovedTrucks.length) return;
-
-  const activeAssignments = await base44.entities.DriverDispatchAssignment.filter({
-    dispatch_id: dispatch.id,
-    active_flag: true,
-  }, '-assigned_datetime', 500);
-
-  const previousAssignments = activeAssignments || [];
-  const assignmentsToRemove = previousAssignments.filter((assignment) =>
-    normalizedRemovedTrucks.includes(normalizeTruckValue(assignment?.truck_number))
-  );
-
-  if (!assignmentsToRemove.length) return;
-
-  await Promise.all(assignmentsToRemove.map((assignment) =>
-    base44.entities.DriverDispatchAssignment.update(assignment.id, {
-      active_flag: false,
-    })
-  ));
-
-  const removedIds = new Set(assignmentsToRemove.map((assignment) => assignment.id));
-  const nextAssignments = previousAssignments.filter((assignment) => !removedIds.has(assignment.id));
-
-  await notifyDriverAssignmentChanges(dispatch, previousAssignments, nextAssignments);
-}
 
 const getLiveStatusClasses = (status) => {
   switch (status) {
@@ -731,7 +700,10 @@ export default function AdminDispatches() {
 
         if (savedDispatch) {
           const removedTrucks = (editing?.trucks_assigned || []).filter((truck) => !(savedDispatch.trucks_assigned || []).includes(truck));
-          await clearRemovedTruckDriverAssignments(savedDispatch, removedTrucks);
+          await clearRemovedTruckDriverAssignments({
+            dispatch: savedDispatch,
+            removedTrucks,
+          });
 
           const previousStatus = editing?.status;
           const nextStatus = savedDispatch.status;

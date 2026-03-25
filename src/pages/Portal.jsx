@@ -27,8 +27,8 @@ import {
   notifyOwnerTruckReassignment,
   reconcileOwnerNotificationsForDispatch,
   expandCurrentStatusRequiredTrucks,
-  notifyDriverAssignmentChanges,
 } from '../components/notifications/createNotifications';
+import { clearRemovedTruckDriverAssignments } from '@/services/driverAssignmentMutationService';
 import { useConfirmationsQuery, confirmationsQueryKey } from '../components/notifications/useConfirmationsQuery';
 import { useOwnerNotifications } from '../components/notifications/useOwnerNotifications';
 import {
@@ -62,66 +62,11 @@ function getSessionActorMetadata(session) {
 }
 
 const normalizeId = (value) => normalizeVisibilityId(value);
-const normalizeTruckValue = (value) => String(value ?? '').trim();
-
 function myTrucksForHistory(dispatch, timeEntries, session) {
   const trucks = (session?.allowed_trucks || []).filter(t => (dispatch.trucks_assigned || []).includes(t));
   if (trucks.length === 0) return false;
   const dispatchEntries = timeEntries.filter((te) => te.dispatch_id === dispatch.id && trucks.includes(te.truck_number));
   return areAllAssignedTrucksTimeComplete({ trucks_assigned: trucks }, dispatchEntries);
-}
-
-async function clearRemovedTruckDriverAssignments(dispatch, removedTrucks = []) {
-  if (!dispatch?.id || !removedTrucks.length) return;
-
-  const normalizedRemovedTrucks = removedTrucks
-    .map((truck) => normalizeTruckValue(truck))
-    .filter(Boolean);
-  if (!normalizedRemovedTrucks.length) return;
-
-  const activeAssignments = await base44.entities.DriverDispatchAssignment.filter({
-    dispatch_id: dispatch.id,
-    active_flag: true,
-  }, '-assigned_datetime', 500);
-
-  const previousAssignments = activeAssignments || [];
-  console.log('[clearRemovedTruckDriverAssignments] removedTrucks', {
-    dispatchId: dispatch.id,
-    removedTrucks,
-    normalizedRemovedTrucks,
-  });
-  console.log('[clearRemovedTruckDriverAssignments] activeAssignments', {
-    dispatchId: dispatch.id,
-    activeAssignments: previousAssignments,
-  });
-
-  const assignmentsToRemove = previousAssignments.filter((assignment) =>
-    normalizedRemovedTrucks.includes(normalizeTruckValue(assignment?.truck_number))
-  );
-
-  console.log('[clearRemovedTruckDriverAssignments] assignmentsToRemove', {
-    dispatchId: dispatch.id,
-    assignmentsToRemove,
-  });
-
-  if (!assignmentsToRemove.length) return;
-
-  await Promise.all(assignmentsToRemove.map((assignment) =>
-    base44.entities.DriverDispatchAssignment.update(assignment.id, {
-      active_flag: false,
-    })
-  ));
-
-  const removedIds = new Set(assignmentsToRemove.map((assignment) => assignment.id));
-  const nextAssignments = previousAssignments.filter((assignment) => !removedIds.has(assignment.id));
-
-  console.log('[clearRemovedTruckDriverAssignments] assignmentDiff', {
-    dispatchId: dispatch.id,
-    previousAssignments,
-    nextAssignments,
-  });
-
-  await notifyDriverAssignmentChanges(dispatch, previousAssignments, nextAssignments);
 }
 
 export default function Portal() {
@@ -385,8 +330,16 @@ export default function Portal() {
           ],
         });
 
-        await clearRemovedTruckDriverAssignments(updatedDispatch, removedTrucks);
-        await clearRemovedTruckDriverAssignments(updatedConflictingDispatch, [incomingTruck]);
+        await clearRemovedTruckDriverAssignments({
+          dispatch: updatedDispatch,
+          removedTrucks,
+          log: (stage, payload) => console.log(`[clearRemovedTruckDriverAssignments] ${stage}`, payload),
+        });
+        await clearRemovedTruckDriverAssignments({
+          dispatch: updatedConflictingDispatch,
+          removedTrucks: [incomingTruck],
+          log: (stage, payload) => console.log(`[clearRemovedTruckDriverAssignments] ${stage}`, payload),
+        });
 
         const currentStatusConfirmations = getConfirmationsForDispatchStatus({
           confirmations,
@@ -481,7 +434,11 @@ export default function Portal() {
         ],
       });
 
-      await clearRemovedTruckDriverAssignments(updatedDispatch, removedTrucks);
+      await clearRemovedTruckDriverAssignments({
+        dispatch: updatedDispatch,
+        removedTrucks,
+        log: (stage, payload) => console.log(`[clearRemovedTruckDriverAssignments] ${stage}`, payload),
+      });
 
       const currentStatusConfirmations = getConfirmationsForDispatchStatus({
         confirmations,

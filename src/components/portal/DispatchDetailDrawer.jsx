@@ -21,7 +21,6 @@ import {
 import { NOTE_DISPLAY_WIDTH, NOTE_TYPES, normalizeTemplateNote, renderSimpleMarkupToHtml } from '@/lib/templateNotes';
 import { calculateWorkedHours, formatTime24h, formatWorkedHours } from '@/lib/timeLogs';
 import { toast } from 'sonner';
-import { notifyDriverAssignmentChanges } from '@/components/notifications/createNotifications';
 import html2canvas from 'html2canvas';
 import DispatchDrawerTutorial from '@/components/tutorial/DispatchDrawerTutorial';
 import DispatchActivityLogSection from './DispatchActivityLogSection';
@@ -29,6 +28,7 @@ import DispatchTimeLogSection from './DispatchTimeLogSection';
 import DispatchDriverConfirmationSection from './DispatchDriverConfirmationSection';
 import { getVisibleTrucksForDispatch } from '@/lib/dispatchVisibility';
 import { buildConfirmedTruckSetForStatus } from '@/components/notifications/confirmationStateHelpers';
+import { deactivateDriverAssignment, upsertDriverAssignment } from '@/services/driverAssignmentMutationService';
 
 const tollColors = {
   Authorized: 'bg-green-50 text-green-700',
@@ -466,43 +466,21 @@ export default function DispatchDetailDrawer({
       }
 
       const existing = driverAssignments.find((entry) => entry.truck_number === truckNumber);
-      const previousAssignment = existing && existing.active_flag !== false ? existing : null;
-      const payload = {
-        dispatch_id: dispatch.id,
-        company_id: dispatch.company_id,
-        truck_number: truckNumber,
-        driver_id: driver.id,
-        driver_name: driver.driver_name,
-        assigned_by_access_code_id: session?.id,
-        assigned_by_code_type: session?.code_type,
-        assigned_datetime: new Date().toISOString(),
-        active_flag: true,
-        receipt_confirmed_flag: false,
-        receipt_confirmed_at: null,
-        receipt_confirmed_by_driver_id: null,
-        receipt_confirmed_by_name: null,
-      };
-
-      let savedAssignment;
-      if (existing?.id) {
-        savedAssignment = await base44.entities.DriverDispatchAssignment.update(existing.id, payload);
-      } else {
-        savedAssignment = await base44.entities.DriverDispatchAssignment.create(payload);
-      }
-
-      const nextAssignments = previousAssignments
-        .filter((entry) => entry?.id !== existing?.id)
-        .concat(savedAssignment);
-
-      const activityEntries = buildDriverAssignmentActivityEntries({
-        session,
+      const { savedAssignment } = await upsertDriverAssignment({
+        dispatch,
+        driverAssignments: previousAssignments,
         truckNumber,
-        previousAssignment,
-        nextAssignment: savedAssignment,
+        driver,
+        session,
+        buildActivityEntries: ({ truckNumber: nextTruckNumber, previousAssignment, nextAssignment }) =>
+          buildDriverAssignmentActivityEntries({
+            session,
+            truckNumber: nextTruckNumber,
+            previousAssignment,
+            nextAssignment,
+          }),
+        appendActivityEntries: appendDispatchActivityEntries,
       });
-      await appendDispatchActivityEntries(dispatch, activityEntries);
-
-      await notifyDriverAssignmentChanges(dispatch, previousAssignments, nextAssignments);
 
       return savedAssignment;
     },
@@ -524,24 +502,20 @@ export default function DispatchDetailDrawer({
     setDriverAssignmentErrors((prev) => ({ ...prev, [truckNumber]: null }));
 
     if (driverId === UNASSIGNED_DRIVER_VALUE) {
-      const existing = driverAssignments.find((entry) => entry.truck_number === truckNumber && entry.active_flag !== false);
-      if (!existing?.id) return;
-
-      const previousAssignments = [...driverAssignments];
-      await base44.entities.DriverDispatchAssignment.update(existing.id, {
-        active_flag: false,
-      });
-
-      const activityEntries = buildDriverAssignmentActivityEntries({
-        session,
+      const { removed } = await deactivateDriverAssignment({
+        dispatch,
+        driverAssignments,
         truckNumber,
-        previousAssignment: existing,
-        nextAssignment: null,
+        buildActivityEntries: ({ truckNumber: nextTruckNumber, previousAssignment, nextAssignment }) =>
+          buildDriverAssignmentActivityEntries({
+            session,
+            truckNumber: nextTruckNumber,
+            previousAssignment,
+            nextAssignment,
+          }),
+        appendActivityEntries: appendDispatchActivityEntries,
       });
-      await appendDispatchActivityEntries(dispatch, activityEntries);
-
-      const nextAssignments = previousAssignments.filter((entry) => entry.id !== existing.id);
-      await notifyDriverAssignmentChanges(dispatch, previousAssignments, nextAssignments);
+      if (!removed) return;
       await refetchDriverAssignments();
       queryClient.invalidateQueries({ queryKey: ['portal-dispatches', dispatch?.company_id] });
       queryClient.invalidateQueries({ queryKey: ['dispatches-admin'] });
