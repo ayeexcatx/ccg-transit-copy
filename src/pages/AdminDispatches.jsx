@@ -2,24 +2,20 @@ import React, { useState, useMemo, useEffect, useRef } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { base44 } from '@/api/base44Client';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
-import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import {
-  Plus, Pencil, Trash2, Copy, FileText,
-  Sun, Moon, Truck, Filter, ChevronDown, ChevronUp, Eye, CheckCircle2, XCircle, History, Archive, ArchiveX, Lock, ChevronLeft, ChevronRight, Search } from
+  Truck, ChevronDown, ChevronUp, CheckCircle2, XCircle, History } from
 'lucide-react';
-import { addDays, format, parseISO, startOfDay } from 'date-fns';
+import { addDays, format, startOfDay } from 'date-fns';
 import { getDispatchBucket } from '../components/portal/dispatchBuckets';
 import DispatchForm from '../components/admin/DispatchForm';
 import DispatchDetailDrawer from '../components/portal/DispatchDetailDrawer';
 import { useSession } from '../components/session/SessionContext';
 import { Label } from '@/components/ui/label';
-import { statusBadgeColors, statusBorderAccent, scheduledStatusMessage } from '../components/portal/statusConfig';
+import { statusBadgeColors } from '../components/portal/statusConfig';
 import {
   clearDispatchOpenParams,
   getDispatchOpenTargets,
@@ -29,6 +25,11 @@ import { syncDispatchHtmlToDrive } from '@/lib/dispatchDriveSync';
 import { toast } from 'sonner';
 import { runAdminDispatchMutation } from '@/services/adminDispatchMutationService';
 import { runAdminDispatchArchiveMutation } from '@/services/dispatchArchiveMutationService';
+import AdminDispatchesToolbar from '@/components/admin/admin-dispatches/AdminDispatchesToolbar';
+import AdminDispatchesFiltersPanel from '@/components/admin/admin-dispatches/AdminDispatchesFiltersPanel';
+import AdminDispatchesTabBar from '@/components/admin/admin-dispatches/AdminDispatchesTabBar';
+import LiveDispatchBoard from '@/components/admin/admin-dispatches/LiveDispatchBoard';
+import AdminDispatchCard from '@/components/admin/admin-dispatches/AdminDispatchCard';
 
 const STATUS_ORDER = ['Scheduled', 'Dispatch', 'Amended', 'Cancelled'];
 const ACTIVE_LIVE_EXCLUDED_STATUSES = new Set(['Cancelled', 'Scheduled']);
@@ -378,133 +379,6 @@ function AdminConfirmationsPanel({ dispatch, confirmations }) {
 
 }
 
-
-function LiveDispatchBoard({
-  selectedDate,
-  groupedShifts,
-  onMoveWindow,
-  boardSearch,
-  onBoardSearch,
-  onOpenDispatch,
-  onChangeLiveStatus,
-  onAdjustRequestedCount,
-  statusUpdatingKey,
-  requestUpdatingKey
-}) {
-  return (
-    <div className="space-y-4">
-      <Card>
-        <CardContent className="p-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-          <div className="flex items-center gap-2">
-            <Button variant="outline" size="icon" onClick={() => onMoveWindow(-1)} className="h-8 w-8">
-              <ChevronLeft className="h-4 w-4" />
-            </Button>
-            <div>
-              <p className="text-xs text-slate-500">Viewing date</p>
-              <p className="text-lg sm:text-xl font-bold text-slate-900 tracking-tight">{format(selectedDate, 'EEEE, MMMM d, yyyy')}</p>
-            </div>
-            <Button variant="outline" size="icon" onClick={() => onMoveWindow(1)} className="h-8 w-8">
-              <ChevronRight className="h-4 w-4" />
-            </Button>
-          </div>
-          <div className="relative w-full sm:w-80">
-            <Search className="h-4 w-4 text-slate-400 absolute left-2.5 top-1/2 -translate-y-1/2" />
-            <Input className="pl-8 text-xs" value={boardSearch} onChange={(e) => onBoardSearch(e.target.value)} placeholder="Filter job #, truck #, or driver" />
-          </div>
-        </CardContent>
-      </Card>
-
-      {groupedShifts.every((shiftGroup) => shiftGroup.jobs.length === 0) ?
-      <div className="text-center py-12 text-sm text-slate-500">No live dispatch activity for this date.</div> :
-
-      <div className="space-y-4">
-          <Card>
-              <CardContent className="bg-[#ffffff] p-4 space-y-4">
-                {groupedShifts.map((shiftGroup) =>
-            <section key={shiftGroup.shift} className="space-y-4">
-                    <div className="bg-neutral-800 text-slate-50 px-4 py-3 rounded-lg flex items-center justify-between gap-3 border border-slate-200 from-slate-50 to-white shadow-sm">
-                      <div className="text-slate-50 text-xl font-bold tracking-tight flex items-center gap-2.5 sm:text-2xl">
-                        {shiftGroup.shift === 'Day Shift' ? <Sun className="text-amber-300 lucide lucide-sun h-5 w-5" /> : <Moon className="h-5 w-5 text-slate-500" />}
-                        {shiftGroup.shift}
-                      </div>
-                      <Badge variant="secondary" className="text-xs font-medium text-slate-600">{shiftGroup.jobs.length} jobs</Badge>
-                    </div>
-                    <div className="space-y-4">
-                      {shiftGroup.jobs.length === 0 &&
-                <p className="text-xs text-slate-400 px-1 py-1">No active jobs in this shift.</p>
-                }
-                      {shiftGroup.jobs.map((job, jobIndex) => {
-                  const jobAccent = getJobAccentByShift(shiftGroup.shift, jobIndex);
-
-                  return (
-                    <article key={job.groupKey} className="rounded-xl border border-slate-300 bg-slate-100/80 shadow-sm overflow-hidden">
-                          <div className="h-1.5" style={{ backgroundColor: jobAccent.accent }} />
-                          <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3 border-b border-slate-300 bg-white/90 px-4 py-3.5">
-                            <div className="space-y-1">
-                              <p className="text-base font-bold text-slate-900 tracking-tight">{job.clientName || 'Unknown Client'} <span className="text-slate-500 font-semibold">• Job #{job.jobNumber || 'No Job #'}</span></p>
-                              <p className="text-xs text-slate-500">{job.shift}{job.startLocation ? ` • ${job.startLocation}` : ''}</p>
-                              <p className="text-xs font-medium" style={{ color: jobAccent.accent }}>Filled {job.assignedCount} of {job.requestedCount} requested slots</p>
-                            </div>
-                            <div className="flex items-center gap-1.5 self-start sm:self-auto">
-                              <Button variant="outline" size="sm" className="h-8 px-2.5 text-xs bg-white" disabled={requestUpdatingKey === `${job.groupKey}:down`} onClick={() => onAdjustRequestedCount(job, -1)}>- Slot</Button>
-                              <Button variant="outline" size="sm" className="h-8 px-2.5 text-xs bg-white" disabled={requestUpdatingKey === `${job.groupKey}:up`} onClick={() => onAdjustRequestedCount(job, 1)}>+ Slot</Button>
-                            </div>
-                          </div>
-                          <div className="space-y-2.5 p-3.5">
-                            {job.lines.map((line) =>
-                        <div key={line.lineKey} className={`rounded-lg border px-3.5 py-3 ${line.isPlaceholder ? 'border-dashed border-slate-300 bg-slate-50' : 'border-slate-200 bg-white shadow-[0_1px_0_rgba(15,23,42,0.04)]'}`} style={line.isPlaceholder ? undefined : { borderLeftWidth: '4px', borderLeftColor: jobAccent.accent, backgroundColor: jobAccent.rowTint }}>
-                                {line.isPlaceholder ?
-                          <div className="flex items-center justify-between gap-2">
-                                    <div>
-                                      <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Requested Truck Slot</p>
-                                      <p className="text-xs text-slate-400">Unfilled placeholder</p>
-                                    </div>
-                                    <Badge variant="outline" className="text-[10px] border-dashed border-slate-400 bg-white text-slate-600">Open Slot</Badge>
-                                  </div> :
-
-                          <div className="space-y-2">
-                                    <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
-                                      <button type="button" className="text-left space-y-1" onClick={() => onOpenDispatch(line.dispatch)}>
-                                        <p className="text-sm font-bold text-slate-900">Truck {line.truckNumber || 'Unassigned'} {line.driverName ? `• ${line.driverName}` : ''}</p>
-                                        <p className="text-xs text-slate-500">Start {line.startTime || 'TBD'} • {line.dispatch.status}</p>
-                                      </button>
-                                      <Select value={line.liveStatus} onValueChange={(value) => onChangeLiveStatus(line, value)}>
-                                        <SelectTrigger className={`h-9 w-[170px] text-xs font-medium rounded-full border transition-colors ${getLiveStatusClasses(line.liveStatus)}`}>
-                                          <SelectValue placeholder="Live status" />
-                                        </SelectTrigger>
-                                        <SelectContent>
-                                          {LIVE_STATUS_OPTIONS.map((option) => <SelectItem key={option} value={option}>{option}</SelectItem>)}
-                                        </SelectContent>
-                                      </Select>
-                                    </div>
-                                    {statusUpdatingKey === line.statusKey && <p className="text-[10px] text-slate-400">Saving status...</p>}
-                                    {line.additionalAssignments.length > 0 &&
-                            <div className="pl-2.5 border-l-2 border-indigo-200 space-y-1">
-                                        {line.additionalAssignments.map((assignment) =>
-                              <p key={assignment.lineKey} className="text-xs text-indigo-700">
-                                            Additional assignment: Job #{assignment.jobNumber || 'No Job #'} • {assignment.startTime || 'TBD'}
-                                          </p>
-                              )}
-                                      </div>
-                            }
-                                  </div>
-                          }
-                              </div>
-                        )}
-                          </div>
-                        </article>);
-
-                })}
-                    </div>
-                  </section>
-            )}
-              </CardContent>
-            </Card>
-        </div>
-      }
-    </div>);
-
-}
 
 export default function AdminDispatches() {
   const queryClient = useQueryClient();
@@ -1133,60 +1007,24 @@ export default function AdminDispatches() {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between flex-wrap gap-3">
-        <div>
-          <h2 className="text-2xl font-semibold text-slate-900 text-left">Dispatches</h2>
-          <p className="text-sm text-slate-500">{dispatchCountLabel}</p>
-        </div>
-        <div className="flex gap-2">
-          <Button variant="outline" onClick={() => setShowFilters(!showFilters)} className="text-xs">
-            <Filter className="h-3.5 w-3.5 mr-1" />Filters
-          </Button>
-          <Button onClick={openNew} className="bg-slate-900 hover:bg-slate-800 text-xs">
-            <Plus className="h-3.5 w-3.5 mr-1" />New Dispatch
-          </Button>
-        </div>
-      </div>
+      <AdminDispatchesToolbar
+        dispatchCountLabel={dispatchCountLabel}
+        showFilters={showFilters}
+        onToggleFilters={() => setShowFilters(!showFilters)}
+        onOpenNew={openNew} />
 
-      {showFilters &&
-      <Card>
-          <CardContent className="p-4">
-            <div className="grid grid-cols-2 sm:grid-cols-6 gap-3">
-              <Select value={filters.status} onValueChange={(v) => setFilters({ ...filters, status: v })}>
-                <SelectTrigger className="text-xs"><SelectValue placeholder="Status" /></SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">All Status</SelectItem>
-                  {['Scheduled', 'Dispatch', 'Amended', 'Cancelled'].map((s) =>
-                <SelectItem key={s} value={s}>{s}</SelectItem>
-                )}
-                </SelectContent>
-              </Select>
-              <Select value={filters.company_id} onValueChange={(v) => setFilters({ ...filters, company_id: v })}>
-                <SelectTrigger className="text-xs"><SelectValue placeholder="Company" /></SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">All Companies</SelectItem>
-                  {companies.map((c) =>
-                <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>
-                )}
-                </SelectContent>
-              </Select>
-              <Input placeholder="Truck #" value={filters.truck} onChange={(e) => setFilters({ ...filters, truck: e.target.value })} className="text-xs" />
-              <Input placeholder="Search job / reference" value={filters.query} onChange={(e) => setFilters({ ...filters, query: e.target.value })} className="text-xs" />
-              <Input type="date" value={filters.dateFrom} onChange={(e) => setFilters({ ...filters, dateFrom: e.target.value })} className="text-xs" />
-              <Input type="date" value={filters.dateTo} onChange={(e) => setFilters({ ...filters, dateTo: e.target.value })} className="text-xs" />
-            </div>
-          </CardContent>
-        </Card>
-      }
+      <AdminDispatchesFiltersPanel
+        showFilters={showFilters}
+        filters={filters}
+        companies={companies}
+        onChange={setFilters} />
 
-      <Tabs value={tab} onValueChange={setTab} className="bg-slate-600 rounded">
-        <TabsList className="bg-slate-700 text-violet-50 p-1 rounded-[10007px] inline-flex h-9 items-center justify-center flex-wrap h-auto">
-          <TabsTrigger value="live-board" className="text-xs">Live Dispatch Board</TabsTrigger>
-          <TabsTrigger value="today" className="text-xs">Today ({todayDispatches.length})</TabsTrigger>
-          <TabsTrigger value="upcoming" className="text-xs">Upcoming ({upcomingDispatches.length})</TabsTrigger>
-          <TabsTrigger value="history" className="text-xs">History ({historyDispatches.length})</TabsTrigger>
-        </TabsList>
-      </Tabs>
+      <AdminDispatchesTabBar
+        tab={tab}
+        onChange={setTab}
+        todayCount={todayDispatches.length}
+        upcomingCount={upcomingDispatches.length}
+        historyCount={historyDispatches.length} />
 
       {isLoading ?
       <div className="flex justify-center py-12">
@@ -1202,7 +1040,10 @@ export default function AdminDispatches() {
         onChangeLiveStatus={(line, value) => updateLiveStatusMutation.mutate({ dispatch: line.dispatch, truckNumber: line.truckNumber, liveStatus: value })}
         onAdjustRequestedCount={(job, delta) => adjustLiveRequestMutation.mutate({ job, delta })}
         statusUpdatingKey={statusUpdatingKey}
-        requestUpdatingKey={requestUpdatingKey} /> :
+        requestUpdatingKey={requestUpdatingKey}
+        getJobAccentByShift={getJobAccentByShift}
+        getLiveStatusClasses={getLiveStatusClasses}
+        liveStatusOptions={LIVE_STATUS_OPTIONS} /> :
 
       currentList.length === 0 ?
       <div className="text-center py-16 text-slate-500 text-sm">No dispatches found</div> :
@@ -1222,141 +1063,22 @@ export default function AdminDispatches() {
           const latestActivityTimestamp = formatActivityPreviewTimestamp(latestActivity?.timestamp);
 
           return (
-            <div key={d.id} ref={(el) => dispatchRefs.current[d.id] = el} className="rounded-lg transition-all duration-500">
-              <Card
-                className={`hover:shadow-md transition-shadow cursor-pointer ${statusBorderAccent[d.status] || ''}`}
-                onClick={() => openDrawer(d)}>
-
-              <CardContent className="p-4 sm:p-5">
-                <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-2 flex-wrap mb-2">
-                      <Badge className={`${statusBadgeColors[d.status]} border text-xs`}>{d.status}</Badge>
-                      {d.archived_flag &&
-                        <Badge className="bg-amber-50 text-amber-700 border border-amber-200 text-xs flex items-center gap-1">
-                          <Archive className="h-2.5 w-2.5" />Archived
-                        </Badge>
-                        }
-                      <span className="text-slate-400 text-sm text-left normal-case flex items-center gap-1 shrink-0">
-                        {d.shift_time === 'Day Shift' ? <Sun className="h-3 w-3 text-amber-400" /> : <Moon className="h-3 w-3 text-slate-400" />}
-                        {d.shift_time}
-                      </span>
-                      <span className="text-slate-500 text-sm font-semibold w-full sm:w-auto">
-                        {d.date && format(parseISO(d.date), 'EEEE, MMM d, yyyy')}
-                        {firstLineTimeText ? ` • ${firstLineTimeText}` : ''}
-                      </span>
-                    </div>
-                    {d.status === 'Scheduled' &&
-                      <p className="text-xs text-blue-600 italic mt-0.5">{scheduledStatusMessage}</p>
-                      }
-                    <div className="flex items-center gap-3 text-sm text-slate-700 flex-wrap">
-                      {d.client_name && <span className="font-medium">{d.client_name}</span>}
-                    </div>
-                    <div className="flex items-center gap-3 mt-1 text-xs text-slate-500 flex-wrap">
-                      {d.job_number &&
-                        <span className="flex items-center gap-1"><FileText className="h-3 w-3" />#{d.job_number}</span>
-                        }
-                    </div>
-                    {d.reference_tag &&
-                      <p className="text-xs text-slate-400 mt-0.5">Reference Tag: {d.reference_tag}</p>
-                      }
-                    <div className="mt-2">
-                      <div className="text-slate-400 text-xs mb-1">{companyMap[d.company_id] || '—'}</div>
-                      <div className="flex items-center gap-1 flex-wrap">
-                      <Truck className="h-3 w-3 text-slate-400" />
-                      {(d.trucks_assigned || []).map((t) =>
-                          <Badge key={t} variant="outline" className="text-xs font-mono">{t}</Badge>
-                          )}
-                      </div>
-                    </div>
-                  </div>
-                  <div className="hidden sm:flex flex-col items-end justify-between gap-2 shrink-0" onClick={(e) => e.stopPropagation()}>
-                    {d.edit_locked && d.edit_locked_by_session_id && d.edit_locked_by_session_id !== session?.id &&
-                      <div className="inline-flex items-center gap-1 rounded-full border border-amber-200 bg-amber-50 px-2 py-0.5 text-[10px] font-medium text-amber-700">
-                        <Lock className="h-3 w-3" />
-                        <span>{d.edit_locked_by_name ? `Locked by ${d.edit_locked_by_name}` : 'Editing in progress'}</span>
-                      </div>
-                      }
-                    <div className="flex gap-1">
-                    <Button variant="ghost" size="icon" onClick={() => openDrawer(d)} className="h-8 w-8" title="Preview">
-                      <Eye className="h-3.5 w-3.5" />
-                    </Button>
-                    <Button variant="ghost" size="icon" onClick={() => copyShift(d)} className="h-8 w-8" title="Copy Shift">
-                      <Copy className="h-3.5 w-3.5" />
-                    </Button>
-                    <Button
-                          variant="ghost" size="icon"
-                          onClick={() => archiveMutation.mutate({ dispatch: d, archive: !d.archived_flag })}
-                          className="h-8 w-8 text-slate-500 hover:text-amber-600"
-                          title={d.archived_flag ? 'Unarchive' : 'Archive'}>
-
-                      {d.archived_flag ? <ArchiveX className="h-3.5 w-3.5" /> : <Archive className="h-3.5 w-3.5" />}
-                    </Button>
-                    <Button variant="ghost" size="icon" onClick={() => openEdit(d)} className="h-8 w-8">
-                      <Pencil className="h-3.5 w-3.5" />
-                    </Button>
-                    <Button variant="ghost" size="icon" onClick={() => openDelete(d)} className="h-8 w-8 text-red-500 hover:text-red-600">
-                      <Trash2 className="h-3.5 w-3.5" />
-                    </Button>
-                    </div>
-
-                    <div className="text-right max-w-[210px]">
-                      {latestActivity?.message ?
-                        <>
-                          <p className="text-[10px] text-slate-500 leading-tight line-clamp-1">{latestActivity.message}</p>
-                          {latestActivityTimestamp && <p className="text-[10px] text-slate-400">{latestActivityTimestamp}</p>}
-                        </> :
-
-                        <p className="text-[10px] text-slate-400 italic">No activity yet.</p>
-                        }
-                    </div>
-                  </div>
-                </div>
-
-                <div className="sm:hidden mt-3 pt-3 border-t border-slate-200/80" onClick={(e) => e.stopPropagation()}>
-                  {d.edit_locked && d.edit_locked_by_session_id && d.edit_locked_by_session_id !== session?.id &&
-                    <div className="mb-2 inline-flex items-center gap-1 rounded-full border border-amber-200 bg-amber-50 px-2 py-0.5 text-[10px] font-medium text-amber-700">
-                      <Lock className="h-3 w-3" />
-                      <span>{d.edit_locked_by_name ? `Locked by ${d.edit_locked_by_name}` : 'Editing in progress'}</span>
-                    </div>
-                    }
-
-                  <div className="mb-2">
-                    {latestActivity?.message ?
-                      <>
-                        <p className="text-[10px] text-slate-500 leading-tight">{latestActivity.message}</p>
-                        {latestActivityTimestamp && <p className="text-[10px] text-slate-400">{latestActivityTimestamp}</p>}
-                      </> :
-
-                      <p className="text-[10px] text-slate-400 italic">No activity yet.</p>
-                      }
-                  </div>
-
-                  <div className="flex items-center justify-between gap-1">
-                    <Button variant="ghost" size="icon" onClick={() => openDrawer(d)} className="h-9 w-9" title="Preview">
-                      <Eye className="h-3.5 w-3.5" />
-                    </Button>
-                    <Button variant="ghost" size="icon" onClick={() => copyShift(d)} className="h-9 w-9" title="Copy Shift">
-                      <Copy className="h-3.5 w-3.5" />
-                    </Button>
-                    <Button
-                        variant="ghost" size="icon"
-                        onClick={() => archiveMutation.mutate({ dispatch: d, archive: !d.archived_flag })}
-                        className="h-9 w-9 text-slate-500 hover:text-amber-600"
-                        title={d.archived_flag ? 'Unarchive' : 'Archive'}>
-                      {d.archived_flag ? <ArchiveX className="h-3.5 w-3.5" /> : <Archive className="h-3.5 w-3.5" />}
-                    </Button>
-                    <Button variant="ghost" size="icon" onClick={() => openEdit(d)} className="h-9 w-9">
-                      <Pencil className="h-3.5 w-3.5" />
-                    </Button>
-                    <Button variant="ghost" size="icon" onClick={() => openDelete(d)} className="h-9 w-9 text-red-500 hover:text-red-600">
-                      <Trash2 className="h-3.5 w-3.5" />
-                    </Button>
-                  </div>
-                </div>
-              </CardContent>
-              </Card>
-            </div>);
+            <AdminDispatchCard
+              key={d.id}
+              dispatch={d}
+              session={session}
+              companyName={companyMap[d.company_id]}
+              firstLineTimeText={firstLineTimeText}
+              latestActivity={latestActivity}
+              latestActivityTimestamp={latestActivityTimestamp}
+              onOpenDispatch={openDrawer}
+              onCopyShift={copyShift}
+              onToggleArchive={(dispatch) => archiveMutation.mutate({ dispatch, archive: !dispatch.archived_flag })}
+              onOpenEdit={openEdit}
+              onOpenDelete={openDelete}
+              onRegisterRef={(id, el) => {
+                dispatchRefs.current[id] = el;
+              }} />);
 
         })}
         </div>
