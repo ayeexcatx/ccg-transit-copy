@@ -377,3 +377,21 @@ GitHub does not contain entity definitions.
 Base44 GitHub integration documentation:
 [https://docs.base44.com/Integrations/Using-GitHub]
 
+
+## Recent Refactor Summary (March 2026)
+
+Purpose: improve maintainability and reduce duplication.
+
+There were no intended behavior changes.
+
+Key systems stabilized:
+- notifications
+- dispatch lifecycle
+- confirmations
+- SMS logic
+- visibility rules
+- deep-link handling
+
+> ⚠️ Future changes to these systems should reference:
+> - `docs/refactor-safety-rules.md`
+> - baseline docs in `/docs`

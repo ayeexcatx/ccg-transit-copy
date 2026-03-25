@@ -94,3 +94,18 @@ If any behavior seems ambiguous during implementation, defer to:
 - `docs/behavior-preservation-baseline.md`
 
 No new behavior should be introduced without first updating baselines.
+
+## Refactor Implementation Notes (March 2026)
+
+New shared modules/services introduced during the refactor:
+- `dispatchVisibility` (visibility rules)
+- `confirmationStateHelpers` (confirmation math + status parsing)
+- `ownerActionStatus` (notification read/effective-read logic)
+- `smsDerivedState` + `smsPhone` (SMS eligibility + validation)
+- `driverAssignmentMutationService`
+- `ownerTruckEditMutationService`
+- `adminDispatchMutationService`
+- `dispatchArchiveMutationService`
+- `dispatchOpenOrchestration`
+
+These modules centralize previously duplicated logic, are now the primary places to modify that logic, and behavior must remain consistent with baseline docs.

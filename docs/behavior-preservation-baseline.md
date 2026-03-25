@@ -393,3 +393,11 @@ Generated from repository code review on 2026-03-23. This document is intentiona
 8. **AdminCompanies** — company status, pending profile review, and scoring side effects.
 9. **Availability / AdminAvailability** — recurrence and override rules.
 10. **Home / AdminConfirmations / AdminAnnouncements** — lower mutation risk, still important for visibility baselines.
+
+## Implementation Note (Post-Refactor)
+
+Internal structure has been refactored into shared helpers/services.
+
+All behaviors defined in this document remain unchanged; refactor was structural only.
+
+Logic may now be located in shared modules instead of page components.
