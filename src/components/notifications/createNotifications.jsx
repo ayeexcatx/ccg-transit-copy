@@ -4,10 +4,12 @@ import { formatDispatchDateTimeLine } from '@/components/notifications/dispatchD
 import { sendNotificationSmsIfEligible } from '@/components/notifications/notificationSmsDelivery';
 import {
   buildConfirmedTruckSetForStatus,
+  areAllRequiredTrucksConfirmed,
   parseStatusFromDispatchStatusKey,
   reconcileRequiredTruckList,
   expandRequiredTruckList,
 } from '@/components/notifications/confirmationStateHelpers';
+import { NON_CONFIRMATION_NOTIFICATION_CATEGORIES } from '@/components/notifications/ownerActionStatus';
 
 const statusLabels = {
   Scheduled: 'Scheduled (details to follow)',
@@ -16,7 +18,7 @@ const statusLabels = {
   Cancelled: 'Cancelled',
 };
 
-const NON_CONFIRMATION_CATEGORIES = new Set(['dispatch_update_info', 'driver_dispatch_seen']);
+const NON_CONFIRMATION_CATEGORIES = NON_CONFIRMATION_NOTIFICATION_CATEGORIES;
 
 const DRIVER_NOTIFICATION_CATEGORY = 'driver_dispatch_update';
 const DRIVER_SEEN_NOTIFICATION_CATEGORY = 'driver_dispatch_seen';
@@ -697,7 +699,7 @@ export async function expandCurrentStatusRequiredTrucks(dispatch, addedTrucks = 
       const nextRequired = expandRequiredTruckList(existingRequired, ownerAddedTrucks);
       const newlyAddedRequired = nextRequired.filter((truck) => !existingRequired.includes(truck));
       const message = buildOwnerDispatchMessage(dispatch, statusText, nextRequired);
-      const allConfirmed = nextRequired.every(truck => confirmedTruckSet.has(truck));
+      const allConfirmed = areAllRequiredTrucksConfirmed(nextRequired, confirmedTruckSet);
 
       if (existingNotification) {
         const updatedNotification = await base44.entities.Notification.update(existingNotification.id, {
@@ -815,7 +817,7 @@ export async function reconcileOwnerNotificationsForDispatch(dispatch, accessCod
         dispatchId: dispatch.id,
         status,
       });
-      const allConfirmed = relevantTrucks.every((truck) => confirmedTruckSet.has(truck));
+      const allConfirmed = areAllRequiredTrucksConfirmed(relevantTrucks, confirmedTruckSet);
 
       await base44.entities.Notification.update(notification.id, {
         required_trucks: relevantTrucks,
@@ -856,9 +858,11 @@ export async function resolveOwnerNotificationIfComplete(dispatch, confirmations
           confirmation_type: status,
         }, '-confirmed_at', 500);
 
-    const confirmedTrucksForStatus = authoritativeConfirmations
-      .filter(c => c.dispatch_id === dispatch.id && c.confirmation_type === status)
-      .map(c => c.truck_number);
+    const confirmedTrucksForStatus = new Set(
+      authoritativeConfirmations
+        .filter(c => c.dispatch_id === dispatch.id && c.confirmation_type === status)
+        .map(c => c.truck_number)
+    );
 
     for (const notif of ownerNotifs) {
       if (notif.read_flag) continue;
@@ -866,7 +870,7 @@ export async function resolveOwnerNotificationIfComplete(dispatch, confirmations
       const required = notif.required_trucks || [];
       if (required.length === 0) continue;
 
-      const allConfirmed = required.every(t => confirmedTrucksForStatus.includes(t));
+      const allConfirmed = areAllRequiredTrucksConfirmed(required, confirmedTrucksForStatus);
       if (allConfirmed) {
         await base44.entities.Notification.update(notif.id, { read_flag: true });
       }

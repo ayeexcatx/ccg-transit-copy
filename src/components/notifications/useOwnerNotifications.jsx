@@ -2,7 +2,7 @@ import { useRef } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { base44 } from '@/api/base44Client';
 import { useConfirmationsQuery } from './useConfirmationsQuery';
-import { getOwnerNotificationActionStatus } from './ownerActionStatus';
+import { getNotificationEffectiveReadFlag } from './ownerActionStatus';
 import { notifyOwnerDriverSeen } from './createNotifications';
 import {
   canUserSeeNotification,
@@ -70,14 +70,13 @@ export function useOwnerNotifications(session) {
 
   const notificationsWithStatus = notifications.map((notification) => ({
     ...notification,
-    effectiveReadFlag: session?.code_type === 'CompanyOwner'
-      ? getOwnerNotificationActionStatus({
-          notification,
-          dispatch: notification.related_dispatch_id ? dispatches.find((dispatch) => dispatch.id === notification.related_dispatch_id) || null : null,
-          confirmations,
-          ownerAllowedTrucks: session?.allowed_trucks || [],
-        }).effectiveReadFlag
-      : Boolean(notification.read_flag),
+    effectiveReadFlag: getNotificationEffectiveReadFlag({
+      session,
+      notification,
+      dispatch: notification.related_dispatch_id ? dispatches.find((dispatch) => dispatch.id === notification.related_dispatch_id) || null : null,
+      confirmations,
+      ownerAllowedTrucks: session?.allowed_trucks || [],
+    }),
   }));
 
   const unreadCount = notificationsWithStatus.filter((notification) => !notification.effectiveReadFlag).length;

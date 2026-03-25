@@ -4,10 +4,34 @@ import {
   parseStatusFromDispatchStatusKey,
 } from './confirmationStateHelpers';
 
-export const NON_CONFIRMATION_NOTIFICATION_CATEGORIES = new Set(['dispatch_update_info', 'driver_dispatch_seen']);
+export const CLICK_TO_READ_NOTIFICATION_CATEGORIES = new Set(['dispatch_update_info', 'driver_dispatch_seen']);
+export const NON_CONFIRMATION_NOTIFICATION_CATEGORIES = CLICK_TO_READ_NOTIFICATION_CATEGORIES;
 
 function parseStatusFromDedupKey(notification) {
   return parseStatusFromDispatchStatusKey(notification?.dispatch_status_key);
+}
+
+export function isNotificationMarkedReadOnClick(notification) {
+  return CLICK_TO_READ_NOTIFICATION_CATEGORIES.has(notification?.notification_category);
+}
+
+export function getNotificationEffectiveReadFlag({
+  session,
+  notification,
+  dispatch = null,
+  confirmations = [],
+  ownerAllowedTrucks = [],
+}) {
+  if (session?.code_type !== 'CompanyOwner') {
+    return Boolean(notification?.read_flag);
+  }
+
+  return getOwnerNotificationActionStatus({
+    notification,
+    dispatch,
+    confirmations,
+    ownerAllowedTrucks,
+  }).effectiveReadFlag;
 }
 
 export function getOwnerNotificationRequiredTrucks({ notification, dispatch = null, ownerAllowedTrucks = [] }) {

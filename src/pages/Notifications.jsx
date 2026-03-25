@@ -13,7 +13,10 @@ import NotificationStatusBadge from '@/components/notifications/NotificationStat
 import { useOwnerNotifications } from '@/components/notifications/useOwnerNotifications';
 import { getNotificationDisplay } from '@/components/notifications/formatNotificationDetailsMessage';
 import { useConfirmationsQuery } from '@/components/notifications/useConfirmationsQuery';
-import { getOwnerNotificationActionStatus } from '@/components/notifications/ownerActionStatus';
+import {
+  getNotificationEffectiveReadFlag,
+  isNotificationMarkedReadOnClick,
+} from '@/components/notifications/ownerActionStatus';
 import {
   canUserSeeNotification,
   normalizeVisibilityId,
@@ -42,10 +45,6 @@ export default function Notifications() {
   );
   const allowedTrucks = session?.allowed_trucks || [];
   
-  const isNotificationMarkedReadOnClick = (notification) =>
-    notification?.notification_category === 'dispatch_update_info'
-    || notification?.notification_category === 'driver_dispatch_seen';
-
   const handleNotificationClick = async (n) => {
     if (!session) return;
 
@@ -104,14 +103,13 @@ export default function Notifications() {
           {filteredNotifications.map(n => {
             const dispatch = dispatchMap[n.related_dispatch_id] || null;
             const display = getNotificationDisplay(n, dispatch);
-            const effectiveReadFlag = session?.code_type === 'CompanyOwner'
-              ? getOwnerNotificationActionStatus({
-                  notification: n,
-                  dispatch,
-                  confirmations,
-                  ownerAllowedTrucks: allowedTrucks,
-                }).effectiveReadFlag
-              : n.read_flag;
+            const effectiveReadFlag = getNotificationEffectiveReadFlag({
+              session,
+              notification: n,
+              dispatch,
+              confirmations,
+              ownerAllowedTrucks: allowedTrucks,
+            });
 
             return (
               <Card

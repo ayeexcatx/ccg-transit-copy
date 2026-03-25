@@ -16,7 +16,10 @@ import NotificationStatusBadge from '../components/notifications/NotificationSta
 import { getNotificationDisplay } from '../components/notifications/formatNotificationDetailsMessage';
 import { useConfirmationsQuery } from '../components/notifications/useConfirmationsQuery';
 import { getWorkspaceDisplayLabel } from '../components/session/workspaceUtils';
-import { getOwnerNotificationActionStatus } from '../components/notifications/ownerActionStatus';
+import {
+  getNotificationEffectiveReadFlag,
+  isNotificationMarkedReadOnClick,
+} from '../components/notifications/ownerActionStatus';
 import {
   buildDriverAssignedTrucksByDispatch,
   canUserSeeDispatch,
@@ -253,14 +256,13 @@ export default function Home() {
 
     return notifications
       .filter((notification) => {
-        const effectiveReadFlag = session?.code_type === 'CompanyOwner'
-          ? getOwnerNotificationActionStatus({
-              notification,
-              dispatch: notification.related_dispatch_id ? dispatchMap[normalizeId(notification.related_dispatch_id)] : null,
-              confirmations,
-              ownerAllowedTrucks: allowedTrucks,
-            }).effectiveReadFlag
-          : notification.read_flag;
+        const effectiveReadFlag = getNotificationEffectiveReadFlag({
+          session,
+          notification,
+          dispatch: notification.related_dispatch_id ? dispatchMap[normalizeId(notification.related_dispatch_id)] : null,
+          confirmations,
+          ownerAllowedTrucks: allowedTrucks,
+        });
         if (effectiveReadFlag) return false;
         if (!notification.related_dispatch_id) return true;
         return Boolean(dispatchMap[normalizeId(notification.related_dispatch_id)]);
@@ -271,10 +273,6 @@ export default function Home() {
         dispatch: notification.related_dispatch_id ? dispatchMap[normalizeId(notification.related_dispatch_id)] : null,
       }));
   }, [notifications, filteredDispatches, session?.code_type, confirmations, allowedTrucks]);
-
-  const isNotificationMarkedReadOnClick = (notification) =>
-    notification?.notification_category === 'dispatch_update_info'
-    || notification?.notification_category === 'driver_dispatch_seen';
 
   const handleNotificationClick = async (n) => {
     if (!session) return;

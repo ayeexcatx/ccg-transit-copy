@@ -12,7 +12,10 @@ import NotificationStatusBadge from './NotificationStatusBadge';
 import { useOwnerNotifications } from './useOwnerNotifications';
 import { getNotificationDisplay } from './formatNotificationDetailsMessage';
 import { useConfirmationsQuery } from './useConfirmationsQuery';
-import { getOwnerNotificationActionStatus } from './ownerActionStatus';
+import {
+  getNotificationEffectiveReadFlag,
+  isNotificationMarkedReadOnClick,
+} from './ownerActionStatus';
 import {
   canUserSeeNotification,
   getDriverDispatchIdSet,
@@ -55,10 +58,6 @@ export default function NotificationBell({ session }) {
   );
 
   const { data: confirmations = [] } = useConfirmationsQuery(session?.code_type === 'CompanyOwner');
-
-  const isNotificationMarkedReadOnClick = (notification) =>
-    notification?.notification_category === 'dispatch_update_info'
-    || notification?.notification_category === 'driver_dispatch_seen';
 
   const shouldMarkReadOnClick = (notification) => {
     if (notification.read_flag) return false;
@@ -137,14 +136,13 @@ export default function NotificationBell({ session }) {
                 : null;
               const display = getNotificationDisplay(n, dispatch);
 
-              const effectiveReadFlag = session?.code_type === 'CompanyOwner'
-                ? getOwnerNotificationActionStatus({
-                    notification: n,
-                    dispatch,
-                    confirmations,
-                    ownerAllowedTrucks: session?.allowed_trucks || [],
-                  }).effectiveReadFlag
-                : n.read_flag;
+              const effectiveReadFlag = getNotificationEffectiveReadFlag({
+                session,
+                notification: n,
+                dispatch,
+                confirmations,
+                ownerAllowedTrucks: session?.allowed_trucks || [],
+              });
 
               return (
                 <div

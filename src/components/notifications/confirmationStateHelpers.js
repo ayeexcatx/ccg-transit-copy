@@ -67,6 +67,13 @@ export function deriveConfirmationCoverage(requiredTrucks = [], confirmedTruckSe
 }
 
 /**
+ * Determine whether all required trucks are present in the confirmed set.
+ */
+export function areAllRequiredTrucksConfirmed(requiredTrucks = [], confirmedTruckSet = new Set()) {
+  return (requiredTrucks || []).every((truck) => confirmedTruckSet.has(truck));
+}
+
+/**
  * Expand required trucks by appending newly eligible trucks.
  */
 export function expandRequiredTruckList(existingRequired = [], addedTrucks = []) {
