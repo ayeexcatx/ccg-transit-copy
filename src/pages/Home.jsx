@@ -6,15 +6,14 @@ import { Card, CardContent } from '@/components/ui/card';
 import AnnouncementCard from '@/components/announcements/AnnouncementCard';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { Bell, Clock, Sun, Moon, ArrowRight, AlertCircle, Truck, Megaphone } from 'lucide-react';
+import { Clock, Sun, Moon, ArrowRight, Megaphone, Truck } from 'lucide-react';
 import { format, parseISO } from 'date-fns';
 import { getDispatchBucket } from '../components/portal/dispatchBuckets';
 import { createPageUrl } from '@/utils';
 import { buildDispatchOpenPath } from '@/lib/dispatchOpenOrchestration';
 import { Link, useNavigate } from 'react-router-dom';
+import ActionNeededSection from '@/components/notifications/ActionNeededSection';
 import { useOwnerNotifications } from '../components/notifications/useOwnerNotifications';
-import NotificationStatusBadge from '../components/notifications/NotificationStatusBadge';
-import { getNotificationDisplay } from '../components/notifications/formatNotificationDetailsMessage';
 import { useConfirmationsQuery } from '../components/notifications/useConfirmationsQuery';
 import { getWorkspaceDisplayLabel } from '../components/session/workspaceUtils';
 import {
@@ -297,11 +296,6 @@ export default function Home() {
       navigate(createPageUrl('Notifications'));
     }
   };
-
-  const handleActionClick = async (n) => {
-    await handleNotificationClick(n);
-  };
-
   return (
     <div className="space-y-6 max-w-2xl mx-auto">
       <div>
@@ -331,64 +325,14 @@ export default function Home() {
 
       {/* Action Needed — always visible for CompanyOwner */}
       {session?.code_type === 'CompanyOwner' && (
-        <section data-tour="action-needed">
-          <Card className={homeSectionCardClass}>
-            <div className={`${homeSectionHeaderClass} bg-red-700`}>
-              <div className="flex items-center gap-2 min-w-0">
-                <AlertCircle className="h-4 w-4 text-white shrink-0" />
-                <h3 className="text-sm font-semibold text-white truncate">Action Needed</h3>
-                {unreadCount > 0 && (
-                  <Badge className="bg-white text-red-700 text-xs px-1.5 py-0">{unreadCount}</Badge>
-                )}
-              </div>
-              <Link to={createPageUrl('Notifications')} className="text-xs text-red-100 hover:text-white shrink-0">
-                View all notifications
-              </Link>
-            </div>
-            <CardContent className="p-0 divide-y divide-slate-100">
-              {actionItems.length === 0 ? (
-                <p className="text-sm text-slate-400 text-center py-4">No actions needed</p>
-              ) : (
-                actionItems.map(({ notification: n, dispatch: d }) => {
-                  const display = getNotificationDisplay(n, d);
-
-                  return (
-                    <div
-                      key={n.id}
-                      className="flex items-start gap-3 px-4 py-3 hover:bg-blue-50/40 cursor-pointer bg-blue-50/20"
-                      onClick={() => handleNotificationClick(n)}
-                    >
-                      <Bell className="h-4 w-4 text-blue-500 shrink-0 mt-0.5" />
-                      <div className="flex-1 min-w-0">
-                        <p className={`text-sm text-slate-800 truncate ${display.isOwnerDispatchStatus ? 'font-semibold' : ''}`}>{display.title}</p>
-                        <p className="text-xs text-slate-600 mt-0.5 line-clamp-2 whitespace-pre-line">{display.message}</p>
-                        {d && (
-                          <div className="mt-1 flex items-center gap-1 flex-wrap">
-                            <Truck className="h-3 w-3 text-slate-500" />
-                            {getVisibleTrucksForDispatch(d).map((truck) => (
-                                <Badge key={`${n.id}-${truck}`} variant="outline" className="text-[10px] font-mono px-1.5 py-0 h-5">
-                                  {truck}
-                                </Badge>
-                              ))}
-                          </div>
-                        )}
-                        <div className="mt-1">
-                          <NotificationStatusBadge
-                            notification={n}
-                            confirmations={confirmations}
-                            dispatch={d}
-                            ownerAllowedTrucks={allowedTrucks}
-                          />
-                        </div>
-                      </div>
-                      <div className="h-2 w-2 rounded-full bg-blue-500 shrink-0 mt-1.5" />
-                    </div>
-                  );
-                })
-              )}
-            </CardContent>
-          </Card>
-        </section>
+        <ActionNeededSection
+          unreadCount={unreadCount}
+          actionItems={actionItems}
+          confirmations={confirmations}
+          ownerAllowedTrucks={allowedTrucks}
+          getVisibleTrucksForDispatch={getVisibleTrucksForDispatch}
+          onNotificationClick={handleNotificationClick}
+        />
       )}
 
       {/* Today's Dispatches */}

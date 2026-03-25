@@ -5,11 +5,10 @@ import { Bell } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
-import { format } from 'date-fns';
 import { createPageUrl } from '@/utils';
 import { buildDispatchOpenPath } from '@/lib/dispatchOpenOrchestration';
 import { useNavigate } from 'react-router-dom';
-import NotificationStatusBadge from './NotificationStatusBadge';
+import NotificationBellItem from './NotificationBellItem';
 import { useOwnerNotifications } from './useOwnerNotifications';
 import { getNotificationDisplay } from './formatNotificationDetailsMessage';
 import { useConfirmationsQuery } from './useConfirmationsQuery';
@@ -148,36 +147,16 @@ export default function NotificationBell({ session }) {
               });
 
               return (
-                <div
+                <NotificationBellItem
                   key={n.id}
-                  className={`group relative cursor-pointer border-b border-slate-100/90 px-4 py-3.5 transition-all duration-200 last:border-b-0 ${!effectiveReadFlag ? 'bg-blue-50/40' : 'bg-white/40'} hover:bg-slate-50/80 focus-within:bg-slate-50/80`}
+                  notification={n}
+                  display={display}
+                  effectiveReadFlag={effectiveReadFlag}
+                  dispatch={dispatch}
+                  confirmations={confirmations}
+                  ownerAllowedTrucks={session?.allowed_trucks || []}
                   onClick={() => handleNotificationClick(n)}
-                >
-                  {!effectiveReadFlag && (
-                    <span className="absolute left-2.5 top-5 h-2 w-2 rounded-full bg-blue-500 shadow-[0_0_0_4px_rgba(59,130,246,0.12)]" aria-hidden="true" />
-                  )}
-                  <div className="flex items-start justify-between gap-3">
-                    <div className={`min-w-0 flex-1 ${!effectiveReadFlag ? 'pl-4' : ''}`}>
-                      <p className={`text-sm leading-5 text-slate-800 ${display.isOwnerDispatchStatus ? 'font-semibold' : 'font-medium'}`}>
-                        {display.title}
-                      </p>
-                      <p className="mt-1 whitespace-pre-line text-sm leading-5 text-slate-600">{display.message}</p>
-                      {n.required_trucks?.length > 0 && (
-                        <div className="mt-2">
-                          <NotificationStatusBadge
-                            notification={n}
-                            confirmations={confirmations}
-                            dispatch={dispatch}
-                            ownerAllowedTrucks={session?.allowed_trucks || []}
-                          />
-                        </div>
-                      )}
-                      <p className="mt-2 text-xs text-slate-400">
-                        {format(new Date(n.created_date), 'MMM d, h:mm a')}
-                      </p>
-                    </div>
-                  </div>
-                </div>
+                />
               );
             })
           )}

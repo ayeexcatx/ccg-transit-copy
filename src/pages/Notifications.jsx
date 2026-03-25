@@ -4,13 +4,10 @@ import { base44 } from '@/api/base44Client';
 import { useSession } from '@/components/session/SessionContext';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Badge } from '@/components/ui/badge';
-import { Bell, CheckCircle2, ExternalLink } from 'lucide-react';
-import { format } from 'date-fns';
+import { Bell, CheckCircle2 } from 'lucide-react';
 import { createPageUrl } from '@/utils';
 import { buildDispatchOpenPath } from '@/lib/dispatchOpenOrchestration';
 import { useNavigate } from 'react-router-dom';
-import NotificationStatusBadge from '@/components/notifications/NotificationStatusBadge';
 import { useOwnerNotifications } from '@/components/notifications/useOwnerNotifications';
 import { getNotificationDisplay } from '@/components/notifications/formatNotificationDetailsMessage';
 import { useConfirmationsQuery } from '@/components/notifications/useConfirmationsQuery';
@@ -22,6 +19,7 @@ import {
   canUserSeeNotification,
   normalizeVisibilityId,
 } from '@/lib/dispatchVisibility';
+import NotificationsPageItem from '@/components/notifications/NotificationsPageItem';
 
 export default function Notifications() {
   const { session } = useSession();
@@ -114,37 +112,16 @@ export default function Notifications() {
             });
 
             return (
-              <Card
+              <NotificationsPageItem
                 key={n.id}
-                className={`hover:shadow-sm transition-shadow cursor-pointer ${!effectiveReadFlag ? 'border-blue-200 bg-blue-50/30' : ''}`}
+                notification={n}
+                display={display}
+                effectiveReadFlag={effectiveReadFlag}
+                dispatch={dispatch}
+                confirmations={confirmations}
+                ownerAllowedTrucks={allowedTrucks}
                 onClick={() => handleNotificationClick(n)}
-              >
-                <CardContent className="p-4">
-                  <div className="flex items-start justify-between gap-3">
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-center gap-2 mb-1">
-                        <h3 className={`text-sm text-slate-900 ${display.isOwnerDispatchStatus ? 'font-semibold' : ''}`}>{display.title}</h3>
-                        {!effectiveReadFlag && <Badge className="bg-blue-500 text-xs">New</Badge>}
-                        {n.related_dispatch_id && (
-                          <ExternalLink className="h-3.5 w-3.5 text-slate-400 ml-auto shrink-0" />
-                        )}
-                      </div>
-                      <p className="text-sm text-slate-600 whitespace-pre-line">{display.message}</p>
-                      <div className="mt-1.5">
-                        <NotificationStatusBadge
-                          notification={n}
-                          confirmations={confirmations}
-                          dispatch={dispatchMap[n.related_dispatch_id] || null}
-                          ownerAllowedTrucks={allowedTrucks}
-                        />
-                      </div>
-                      <p className="text-xs text-slate-400 mt-2">
-                        {format(new Date(n.created_date), 'MMM d, yyyy h:mm a')}
-                      </p>
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
+              />
             );
           })}
         </div>
