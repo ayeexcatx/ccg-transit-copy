@@ -23,6 +23,7 @@ import { statusBadgeColors, statusBorderAccent, scheduledStatusMessage } from '.
 import { syncDispatchHtmlToDrive } from '@/lib/dispatchDriveSync';
 import { toast } from 'sonner';
 import { runAdminDispatchMutation } from '@/services/adminDispatchMutationService';
+import { runAdminDispatchArchiveMutation } from '@/services/dispatchArchiveMutationService';
 
 const STATUS_ORDER = ['Scheduled', 'Dispatch', 'Amended', 'Cancelled'];
 const ACTIVE_LIVE_EXCLUDED_STATUSES = new Set(['Cancelled', 'Scheduled']);
@@ -732,53 +733,28 @@ export default function AdminDispatches() {
   });
 
   const archiveMutation = useMutation({
-    mutationFn: async ({ dispatch, archive }) => {
-      const payload = archive ?
-      {
-        archived_flag: true,
-        archived_at: new Date().toISOString(),
-        archived_reason: 'Admin archived'
-      } :
-      {
-        archived_flag: false,
-        archived_at: null,
-        archived_reason: null,
-        dispatch_html_drive_sync_finalized_at: null
-      };
-
-      const nextLog = archive ? appendAdminActivityLog(
-        dispatch.admin_activity_log,
-        createAdminActivityEntry(session, 'archived_dispatch', `${getAdminDisplayName(session)} archived this dispatch`)
-      ) : dispatch.admin_activity_log;
-
-      const updatedDispatch = await base44.entities.Dispatch.update(dispatch.id, {
-        ...payload,
-        admin_activity_log: nextLog
-      });
-
-      if (!archive) return updatedDispatch;
-
-      const shouldRunArchiveFinalSync = !dispatch.dispatch_html_drive_sync_finalized_at;
-      if (!shouldRunArchiveFinalSync) return updatedDispatch;
-
-      try {
-        await syncDispatchRecordHtml({
-          dispatch: updatedDispatch,
-          previousDispatch: dispatch,
-          companies,
-          finalizeAfterSync: true,
-          allowArchivedFinalizedSync: true
-        });
-      } catch (error) {
+    mutationFn: async ({ dispatch, archive }) => runAdminDispatchArchiveMutation({
+      dispatch,
+      archive,
+      session,
+      appendAdminActivityLog,
+      createAdminActivityEntry,
+      getAdminDisplayName,
+      runFinalArchiveSync: ({ dispatch: updatedDispatch, previousDispatch }) => syncDispatchRecordHtml({
+        dispatch: updatedDispatch,
+        previousDispatch,
+        companies,
+        finalizeAfterSync: true,
+        allowArchivedFinalizedSync: true
+      }),
+      onFinalArchiveSyncError: async ({ dispatch: updatedDispatch, error }) => {
         await base44.entities.Dispatch.update(updatedDispatch.id, {
           dispatch_html_drive_last_sync_status: 'failed',
           dispatch_html_drive_last_sync_error: String(error?.message || error || 'Drive sync failed')
         });
         toast.warning('Dispatch archived, but final Google Drive sync failed.');
       }
-
-      return updatedDispatch;
-    },
+    }),
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ['dispatches-admin'] })
   });
 

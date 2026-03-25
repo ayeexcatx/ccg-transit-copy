@@ -26,6 +26,7 @@ import {
   resolveOwnerNotificationIfComplete,
 } from '../components/notifications/createNotifications';
 import { runOwnerTruckEditMutation } from '@/services/ownerTruckEditMutationService';
+import { autoArchiveDispatchAfterTimeLogging } from '@/services/dispatchArchiveMutationService';
 import { useConfirmationsQuery, confirmationsQueryKey } from '../components/notifications/useConfirmationsQuery';
 import { useOwnerNotifications } from '../components/notifications/useOwnerNotifications';
 import {
@@ -195,12 +196,12 @@ export default function Portal() {
       const allComplete = areAllAssignedTrucksTimeComplete(dispatch, dispatchEntries);
       const dispatchDate = dispatch.date ? startOfDay(parseISO(dispatch.date)) : null;
       const isPastOrToday = dispatchDate && dispatchDate <= today;
-      if (allComplete && isPastOrToday && !dispatch.archived_flag) {
-        await base44.entities.Dispatch.update(dispatch.id, {
-          archived_flag: true,
-          archived_at: new Date().toISOString(),
-          archived_reason: 'Time logged',
-        });
+      const wasAutoArchived = await autoArchiveDispatchAfterTimeLogging({
+        dispatch,
+        allComplete,
+        isPastOrToday
+      });
+      if (wasAutoArchived) {
         queryClient.invalidateQueries({ queryKey: ['portal-dispatches', session?.company_id] });
       }
 
