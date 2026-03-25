@@ -137,12 +137,10 @@ export async function runOwnerTruckEditMutation({
     await clearRemovedTruckDriverAssignments({
       dispatch: updatedDispatch,
       removedTrucks,
-      log: (stage, payload) => console.log(`[clearRemovedTruckDriverAssignments] ${stage}`, payload),
     });
     await clearRemovedTruckDriverAssignments({
       dispatch: updatedConflictingDispatch,
       removedTrucks: [incomingTruck],
-      log: (stage, payload) => console.log(`[clearRemovedTruckDriverAssignments] ${stage}`, payload),
     });
 
     const currentStatusConfirmations = getConfirmationsForDispatchStatus({
@@ -241,7 +239,6 @@ export async function runOwnerTruckEditMutation({
   await clearRemovedTruckDriverAssignments({
     dispatch: updatedDispatch,
     removedTrucks,
-    log: (stage, payload) => console.log(`[clearRemovedTruckDriverAssignments] ${stage}`, payload),
   });
 
   const currentStatusConfirmations = getConfirmationsForDispatchStatus({

@@ -106,7 +106,7 @@ export async function deactivateDriverAssignment({
 export async function clearRemovedTruckDriverAssignments({
   dispatch,
   removedTrucks = [],
-  log,
+  log = null,
 }) {
   if (!dispatch?.id || !removedTrucks.length) return;
 
