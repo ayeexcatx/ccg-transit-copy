@@ -25,6 +25,8 @@ function getDriverNotificationSeenKind(notification, dispatch = null) {
 export function useOwnerNotifications(session) {
   const queryClient = useQueryClient();
   const pendingDriverSeenKeysRef = useRef(new Set());
+  const isDriverUser = session?.is_driver_user === true;
+  const driverId = session?.effective_driver_id || session?.driver_id || null;
 
   const queryKey = ['notifications', session?.id];
 
@@ -65,9 +67,9 @@ export function useOwnerNotifications(session) {
   });
 
   const { data: driverAssignments = [] } = useQuery({
-    queryKey: ['driver-dispatch-assignments', session?.driver_id],
-    queryFn: () => base44.entities.DriverDispatchAssignment.filter({ driver_id: session.driver_id }, '-assigned_datetime', 500),
-    enabled: session?.code_type === 'Driver' && !!session?.driver_id,
+    queryKey: ['driver-dispatch-assignments', driverId],
+    queryFn: () => base44.entities.DriverDispatchAssignment.filter({ driver_id: driverId }, '-assigned_datetime', 500),
+    enabled: isDriverUser && !!driverId,
   });
 
   const { data: confirmations = [] } = useConfirmationsQuery(session?.code_type === 'CompanyOwner');
@@ -105,7 +107,7 @@ export function useOwnerNotifications(session) {
     queryClient.invalidateQueries({ queryKey }),
     queryClient.invalidateQueries({ queryKey: ['notifications'] }),
     queryClient.invalidateQueries({ queryKey: ['portal-dispatches', session?.company_id] }),
-    queryClient.invalidateQueries({ queryKey: ['driver-dispatch-assignments', session?.driver_id] }),
+    queryClient.invalidateQueries({ queryKey: ['driver-dispatch-assignments', driverId] }),
   ]);
 
   const markReadMutation = useMutation({
@@ -148,7 +150,7 @@ export function useOwnerNotifications(session) {
   const markAllRead = () => markAllReadMutation.mutate();
 
   const markDispatchRelatedReadAsync = async (dispatchId) => {
-    if (session?.code_type !== 'Driver' || !dispatchId) return [];
+    if (!isDriverUser || !dispatchId) return [];
 
     const normalizedDispatchId = String(dispatchId);
     const matchingNotifications = notifications.filter((notification) =>
@@ -175,7 +177,7 @@ export function useOwnerNotifications(session) {
   };
 
   const markDriverDispatchSeenAsync = async ({ dispatch, notificationId = null } = {}) => {
-    if (session?.code_type !== 'Driver' || !dispatch?.id || !session?.driver_id) return;
+    if (!isDriverUser || !dispatch?.id || !driverId) return;
 
     const matchingAssignments = driverAssignments.filter((assignment) =>
       assignment?.active_flag !== false &&
@@ -198,7 +200,7 @@ export function useOwnerNotifications(session) {
     const unreadNotifications = matchingNotifications.filter((notification) => !notification.read_flag);
     const seenKind = getDriverNotificationSeenKind(currentRelevantNotification, dispatch);
     const seenVersionKey = String(currentRelevantNotification?.id || `${dispatch.id}:${seenKind}`).trim();
-    const seenActionKey = `${dispatch.id}:${session.driver_id}:${seenKind}:${seenVersionKey}`;
+    const seenActionKey = `${dispatch.id}:${driverId}:${seenKind}:${seenVersionKey}`;
 
     if (!unseenAssignments.length && !unreadNotifications.length) return;
     if (pendingDriverSeenKeysRef.current.has(seenActionKey)) return;
@@ -219,7 +221,7 @@ export function useOwnerNotifications(session) {
           base44.entities.DriverDispatchAssignment.update(assignment.id, {
             receipt_confirmed_flag: true,
             receipt_confirmed_at: seenAt,
-            receipt_confirmed_by_driver_id: session.driver_id,
+            receipt_confirmed_by_driver_id: driverId,
             receipt_confirmed_by_name: session?.label || session?.driver_name || session?.name || assignment?.driver_name || undefined,
           })
         ));
@@ -227,7 +229,7 @@ export function useOwnerNotifications(session) {
         await notifyOwnerDriverSeen({
           dispatch,
           assignments: matchingAssignments,
-          driverId: session.driver_id,
+          driverId,
           driverName: session?.label || session?.driver_name || session?.name || matchingAssignments[0]?.driver_name,
           seenKind,
           seenVersionKey,
@@ -242,9 +244,9 @@ export function useOwnerNotifications(session) {
   };
 
   const markDriverRemovalNotificationSeenAsync = async ({ notification, dispatch = null } = {}) => {
-    if (session?.code_type !== 'Driver' || !notification?.id) return;
+    if (!isDriverUser || !notification?.id) return;
 
-    const seenActionKey = `${notification.related_dispatch_id || 'removed'}:${session.driver_id}:removed:${notification.id}`;
+    const seenActionKey = `${notification.related_dispatch_id || 'removed'}:${driverId}:removed:${notification.id}`;
     if (pendingDriverSeenKeysRef.current.has(seenActionKey)) return;
     pendingDriverSeenKeysRef.current.add(seenActionKey);
 
@@ -277,7 +279,7 @@ export function useOwnerNotifications(session) {
           active_flag: true,
           truck_number: truckNumber,
         })),
-        driverId: session.driver_id,
+        driverId,
         driverName: session?.label || session?.driver_name || session?.name || 'Driver',
         seenKind: 'removed',
         seenVersionKey: String(notification.id),

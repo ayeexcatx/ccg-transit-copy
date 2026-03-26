@@ -99,7 +99,8 @@ export default function Incidents() {
 
   const isAdmin = session?.code_type === 'Admin';
   const isOwner = session?.code_type === 'CompanyOwner';
-  const isDriver = session?.code_type === 'Driver';
+  const isDriver = session?.is_driver_user === true;
+  const driverId = session?.effective_driver_id || session?.driver_id || null;
 
   const queryParams = useMemo(() => new URLSearchParams(location.search), [location.search]);
   const createFromDispatch = queryParams.get('create') === '1';
@@ -126,9 +127,9 @@ export default function Incidents() {
   });
 
   const { data: driverAssignments = [] } = useQuery({
-    queryKey: ['incident-driver-dispatch-assignments', session?.driver_id],
-    queryFn: () => base44.entities.DriverDispatchAssignment.filter({ driver_id: session.driver_id }, '-assigned_datetime', 1000),
-    enabled: !!session && isDriver && !!session?.driver_id,
+    queryKey: ['incident-driver-dispatch-assignments', driverId],
+    queryFn: () => base44.entities.DriverDispatchAssignment.filter({ driver_id: driverId }, '-assigned_datetime', 1000),
+    enabled: !!session && isDriver && !!driverId,
   });
 
   const { data: dispatches = [] } = useQuery({
