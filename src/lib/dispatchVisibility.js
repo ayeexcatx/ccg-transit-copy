@@ -30,7 +30,7 @@ export function getDriverDispatchIdSet(driverAssignments = []) {
  * Dispatch visibility used by portal/home list views:
  * - Admin: all
  * - Driver: active assignment only
- * - Other access-code users: allowed_trucks intersection
+ * - CompanyOwner: allowed_trucks intersection
  */
 export function canUserSeeDispatch(session, dispatch, { driverDispatchIds = null } = {}) {
   if (!session || !dispatch?.id) return false;
@@ -40,6 +40,7 @@ export function canUserSeeDispatch(session, dispatch, { driverDispatchIds = null
   if (session.code_type === 'Driver') {
     return driverDispatchIds instanceof Set ? driverDispatchIds.has(dispatchId) : false;
   }
+  if (session.code_type !== 'CompanyOwner') return false;
 
   const allowedTrucks = getAllowedTrucks(session);
   const assigned = getDispatchTrucks(dispatch);
@@ -57,6 +58,7 @@ export function getVisibleTrucksForDispatch(session, dispatch, { driverAssignedT
   if (session.code_type === 'Driver') {
     return [...new Set((driverAssignedTrucks || []).filter(Boolean))];
   }
+  if (session.code_type !== 'CompanyOwner') return [];
 
   const allowed = getAllowedTrucks(session);
   return assigned.filter((truck) => allowed.includes(truck));
@@ -77,6 +79,7 @@ export function canUserSeeNotification(session, notification, {
     if (notification.notification_category === 'driver_dispatch_update') return true;
     return driverDispatchIds.has(relatedDispatchId);
   }
+  if (session?.code_type !== 'CompanyOwner') return false;
 
   return visibleDispatchIds.has(relatedDispatchId);
 }
@@ -90,10 +93,6 @@ export function canUserSeeIncident(session, incident, {
   if (!session || !incident) return false;
 
   if (session.code_type === 'Admin') return true;
-
-  if (session.code_type === 'Truck') {
-    return incident.reported_by_access_code_id === session.id;
-  }
 
   if (session.code_type === 'Driver') {
     const createdByDriver = incident.reported_by_access_code_id === session.id;

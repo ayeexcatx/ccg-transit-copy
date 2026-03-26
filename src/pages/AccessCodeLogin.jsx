@@ -27,6 +27,11 @@ export default function AccessCodeLogin() {
       setLoading(false);
       return;
     }
+    if (match.code_type === 'Truck') {
+      setError('This access code type is no longer supported');
+      setLoading(false);
+      return;
+    }
 
     login(match);
 

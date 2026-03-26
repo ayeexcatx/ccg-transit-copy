@@ -10,7 +10,7 @@ import { Switch } from '@/components/ui/switch';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import DeleteConfirmationDialog from '@/components/admin/DeleteConfirmationDialog';
-import { Key, Plus, Pencil, Trash2, Truck, Building2, Shield, Copy, UserRound } from 'lucide-react';
+import { Key, Plus, Pencil, Trash2, Building2, Shield, Copy, UserRound } from 'lucide-react';
 import { getCompanyOwnerSmsState, getDriverSmsState, normalizeSmsPhone as normalizePhoneShared, formatPhoneNumber as formatPhoneShared } from '@/lib/sms';
 import { toast } from 'sonner';
 
@@ -38,7 +38,7 @@ export default function AdminAccessCodes() {
     code: '',
     label: '',
     active_flag: true,
-    code_type: 'Truck',
+    code_type: 'CompanyOwner',
     company_id: '',
     allowed_trucks: [],
     driver_id: '',
@@ -118,7 +118,7 @@ export default function AdminAccessCodes() {
       code: generateCode(),
       label: '',
       active_flag: true,
-      code_type: type || 'Truck',
+      code_type: type || 'CompanyOwner',
       company_id: '',
       allowed_trucks: [],
       driver_id: '',
@@ -167,11 +167,6 @@ export default function AdminAccessCodes() {
   };
 
   const toggleTruck = (t) => {
-    if (form.code_type === 'Truck') {
-      setForm({ ...form, allowed_trucks: [t] });
-      return;
-    }
-
     const has = form.allowed_trucks.includes(t);
     setForm({
       ...form,
@@ -261,12 +256,8 @@ export default function AdminAccessCodes() {
       return;
     }
 
-    saveMutation.mutate({
-      ...form,
-      sms_phone: smsPhone,
-      available_views: [],
-      linked_company_ids: [],
-    });
+    toast.error('Unsupported access code type. Use Admin, Company Owner, or Driver.');
+    return;
   };
 
   const copyCode = (code) => {
@@ -274,7 +265,7 @@ export default function AdminAccessCodes() {
     toast.success('Code copied');
   };
 
-  const codeTypeIcons = { Truck, CompanyOwner: Building2, Admin: Shield, Driver: UserRound };
+  const codeTypeIcons = { CompanyOwner: Building2, Admin: Shield, Driver: UserRound };
 
   const confirmDeleteAccessCode = () => {
     if (!accessCodePendingDelete) return;
@@ -291,9 +282,6 @@ export default function AdminAccessCodes() {
           <p className="text-sm text-slate-500">{codes.length} codes</p>
         </div>
         <div className="flex gap-2 flex-wrap">
-          <Button variant="outline" onClick={() => openNew('Truck')} className="text-xs">
-            <Truck className="h-3.5 w-3.5 mr-1" />Truck Code
-          </Button>
           <Button variant="outline" onClick={() => openNew('CompanyOwner')} className="text-xs">
             <Building2 className="h-3.5 w-3.5 mr-1" />Owner Code
           </Button>
@@ -393,7 +381,7 @@ export default function AdminAccessCodes() {
                           {c.code_type === 'Driver' && driverSmsState?.normalizedPhone && <span>SMS phone: {formatPhoneNumber(driverSmsState.normalizedPhone)}</span>}
                           {c.code_type === 'CompanyOwner' && ownerSmsState && <span>SMS enabled: {ownerSmsState.effective ? 'Yes' : 'No'}</span>}
                           {c.code_type === 'CompanyOwner' && ownerSmsState?.normalizedPhone && <span>SMS phone: {formatPhoneNumber(ownerSmsState.normalizedPhone)}</span>}
-                          {(c.code_type === 'Truck' || c.code_type === 'Admin') && c.sms_enabled === true && c.sms_phone && <span>SMS: {formatPhoneNumber(c.sms_phone)}</span>}
+                          {c.code_type === 'Admin' && c.sms_enabled === true && c.sms_phone && <span>SMS: {formatPhoneNumber(c.sms_phone)}</span>}
                           {c.code_type !== 'Driver' && (c.allowed_trucks || []).length > 0 && (
                             <span>Trucks: {c.allowed_trucks.join(', ')}</span>
                           )}
@@ -449,7 +437,7 @@ export default function AdminAccessCodes() {
             </div>
             <div>
               <Label>Name</Label>
-              <Input value={form.label} onChange={(e) => setForm({ ...form, label: e.target.value })} placeholder="e.g., Truck 401, Owner ABC" />
+              <Input value={form.label} onChange={(e) => setForm({ ...form, label: e.target.value })} placeholder="e.g., Owner ABC, Driver Jane Doe" />
             </div>
             <div>
               <Label>Code Type</Label>
@@ -459,7 +447,6 @@ export default function AdminAccessCodes() {
               >
                 <SelectTrigger><SelectValue /></SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="Truck">Truck</SelectItem>
                   <SelectItem value="CompanyOwner">Company Owner</SelectItem>
                   <SelectItem value="Driver">Driver</SelectItem>
                   <SelectItem value="Admin">Admin</SelectItem>
@@ -552,7 +539,7 @@ export default function AdminAccessCodes() {
 
                 {form.code_type !== 'Driver' && form.company_id && companyTrucks.length > 0 && (
                   <div>
-                    <Label>{form.code_type === 'Truck' ? 'Select Truck' : 'Select Trucks'}</Label>
+                    <Label>Select Trucks</Label>
                     <div className="flex gap-2 flex-wrap mt-1">
                       {companyTrucks.map((t) => (
                         <button
@@ -573,7 +560,7 @@ export default function AdminAccessCodes() {
               </>
             )}
 
-            {(form.code_type === 'Truck' || form.code_type === 'Admin') ? (<>
+            {form.code_type === 'Admin' ? (<>
             <div className="flex items-center justify-between">
               <Label>SMS Enabled</Label>
               <Switch checked={form.sms_enabled} onCheckedChange={(v) => setForm({ ...form, sms_enabled: v })} />
