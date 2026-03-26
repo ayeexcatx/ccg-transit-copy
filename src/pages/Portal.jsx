@@ -59,6 +59,8 @@ function myTrucksForHistory(dispatch, timeEntries, session) {
 
 export default function Portal() {
   const { session } = useSession();
+  const driverId = session?.effective_driver_id || session?.driver_id || null;
+  const isDriverUser = session?.is_driver_user === true;
   const [tab, setTab] = useState('today');
   const queryClient = useQueryClient();
   const location = useLocation();
@@ -84,9 +86,9 @@ export default function Portal() {
   });
 
   const { data: driverAssignments = [] } = useQuery({
-    queryKey: ['driver-dispatch-assignments', session?.driver_id],
-    queryFn: () => base44.entities.DriverDispatchAssignment.filter({ driver_id: session.driver_id }, '-assigned_datetime', 500),
-    enabled: session?.code_type === 'Driver' && !!session?.driver_id,
+    queryKey: ['driver-dispatch-assignments', driverId],
+    queryFn: () => base44.entities.DriverDispatchAssignment.filter({ driver_id: driverId }, '-assigned_datetime', 500),
+    enabled: isDriverUser && !!driverId,
   });
 
   const { data: companies = [] } = useQuery({
@@ -230,8 +232,8 @@ export default function Portal() {
       queryClient.invalidateQueries({ queryKey: ['dispatches-admin'] });
       queryClient.invalidateQueries({ queryKey: ['driver-dispatch-assignments'] });
       queryClient.invalidateQueries({ queryKey: ['driver-dispatch-assignments', variables?.dispatch?.id] });
-      queryClient.invalidateQueries({ queryKey: ['driver-dispatch-assignments', session?.driver_id] });
-      queryClient.invalidateQueries({ queryKey: ['incident-driver-dispatch-assignments', session?.driver_id] });
+      queryClient.invalidateQueries({ queryKey: ['driver-dispatch-assignments', driverId] });
+      queryClient.invalidateQueries({ queryKey: ['incident-driver-dispatch-assignments', driverId] });
       (result?.affectedDispatchIds || []).forEach((dispatchId) => {
         queryClient.invalidateQueries({ queryKey: ['driver-dispatch-assignments', dispatchId] });
       });
@@ -252,8 +254,6 @@ export default function Portal() {
     () => new Set(driverAssignedTrucksByDispatch.keys()),
     [driverAssignedTrucksByDispatch]
   );
-
-  const isDriverUser = session?.code_type === 'Driver';
 
   const filteredDispatches = useMemo(
     () => dispatches.filter((dispatch) => canUserSeeDispatch(session, dispatch, { driverDispatchIds })),
@@ -339,7 +339,7 @@ export default function Portal() {
   const sortedNotes = sortTemplateNotesForDispatch(templateNotes);
 
   const targetNotification = notifications.find((notification) => normalizeId(notification.id) === targetNotificationId) || null;
-  const removalNotification = session?.code_type === 'Driver' && targetNotification?.notification_type === 'driver_removed' ? targetNotification : null;
+  const removalNotification = isDriverUser && targetNotification?.notification_type === 'driver_removed' ? targetNotification : null;
   const removalNotificationDispatch = removalNotification?.related_dispatch_id
     ? dispatches.find((dispatch) => normalizeId(dispatch.id) === normalizeId(removalNotification.related_dispatch_id)) || null
     : null;
@@ -376,7 +376,7 @@ export default function Portal() {
   };
 
   const handleDispatchOpen = (dispatch) => {
-    if (session?.code_type !== 'Driver' || !dispatch?.id) return;
+    if (!isDriverUser || !dispatch?.id) return;
     markDriverDispatchSeenAsync({ dispatch, notificationId: targetNotificationId || null }).catch(() => {});
   };
 

@@ -175,7 +175,8 @@ export default function Home() {
   const workspaceDisplayLabel = getWorkspaceDisplayLabel(session, activeCompanyName);
   const homeHeading = getHomeGreeting(workspaceDisplayLabel || session?.code_type);
   const allowedTrucks = session?.allowed_trucks || [];
-  const isDriver = session?.code_type === 'Driver';
+  const isDriver = session?.is_driver_user === true;
+  const driverId = session?.effective_driver_id || session?.driver_id || null;
 
 
   // Shared notifications hook — same query key as bell + notifications page
@@ -185,9 +186,9 @@ export default function Home() {
 
 
   const { data: driverAssignments = [] } = useQuery({
-    queryKey: ['driver-dispatch-assignments', session?.driver_id],
-    queryFn: () => base44.entities.DriverDispatchAssignment.filter({ driver_id: session.driver_id }, '-assigned_datetime', 500),
-    enabled: isDriver && !!session?.driver_id,
+    queryKey: ['driver-dispatch-assignments', driverId],
+    queryFn: () => base44.entities.DriverDispatchAssignment.filter({ driver_id: driverId }, '-assigned_datetime', 500),
+    enabled: isDriver && !!driverId,
   });
 
   const { data: dispatches = [] } = useQuery({
@@ -277,7 +278,7 @@ export default function Home() {
   const handleNotificationClick = async (n) => {
     if (!session) return;
 
-    if (session?.code_type !== 'Driver' && n.related_dispatch_id && isNotificationMarkedReadOnClick(n) && !n.read_flag) {
+    if (!isDriver && n.related_dispatch_id && isNotificationMarkedReadOnClick(n) && !n.read_flag) {
       try {
         await markReadAsync(n.id);
       } catch {
