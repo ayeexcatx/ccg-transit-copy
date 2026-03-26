@@ -99,7 +99,6 @@ export default function Incidents() {
 
   const isAdmin = session?.code_type === 'Admin';
   const isOwner = session?.code_type === 'CompanyOwner';
-  const isTruck = session?.code_type === 'Truck';
   const isDriver = session?.code_type === 'Driver';
 
   const queryParams = useMemo(() => new URLSearchParams(location.search), [location.search]);
@@ -235,11 +234,8 @@ export default function Incidents() {
     if (isDriver) {
       return dispatches.filter((dispatch) => driverDispatchIds.has(dispatch.id));
     }
-    const allowed = session?.allowed_trucks || [];
-    return dispatches.filter((dispatch) =>
-      (dispatch.trucks_assigned || []).some((truckNumber) => allowed.includes(truckNumber))
-    );
-  }, [dispatches, driverDispatchIds, isAdmin, isDriver, isOwner, session?.allowed_trucks]);
+    return [];
+  }, [dispatches, driverDispatchIds, isAdmin, isDriver, isOwner]);
 
   const visibleDispatchIds = useMemo(
     () => new Set(visibleDispatches.map((d) => normalizeVisibilityId(d.id))),
@@ -268,16 +264,8 @@ export default function Incidents() {
     const selectedDispatch = form.dispatch_id ? dispatchMap[form.dispatch_id] : null;
 
     if (selectedDispatch) {
-      let trucks = selectedDispatch.trucks_assigned || [];
-      if (isTruck) {
-        const allowed = new Set(session?.allowed_trucks || []);
-        trucks = trucks.filter((truck) => allowed.has(truck));
-      }
+      const trucks = selectedDispatch.trucks_assigned || [];
       return [...new Set(trucks)].map((truck) => ({ value: truck, label: truck }));
-    }
-
-    if (isTruck) {
-      return (session?.allowed_trucks || []).map((truck) => ({ value: truck, label: truck }));
     }
 
     if (isDriver) {
@@ -293,7 +281,7 @@ export default function Incidents() {
       (dispatch.trucks_assigned || []).forEach((truck) => trucks.add(truck));
     });
     return Array.from(trucks).sort().map((truck) => ({ value: truck, label: truck }));
-  }, [form.dispatch_id, dispatchMap, isDriver, isTruck, session?.allowed_trucks, visibleDispatches]);
+  }, [form.dispatch_id, dispatchMap, isDriver, visibleDispatches]);
 
   useEffect(() => {
     if (!createFromDispatch || !session) return;
@@ -304,13 +292,7 @@ export default function Incidents() {
     let prefillTruck = queryTruckNumber;
     if (!prefillTruck && prefillDispatch) {
       const assignedTrucks = prefillDispatch.trucks_assigned || [];
-      if (isTruck) {
-        const allowed = new Set(session?.allowed_trucks || []);
-        const available = assignedTrucks.filter((truck) => allowed.has(truck));
-        prefillTruck = available.length === 1 ? available[0] : '';
-      } else {
-        prefillTruck = assignedTrucks.length === 1 ? assignedTrucks[0] : '';
-      }
+      prefillTruck = assignedTrucks.length === 1 ? assignedTrucks[0] : '';
     }
 
     setForm((prev) => ({
@@ -324,7 +306,6 @@ export default function Incidents() {
     createFromDispatch,
     dispatchMap,
     isDriver,
-    isTruck,
     queryCompanyId,
     queryDispatchId,
     queryTruckNumber,
@@ -439,11 +420,7 @@ export default function Incidents() {
     const assignedTrucks = dispatch?.trucks_assigned || [];
     let prefillTruck = '';
 
-    if (isTruck) {
-      const allowed = new Set(session?.allowed_trucks || []);
-      const filtered = assignedTrucks.filter((truck) => allowed.has(truck));
-      if (filtered.length === 1) prefillTruck = filtered[0];
-    } else if (assignedTrucks.length === 1) {
+    if (assignedTrucks.length === 1) {
       prefillTruck = assignedTrucks[0];
     }
 

@@ -299,7 +299,7 @@ export default function AdminAnnouncements() {
               <div className="space-y-1.5">
                 <Label>Select Access Codes</Label>
                 <div className="border rounded-lg divide-y max-h-40 overflow-y-auto">
-                  {accessCodes.filter(ac => ac.code_type !== 'Admin').map(ac => (
+                  {accessCodes.filter(ac => ac.code_type === 'CompanyOwner' || ac.code_type === 'Driver').map(ac => (
                     <label key={ac.id} className="flex items-center gap-3 px-3 py-2 hover:bg-slate-50 cursor-pointer">
                       <input
                         type="checkbox"

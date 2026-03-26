@@ -5,6 +5,7 @@ import { getAvailableWorkspaces, normalizeView } from './workspaceUtils';
 const STORAGE_ACCESS_CODE_ID = 'access_code_id';
 const STORAGE_WORKSPACE_MODE = 'workspace_mode';
 const STORAGE_WORKSPACE_COMPANY_ID = 'workspace_company_id';
+const SUPPORTED_CODE_TYPES = new Set(['Admin', 'CompanyOwner', 'Driver']);
 
 function pickInitialWorkspace(accessCode) {
   const storedMode = normalizeView(localStorage.getItem(STORAGE_WORKSPACE_MODE));
@@ -44,8 +45,9 @@ function pickInitialWorkspace(accessCode) {
 
 function buildEffectiveSession(accessCode, activeViewMode, activeCompanyId, ownerWorkspaceAllowedTrucks = null) {
   if (!accessCode) return null;
+  if (!SUPPORTED_CODE_TYPES.has(accessCode.code_type)) return null;
 
-  if (accessCode.code_type === 'Truck' || accessCode.code_type === 'Driver') {
+  if (accessCode.code_type === 'Driver') {
     return {
       ...accessCode,
       raw_code_type: accessCode.code_type,
@@ -145,7 +147,7 @@ export function useAccessSession() {
       }
       try {
         const codes = await base44.entities.AccessCode.filter({ id: storedId });
-        if (codes.length > 0 && codes[0].active_flag !== false) {
+        if (codes.length > 0 && codes[0].active_flag !== false && SUPPORTED_CODE_TYPES.has(codes[0].code_type)) {
           const nextCode = codes[0];
           const nextWorkspace = pickInitialWorkspace(nextCode);
           setAccessCode(nextCode);
@@ -163,6 +165,10 @@ export function useAccessSession() {
   }, [persistWorkspace]);
 
   const login = (nextAccessCode) => {
+    if (!nextAccessCode || !SUPPORTED_CODE_TYPES.has(nextAccessCode.code_type)) {
+      localStorage.removeItem(STORAGE_ACCESS_CODE_ID);
+      return;
+    }
     localStorage.setItem(STORAGE_ACCESS_CODE_ID, nextAccessCode.id);
     const nextWorkspace = pickInitialWorkspace(nextAccessCode);
     setAccessCode(nextAccessCode);

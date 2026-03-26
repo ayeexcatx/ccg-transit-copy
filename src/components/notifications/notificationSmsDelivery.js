@@ -125,10 +125,18 @@ async function resolveSmsEligibility(recipient) {
     };
   }
 
+  if (recipient.code_type === 'Admin') {
+    return {
+      smsEnabled: recipient.sms_enabled === true,
+      smsPhone: normalizeText(recipient.sms_phone),
+      skipReason: recipient.sms_enabled === true ? null : 'sms_disabled',
+    };
+  }
+
   return {
-    smsEnabled: recipient.sms_enabled === true,
-    smsPhone: normalizeText(recipient.sms_phone),
-    skipReason: recipient.sms_enabled === true ? null : 'sms_disabled',
+    smsEnabled: false,
+    smsPhone: '',
+    skipReason: 'unsupported_access_code_type',
   };
 }
 

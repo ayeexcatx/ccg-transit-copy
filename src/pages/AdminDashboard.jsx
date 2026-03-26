@@ -172,12 +172,6 @@ export default function AdminDashboard() {
 
     if (targetedCodes.length === 0) return 'Specific Access Codes';
 
-    const truckCodes = targetedCodes.filter((code) => code.code_type === 'Truck');
-    if (truckCodes.length === targetedCodes.length) {
-      const trucks = [...new Set(truckCodes.flatMap((code) => code.allowed_trucks || []))];
-      if (trucks.length > 0) return `Specific Trucks: ${trucks.join(', ')}`;
-    }
-
     const ownerCodes = targetedCodes.filter((code) => code.code_type === 'CompanyOwner');
     if (ownerCodes.length === targetedCodes.length) {
       const ownerLabels = ownerCodes
