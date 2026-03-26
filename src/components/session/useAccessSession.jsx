@@ -7,34 +7,16 @@ const STORAGE_ACCESS_CODE_ID = 'access_code_id';
 const STORAGE_WORKSPACE_MODE = 'workspace_mode';
 const STORAGE_WORKSPACE_COMPANY_ID = 'workspace_company_id';
 const SUPPORTED_CODE_TYPES = new Set(['Admin', 'CompanyOwner', 'Driver']);
-const COMPANY_OWNER_APP_ROLE = 'company_owner';
 
-function getAuthenticatedOwnerMetadata(authenticatedUser) {
-  const authenticatedRole = String(authenticatedUser?.app_role || '').trim().toLowerCase();
-  const authenticatedCompanyId = authenticatedUser?.company_id ? String(authenticatedUser.company_id) : null;
-
-  return {
-    authenticatedRole,
-    authenticatedCompanyId,
-    isAuthenticatedCompanyOwner: authenticatedRole === COMPANY_OWNER_APP_ROLE,
-  };
-}
-
-function pickInitialWorkspace(accessCode, authenticatedUser = null) {
+function pickInitialWorkspace(accessCode) {
   const storedMode = normalizeView(localStorage.getItem(STORAGE_WORKSPACE_MODE));
   const storedCompanyId = localStorage.getItem(STORAGE_WORKSPACE_COMPANY_ID) || null;
-  const ownerIdentity = getAuthenticatedOwnerMetadata(authenticatedUser);
 
   const workspaces = getAvailableWorkspaces(accessCode);
   if (workspaces.length === 0) {
-    const ownerScopedCompanyId =
-      ownerIdentity.isAuthenticatedCompanyOwner && ownerIdentity.authenticatedCompanyId
-        ? ownerIdentity.authenticatedCompanyId
-        : accessCode.company_id || null;
-
     return {
       activeViewMode: accessCode.code_type,
-      activeCompanyId: accessCode.code_type === 'CompanyOwner' ? ownerScopedCompanyId : null,
+      activeCompanyId: accessCode.code_type === 'CompanyOwner' ? accessCode.company_id || null : null,
     };
   }
 
@@ -45,20 +27,6 @@ function pickInitialWorkspace(accessCode, authenticatedUser = null) {
     return {
       activeViewMode: storedMatch.mode,
       activeCompanyId: storedMatch.companyId,
-    };
-  }
-
-  const authenticatedOwnerWorkspaceMatch =
-    ownerIdentity.isAuthenticatedCompanyOwner && ownerIdentity.authenticatedCompanyId
-      ? workspaces.find(
-          (workspace) =>
-            workspace.mode === 'CompanyOwner' && workspace.companyId === ownerIdentity.authenticatedCompanyId,
-        )
-      : null;
-  if (authenticatedOwnerWorkspaceMatch) {
-    return {
-      activeViewMode: authenticatedOwnerWorkspaceMatch.mode,
-      activeCompanyId: authenticatedOwnerWorkspaceMatch.companyId,
     };
   }
 
@@ -104,12 +72,6 @@ function buildEffectiveSession(
   if (!SUPPORTED_CODE_TYPES.has(accessCode.code_type)) return null;
 
   const driverIdentity = getDriverIdentityMetadata(accessCode, authenticatedUser);
-  const ownerIdentity = getAuthenticatedOwnerMetadata(authenticatedUser);
-  const primaryOwnerCompanyId =
-    (ownerIdentity.isAuthenticatedCompanyOwner && ownerIdentity.authenticatedCompanyId) ||
-    activeCompanyId ||
-    accessCode.company_id ||
-    null;
 
   if (accessCode.code_type === 'Driver') {
     return {
@@ -143,14 +105,12 @@ function buildEffectiveSession(
       is_driver_user: driverIdentity.isDriverUser,
       driver_id: driverIdentity.effectiveDriverId,
       effective_driver_id: driverIdentity.effectiveDriverId,
-      authenticated_company_id: ownerIdentity.authenticatedCompanyId,
-      is_authenticated_company_owner: ownerIdentity.isAuthenticatedCompanyOwner,
       raw_code_type: accessCode.code_type,
       code_type: 'CompanyOwner',
-      company_id: primaryOwnerCompanyId,
+      company_id: activeCompanyId,
       allowed_trucks: Array.isArray(allowedTrucks) ? allowedTrucks : [],
       activeViewMode: 'CompanyOwner',
-      activeCompanyId: primaryOwnerCompanyId,
+      activeCompanyId,
     };
   }
 
@@ -164,8 +124,6 @@ function buildEffectiveSession(
     is_driver_user: driverIdentity.isDriverUser,
     driver_id: driverIdentity.effectiveDriverId,
     effective_driver_id: driverIdentity.effectiveDriverId,
-    authenticated_company_id: ownerIdentity.authenticatedCompanyId,
-    is_authenticated_company_owner: ownerIdentity.isAuthenticatedCompanyOwner,
     raw_code_type: accessCode.code_type,
     code_type: accessCode.code_type,
     activeViewMode: activeViewMode || accessCode.code_type,
@@ -242,7 +200,7 @@ export function useAccessSession() {
         const codes = await base44.entities.AccessCode.filter({ id: storedId });
         if (codes.length > 0 && codes[0].active_flag !== false && SUPPORTED_CODE_TYPES.has(codes[0].code_type)) {
           const nextCode = codes[0];
-          const nextWorkspace = pickInitialWorkspace(nextCode, user);
+          const nextWorkspace = pickInitialWorkspace(nextCode);
           setAccessCode(nextCode);
           setWorkspace(nextWorkspace);
           persistWorkspace(nextWorkspace);
@@ -255,7 +213,7 @@ export function useAccessSession() {
       setLoading(false);
     }
     loadSession();
-  }, [persistWorkspace, user]);
+  }, [persistWorkspace]);
 
   const login = (nextAccessCode) => {
     if (!nextAccessCode || !SUPPORTED_CODE_TYPES.has(nextAccessCode.code_type)) {
@@ -263,7 +221,7 @@ export function useAccessSession() {
       return;
     }
     localStorage.setItem(STORAGE_ACCESS_CODE_ID, nextAccessCode.id);
-    const nextWorkspace = pickInitialWorkspace(nextAccessCode, user);
+    const nextWorkspace = pickInitialWorkspace(nextAccessCode);
     setAccessCode(nextAccessCode);
     setWorkspace(nextWorkspace);
     persistWorkspace(nextWorkspace);
