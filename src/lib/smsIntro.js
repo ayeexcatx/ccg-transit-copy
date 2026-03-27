@@ -8,7 +8,15 @@ function normalizeText(value) {
   return typeof value === 'string' ? value.trim() : '';
 }
 
-async function logWelcomeSmsFailure({ accessCodeId, phone, errorMessage }) {
+async function createWelcomeSmsLog({
+  accessCodeId,
+  phone,
+  status,
+  skipReason = null,
+  errorMessage = null,
+  providerMessageId = null,
+  sentAt = null,
+}) {
   try {
     await base44.entities.General.create({
       record_type: 'sms_log',
@@ -19,15 +27,78 @@ async function logWelcomeSmsFailure({ accessCodeId, phone, errorMessage }) {
       recipient_name: null,
       phone: phone || null,
       message: SMS_WELCOME_MESSAGE,
-      status: 'failed',
-      skip_reason: 'intro_sms_send_failed',
-      error_message: errorMessage || null,
+      status,
+      skip_reason: skipReason,
+      error_message: errorMessage,
       provider: SMS_PROVIDER,
-      provider_message_id: null,
-      sent_at: null,
+      provider_message_id: providerMessageId,
+      sent_at: sentAt,
     });
   } catch (error) {
-    console.error('Failed to log welcome SMS failure', error);
+    console.error('Failed to log welcome SMS event', error);
+  }
+}
+
+async function hasWelcomeSmsAlreadySent(accessCodeId) {
+  if (!accessCodeId) return false;
+
+  const existingLogs = await base44.entities.General.filter({
+    record_type: 'sms_log',
+    recipient_access_code_id: accessCodeId,
+    status: 'sent',
+    skip_reason: 'intro_sms_sent',
+  }, '-created_date', 1);
+
+  return Boolean(existingLogs?.length);
+}
+
+async function markWelcomeSent(accessCodeId, providerMessageId = null, sentAt = null) {
+  await base44.entities.AccessCode.update(accessCodeId, {
+    sms_intro_sent_at: sentAt || new Date().toISOString(),
+  });
+
+  await createWelcomeSmsLog({
+    accessCodeId,
+    status: 'sent',
+    skipReason: 'intro_sms_sent',
+    providerMessageId,
+    sentAt: sentAt || new Date().toISOString(),
+  });
+}
+
+async function logWelcomeSkip({ accessCodeId, phone, skipReason }) {
+  if (!accessCodeId || !skipReason) return;
+  await createWelcomeSmsLog({
+    accessCodeId,
+    phone,
+    status: 'skipped',
+    skipReason,
+  });
+}
+
+async function logWelcomeSmsFailure({ accessCodeId, phone, errorMessage }) {
+  await createWelcomeSmsLog({
+    accessCodeId,
+    phone,
+    status: 'failed',
+    skipReason: 'intro_sms_send_failed',
+    errorMessage: errorMessage || null,
+  });
+}
+
+function looksLikeUsSmsPhone(value) {
+  const digits = String(value || '').replace(/\D/g, '');
+  return digits.length === 10 || (digits.length === 11 && digits.startsWith('1'));
+}
+
+async function updateIntroSentTimestampIfMissing(accessCode, sentAt) {
+  if (accessCode?.sms_intro_sent_at) return;
+  try {
+    await base44.entities.AccessCode.update(accessCode.id, {
+      sms_intro_sent_at: sentAt || new Date().toISOString(),
+    });
+  } catch (error) {
+    console.error('Failed to backfill sms_intro_sent_at after existing intro log', error);
   }
 }
 
@@ -38,21 +109,41 @@ export async function sendSmsWelcomeIfNeeded({ accessCodeId, consentGiven }) {
   const accessCode = records?.[0] || null;
 
   if (!accessCode) return;
-  if (accessCode.sms_intro_sent_at) return;
-  if (accessCode.sms_enabled !== true) return;
+  if (accessCode.sms_intro_sent_at) {
+    await logWelcomeSkip({ accessCodeId: accessCode.id, phone: accessCode.sms_phone, skipReason: 'intro_already_sent' });
+    return;
+  }
+  if (accessCode.sms_enabled !== true) {
+    await logWelcomeSkip({ accessCodeId: accessCode.id, phone: accessCode.sms_phone, skipReason: 'intro_sms_disabled' });
+    return;
+  }
 
   const phone = normalizeText(accessCode.sms_phone);
-  if (!phone) return;
+  if (!phone) {
+    await logWelcomeSkip({ accessCodeId: accessCode.id, phone: null, skipReason: 'intro_missing_phone' });
+    return;
+  }
+  if (!looksLikeUsSmsPhone(phone)) {
+    await logWelcomeSkip({ accessCodeId: accessCode.id, phone, skipReason: 'intro_invalid_phone' });
+    return;
+  }
+
+  const alreadySentByLog = await hasWelcomeSmsAlreadySent(accessCode.id);
+  if (alreadySentByLog) {
+    await updateIntroSentTimestampIfMissing(accessCode, new Date().toISOString());
+    await logWelcomeSkip({ accessCodeId: accessCode.id, phone, skipReason: 'intro_already_sent' });
+    return;
+  }
 
   try {
-    await base44.functions.invoke('sendNotificationSms/entry', {
+    const response = await base44.functions.invoke('sendNotificationSms/entry', {
       phone,
       message: SMS_WELCOME_MESSAGE,
     });
 
-    await base44.entities.AccessCode.update(accessCode.id, {
-      sms_intro_sent_at: new Date().toISOString(),
-    });
+    const responseData = response?.data || response || {};
+    const sentAt = responseData?.sentAt || new Date().toISOString();
+    await markWelcomeSent(accessCode.id, responseData?.providerMessageId || null, sentAt);
   } catch (error) {
     console.error('Failed sending welcome SMS', error);
     await logWelcomeSmsFailure({
