@@ -83,17 +83,17 @@ function buildEffectiveSession(accessCode, activeViewMode, activeCompanyId, owne
 }
 
 function buildLinkedUserSession({
-  linkedUser,
+  linkedIdentity,
   fallbackSession,
   workspace,
 }) {
-  if (!linkedUser?.onboarding_complete) return null;
+  if (!linkedIdentity?.onboarding_complete) return null;
 
-  const appRole = linkedUser?.app_role;
+  const appRole = linkedIdentity?.app_role;
   if (!SUPPORTED_CODE_TYPES.has(appRole)) return null;
 
-  const companyId = linkedUser?.company_id || fallbackSession?.company_id || null;
-  const driverId = linkedUser?.driver_id || fallbackSession?.driver_id || null;
+  const companyId = linkedIdentity?.company_id || fallbackSession?.company_id || null;
+  const driverId = linkedIdentity?.driver_id || fallbackSession?.driver_id || null;
   const activeViewMode = appRole === 'Admin'
     ? (workspace.activeViewMode || 'Admin')
     : appRole;
@@ -103,7 +103,7 @@ function buildLinkedUserSession({
 
   return {
     ...(fallbackSession || {}),
-    user_id: linkedUser.id,
+    user_id: linkedIdentity.user_id,
     onboarding_complete: true,
     raw_code_type: fallbackSession?.raw_code_type || appRole,
     code_type: appRole,
@@ -116,7 +116,7 @@ function buildLinkedUserSession({
 }
 
 export function useAccessSession() {
-  const { user, isAuthenticated, isLoadingAuth } = useAuth();
+  const { currentAppIdentity, isAuthenticated, isLoadingAuth } = useAuth();
   const [accessCode, setAccessCode] = useState(null);
   const [workspace, setWorkspace] = useState({ activeViewMode: null, activeCompanyId: null });
   const [ownerWorkspaceAllowedTrucks, setOwnerWorkspaceAllowedTrucks] = useState(null);
@@ -239,14 +239,14 @@ export function useAccessSession() {
   const session = useMemo(() => {
     if (isAuthenticated) {
       const linkedSession = buildLinkedUserSession({
-        linkedUser: user,
+        linkedIdentity: currentAppIdentity,
         fallbackSession: accessCodeSession,
         workspace,
       });
       if (linkedSession) return linkedSession;
     }
     return accessCodeSession;
-  }, [accessCodeSession, isAuthenticated, user, workspace]);
+  }, [accessCodeSession, currentAppIdentity, isAuthenticated, workspace]);
 
   return {
     session,

@@ -1,7 +1,8 @@
-import React, { createContext, useState, useContext, useEffect } from 'react';
+import React, { createContext, useState, useContext, useEffect, useMemo } from 'react';
 import { base44 } from '@/api/base44Client';
 import { appParams } from '@/lib/app-params';
 import { createAxiosClient } from '@base44/sdk/dist/utils/axios-client';
+import { getCurrentAppIdentity } from '@/services/currentAppIdentityService';
 
 const AuthContext = createContext();
 
@@ -123,6 +124,9 @@ export const AuthProvider = ({ children }) => {
     }
   };
 
+
+  const currentAppIdentity = useMemo(() => getCurrentAppIdentity(user), [user]);
+
   const navigateToLogin = () => {
     // Use the SDK's redirectToLogin method
     base44.auth.redirectToLogin(window.location.href);
@@ -131,6 +135,7 @@ export const AuthProvider = ({ children }) => {
   return (
     <AuthContext.Provider value={{ 
       user, 
+      currentAppIdentity,
       isAuthenticated, 
       isLoadingAuth,
       isLoadingPublicSettings,
