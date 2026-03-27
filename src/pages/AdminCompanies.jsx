@@ -676,8 +676,9 @@ export default function AdminCompanies() {
             <SheetTitle>{selectedCompanyDetail?.name || 'Company'} Details</SheetTitle>
           </SheetHeader>
           {selectedCompanyDetail && (
-            <div className="mt-4 space-y-6 pb-6">
-              <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-4">
+            <div className="mt-3 space-y-5 pb-6">
+              <div className="rounded-2xl border border-slate-200/80 bg-slate-100/60 p-2">
+                <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-4">
                 <div className="rounded-xl border border-slate-200/80 bg-slate-50/80 p-3 shadow-sm">
                   <p className="text-[11px] uppercase tracking-wide text-slate-500">Status</p>
                   <p className="mt-1 text-sm font-semibold text-slate-900 capitalize">{formatDisplayValue(selectedCompanyDetail.status || 'active')}</p>
@@ -695,11 +696,9 @@ export default function AdminCompanies() {
                   <p className="mt-1 text-sm font-semibold text-slate-900">{getCompanySmsContact(selectedCompanyDetail).phone ? 'On file' : 'Not available'}</p>
                 </div>
               </div>
+              </div>
               <DrawerSection title="1. Company Overview" icon={Briefcase}>
                 <div className="grid sm:grid-cols-2 gap-3 text-sm">
-                  <InfoValueCard label="Status" value={selectedCompanyDetail.status || 'active'} icon={Building2} />
-                  <InfoValueCard label="Drivers" value={(driversByCompany.get(selectedCompanyDetail.id) || []).length} icon={UserRound} />
-                  <InfoValueCard label="Trucks" value={(selectedCompanyDetail.trucks || []).length} icon={Truck} />
                   <div className="rounded-xl bg-slate-50/80 p-3.5 shadow-sm ring-1 ring-slate-200/70 sm:col-span-2">
                     <p className="text-[11px] uppercase tracking-wide text-slate-500">Address</p>
                     <p className={`mt-2 text-sm whitespace-pre-line ${selectedCompanyDetail.address ? 'font-semibold text-slate-900' : 'font-medium italic text-slate-500'}`}>{formatDisplayValue(selectedCompanyDetail.address)}</p>
