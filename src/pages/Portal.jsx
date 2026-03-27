@@ -41,7 +41,7 @@ import {
   normalizeVisibilityId,
 } from '@/lib/dispatchVisibility';
 import { buildConfirmedTruckSetForStatus } from '@/components/notifications/confirmationStateHelpers';
-import { resolveDriverIdentity } from '@/services/currentAppIdentityService';
+import { resolveCompanyOwnerCompanyId, resolveDriverIdentity } from '@/services/currentAppIdentityService';
 
 function getSessionActorMetadata(session) {
   const actorName = session?.label || session?.name || session?.driver_name || session?.code || '';
@@ -87,11 +87,15 @@ export default function Portal() {
     () => resolveDriverIdentity({ currentAppIdentity, session }),
     [currentAppIdentity, session],
   );
+  const ownerCompanyId = useMemo(
+    () => resolveCompanyOwnerCompanyId({ currentAppIdentity, session }),
+    [currentAppIdentity, session],
+  );
 
   const { data: dispatches = [] } = useQuery({
-    queryKey: ['portal-dispatches', session?.company_id],
-    queryFn: () => base44.entities.Dispatch.filter({ company_id: session.company_id }, '-date', 200),
-    enabled: !!session?.company_id,
+    queryKey: ['portal-dispatches', ownerCompanyId],
+    queryFn: () => base44.entities.Dispatch.filter({ company_id: ownerCompanyId }, '-date', 200),
+    enabled: !!ownerCompanyId,
   });
 
   const { data: driverAssignments = [] } = useQuery({
@@ -219,7 +223,7 @@ export default function Portal() {
         isPastOrToday
       });
       if (wasAutoArchived) {
-        queryClient.invalidateQueries({ queryKey: ['portal-dispatches', session?.company_id] });
+        queryClient.invalidateQueries({ queryKey: ['portal-dispatches', ownerCompanyId] });
       }
 
       return savedEntries;
@@ -237,7 +241,7 @@ export default function Portal() {
       requestTruckSwapConfirmation,
     }),
     onSuccess: (result, variables) => {
-      queryClient.invalidateQueries({ queryKey: ['portal-dispatches', session?.company_id] });
+      queryClient.invalidateQueries({ queryKey: ['portal-dispatches', ownerCompanyId] });
       queryClient.invalidateQueries({ queryKey: ['dispatches-admin'] });
       queryClient.invalidateQueries({ queryKey: ['driver-dispatch-assignments'] });
       queryClient.invalidateQueries({ queryKey: ['driver-dispatch-assignments', variables?.dispatch?.id] });
@@ -267,8 +271,8 @@ export default function Portal() {
   const isDriverUser = session?.code_type === 'Driver';
 
   const filteredDispatches = useMemo(
-    () => dispatches.filter((dispatch) => canUserSeeDispatch(session, dispatch, { driverDispatchIds })),
-    [dispatches, driverDispatchIds, session]
+    () => dispatches.filter((dispatch) => canUserSeeDispatch(session, dispatch, { driverDispatchIds, ownerCompanyId })),
+    [dispatches, driverDispatchIds, ownerCompanyId, session]
   );
 
   const upcomingDispatches = useMemo(() => filteredDispatches

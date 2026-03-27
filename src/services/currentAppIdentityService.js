@@ -18,3 +18,10 @@ export function resolveDriverIdentity({ currentAppIdentity, authenticatedUser, s
     || session?.driver_id
     || null;
 }
+
+export function resolveCompanyOwnerCompanyId({ currentAppIdentity, authenticatedUser, session } = {}) {
+  return currentAppIdentity?.company_id
+    || authenticatedUser?.company_id
+    || session?.company_id
+    || null;
+}

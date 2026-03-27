@@ -32,7 +32,7 @@ export function getDriverDispatchIdSet(driverAssignments = []) {
  * - Driver: active assignment only
  * - CompanyOwner: same-company only
  */
-export function canUserSeeDispatch(session, dispatch, { driverDispatchIds = null } = {}) {
+export function canUserSeeDispatch(session, dispatch, { driverDispatchIds = null, ownerCompanyId = null } = {}) {
   if (!session || !dispatch?.id) return false;
   if (session.code_type === 'Admin') return true;
 
@@ -42,7 +42,8 @@ export function canUserSeeDispatch(session, dispatch, { driverDispatchIds = null
   }
   if (session.code_type !== 'CompanyOwner') return false;
 
-  return normalizeId(dispatch.company_id) === normalizeId(session.company_id);
+  const effectiveCompanyId = ownerCompanyId ?? session.company_id;
+  return normalizeId(dispatch.company_id) === normalizeId(effectiveCompanyId);
 }
 
 /**
