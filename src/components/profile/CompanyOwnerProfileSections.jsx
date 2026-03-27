@@ -85,8 +85,18 @@ export function CompanyOwnerProfileOverview({
   );
 }
 
-export function CompanyOwnerSmsCard({ smsState, smsContact, smsPending, consentChecked, onConsentChange, onToggle }) {
-  const canEnableSms = smsState.target.phone && !smsState.optedIn ? consentChecked : true;
+export function CompanyOwnerSmsCard({
+  smsState,
+  smsContact,
+  smsPending,
+  consentChecked,
+  showConsentCheckbox,
+  onConsentChange,
+  onToggle,
+}) {
+  const canEnableSms = smsState.target.phone && !smsState.optedIn
+    ? (showConsentCheckbox ? consentChecked : true)
+    : true;
 
   return (
     <Card>
@@ -99,10 +109,12 @@ export function CompanyOwnerSmsCard({ smsState, smsContact, smsPending, consentC
           </div>
           <Switch checked={smsState.optedIn} disabled={smsPending || !smsState.target.phone || !canEnableSms} onCheckedChange={onToggle} />
         </div>
-        <label className="flex items-start gap-2 rounded-lg border border-slate-200 p-3 text-sm text-slate-700">
-          <Checkbox checked={consentChecked} onCheckedChange={(checked) => onConsentChange(checked === true)} disabled={smsPending} className="mt-0.5" />
-          <span>I agree to receive operational SMS notifications from CCG Transit.</span>
-        </label>
+        {showConsentCheckbox && (
+          <label className="flex items-start gap-2 rounded-lg border border-slate-200 p-3 text-sm text-slate-700">
+            <Checkbox checked={consentChecked} onCheckedChange={(checked) => onConsentChange(checked === true)} disabled={smsPending} className="mt-0.5" />
+            <span>I agree to receive operational SMS notifications from CCG Transit.</span>
+          </label>
+        )}
         <SmsConsentDisclosure />
         <div className="grid sm:grid-cols-3 gap-3 text-sm">
           <div className="rounded-lg bg-slate-50 p-3 border"><p className="text-slate-500">Use for SMS</p><p className="font-medium text-slate-900">{smsState.target.method ? `${smsState.target.method.type}: ${smsState.target.method.value}` : 'No phone selected'}</p></div>

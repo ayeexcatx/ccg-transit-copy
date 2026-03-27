@@ -9,9 +9,10 @@ import { Badge } from '@/components/ui/badge';
 import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sheet';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import DeleteConfirmationDialog from '@/components/admin/DeleteConfirmationDialog';
-import { Building2, Plus, Pencil, Trash2, X, Truck, TrendingUp, TrendingDown, Minus, UserRound, Check } from 'lucide-react';
+import { Building2, Plus, Pencil, Trash2, X, TrendingUp, TrendingDown, Minus } from 'lucide-react';
 import { format } from 'date-fns';
 import { calculateCompanyScore, SCORING_EVENT_TYPES, SCORING_PERIODS } from '@/lib/companyScoring';
 import { getCompanySmsContact, getDriverSmsState } from '@/lib/sms';
@@ -71,6 +72,13 @@ const getTrendStyling = (trend) => {
   if (trend === 'Trending Up') return { icon: TrendingUp, color: 'text-emerald-600' };
   if (trend === 'Trending Down') return { icon: TrendingDown, color: 'text-red-600' };
   return { icon: Minus, color: 'text-slate-500' };
+};
+
+const formatDateTime = (value) => {
+  if (!value) return '—';
+  const parsed = new Date(value);
+  if (Number.isNaN(parsed.getTime())) return value;
+  return parsed.toLocaleString();
 };
 
 
@@ -290,7 +298,8 @@ export default function AdminCompanies() {
   const [form, setForm] = useState({ name: '', address: '', contact_methods: [{ type: 'Office', value: '' }], trucks: [], status: 'active' });
   const [truckInput, setTruckInput] = useState('');
   const [periodKey, setPeriodKey] = useState('last30');
-  const [selectedCompany, setSelectedCompany] = useState(null);
+  const [selectedScoringCompany, setSelectedScoringCompany] = useState(null);
+  const [selectedCompanyDetail, setSelectedCompanyDetail] = useState(null);
   const [eventForm, setEventForm] = useState(initialEventForm);
   const [companyPendingDelete, setCompanyPendingDelete] = useState(null);
 
@@ -299,6 +308,7 @@ export default function AdminCompanies() {
   const { data: confirmations = [] } = useQuery({ queryKey: ['scoring-confirmations'], queryFn: () => base44.entities.Confirmation.list('-confirmed_at', 1000) });
   const { data: incidents = [] } = useQuery({ queryKey: ['scoring-incidents'], queryFn: () => base44.entities.IncidentReport.list('-created_date', 1000) });
   const { data: drivers = [] } = useQuery({ queryKey: ['scoring-drivers'], queryFn: () => base44.entities.Driver.list('-created_date', 1000) });
+  const { data: accessCodes = [] } = useQuery({ queryKey: ['access-codes'], queryFn: () => base44.entities.AccessCode.list() });
   const { data: assignments = [] } = useQuery({ queryKey: ['scoring-driver-assignments'], queryFn: () => base44.entities.DriverDispatchAssignment.list('-assigned_datetime', 1000) });
   const { data: events = [] } = useQuery({ queryKey: ['company-scoring-events'], queryFn: () => base44.entities.CompanyScoringEvent.list('-event_date', 1000) });
 
@@ -363,7 +373,7 @@ export default function AdminCompanies() {
     calculateCompanyScore({ company, dispatches, confirmations, incidents, events, drivers, driverAssignments: assignments, periodKey }),
   ])), [companies, dispatches, confirmations, incidents, events, drivers, assignments, periodKey]);
 
-  const selectedScore = selectedCompany ? scoreByCompany.get(selectedCompany.id) : null;
+  const selectedScore = selectedScoringCompany ? scoreByCompany.get(selectedScoringCompany.id) : null;
   const selectedCompanyDispatches = useMemo(() => {
     const selectedEventDate = eventForm.event_date;
     const byDateTime = (dispatch) => {
@@ -372,15 +382,15 @@ export default function AdminCompanies() {
     };
 
     return dispatches
-      .filter((dispatch) => dispatch.company_id === selectedCompany?.id)
+      .filter((dispatch) => dispatch.company_id === selectedScoringCompany?.id)
       .sort((a, b) => {
         const aDateMatch = selectedEventDate && String(a.date || '').slice(0, 10) === selectedEventDate ? 1 : 0;
         const bDateMatch = selectedEventDate && String(b.date || '').slice(0, 10) === selectedEventDate ? 1 : 0;
         if (aDateMatch !== bDateMatch) return bDateMatch - aDateMatch;
         return byDateTime(b) - byDateTime(a);
       });
-  }, [dispatches, selectedCompany, eventForm.event_date]);
-  const selectedCompanyDrivers = useMemo(() => drivers.filter((driver) => driver.company_id === selectedCompany?.id), [drivers, selectedCompany]);
+  }, [dispatches, selectedScoringCompany, eventForm.event_date]);
+  const selectedCompanyDrivers = useMemo(() => drivers.filter((driver) => driver.company_id === selectedScoringCompany?.id), [drivers, selectedScoringCompany]);
 
   const driversByCompany = useMemo(() => drivers.reduce((map, driver) => {
     const companyId = driver.company_id;
@@ -391,6 +401,15 @@ export default function AdminCompanies() {
   }, new Map()), [drivers]);
 
   const sortedCompanies = useMemo(() => companies.slice().sort((a, b) => (a.name || "").localeCompare(b.name || "", undefined, { sensitivity: "base" })), [companies]);
+  const accessCodeById = useMemo(() => accessCodes.reduce((map, code) => {
+    map.set(code.id, code);
+    return map;
+  }, new Map()), [accessCodes]);
+  const ownerCodeByCompany = useMemo(() => accessCodes.reduce((map, code) => {
+    if (code.code_type !== 'CompanyOwner' || !code.company_id) return map;
+    if (!map.has(code.company_id)) map.set(code.company_id, code);
+    return map;
+  }, new Map()), [accessCodes]);
 
   const openNew = () => {
     setEditing(null);
@@ -478,71 +497,32 @@ export default function AdminCompanies() {
           ) : (
             <div className="grid gap-3">
               {companies.map((c) => (
-                <Card key={c.id} className="hover:shadow-sm transition-shadow">
+                <Card key={c.id} className="hover:shadow-sm transition-shadow cursor-pointer" onClick={() => setSelectedCompanyDetail(c)}>
                   <CardContent className="p-4 sm:p-5">
                     <div className="flex items-start justify-between gap-3">
                       <div className="flex items-start gap-3">
                         <div className="h-10 w-10 rounded-lg bg-slate-100 flex items-center justify-center shrink-0"><Building2 className="h-5 w-5 text-slate-500" /></div>
                         <div>
                           <div className="flex items-center gap-2"><h3 className="text-sm font-semibold text-slate-700">{c.name}</h3><Badge variant={c.status === 'active' ? 'default' : 'secondary'} className="text-xs">{c.status}</Badge></div>
-                          {c.address && <p className="text-sm text-slate-500 mt-0.5 whitespace-pre-line">{c.address}</p>}
-                          {(Array.isArray(c.contact_methods) && c.contact_methods.length > 0) ? (
-                            <div className="mt-1.5 space-y-0.5">{c.contact_methods.filter((method) => method?.value).map((method, index) => <p key={`${c.id}-contact-${index}`} className="text-sm text-slate-500"><span className="font-medium text-slate-600">{method.type}:</span> {method.value}</p>)}</div>
-                          ) : c.contact_info && <p className="text-sm text-slate-500 mt-0.5">{c.contact_info}</p>}
-                          <div className="flex items-center gap-1.5 mt-2 flex-wrap"><Truck className="h-3.5 w-3.5 text-slate-400" />{(c.trucks || []).length === 0 ? <span className="text-xs text-slate-400">No trucks</span> : (c.trucks || []).map((t) => <Badge key={t} variant="outline" className="text-xs font-mono">{t}</Badge>)}</div>
-                          {c.pending_profile_change?.status === 'Pending' && <div className="mt-2 rounded-lg border border-amber-300 bg-amber-50 p-3 text-xs text-amber-900">Company owner requested a profile update and it is pending admin approval.</div>}
-                          {(() => { const smsContact = getCompanySmsContact(c); return smsContact.method ? <p className="text-xs text-slate-500 mt-2">SMS: <span className="font-medium text-slate-700">{formatPhoneNumber(smsContact.phone)}</span></p> : null; })()}
-                          {(() => {
-                            const companyDrivers = (driversByCompany.get(c.id) || []).slice().sort((a, b) => (a.driver_name || '').localeCompare(b.driver_name || ''));
-                            if (companyDrivers.length === 0) return null;
-                            return (
-                              <div className="mt-2 space-y-1.5">
-                                <p className="text-xs font-medium text-slate-500">Drivers</p>
-                                <div className="space-y-1.5">
-                                  {companyDrivers.map((driver) => (
-                                    <div key={driver.id} className="flex items-start justify-between gap-3 rounded-md border border-slate-200 bg-slate-50 px-2.5 py-2 text-xs">
-                                      <div className="min-w-0">
-                                        <p className="font-medium text-slate-700 flex items-center gap-1.5"><UserRound className="h-3.5 w-3.5 text-slate-400" />{driver.driver_name || 'Unnamed driver'}</p>
-                                        <p className="text-slate-500 mt-0.5">{driver.phone || 'No phone number'}</p>
-                                      </div>
-                                      {(() => { const smsState = getDriverSmsState(driver); return <Badge variant={smsState.effective ? 'default' : 'secondary'} className="shrink-0 text-[11px]">{smsState.effective ? <><Check className="h-3 w-3 mr-1" />SMS Active</> : 'SMS Off'}</Badge>; })()}
-                                    </div>
-                                  ))}
-                                </div>
-                              </div>
-                            );
-                          })()}
+                          {c.address && <p className="text-sm text-slate-500 mt-0.5 line-clamp-2">{c.address}</p>}
+                          <div className="mt-2 flex flex-wrap items-center gap-2 text-xs text-slate-500">
+                            <span>{(driversByCompany.get(c.id) || []).length} drivers</span>
+                            <span>•</span>
+                            <span>{(c.trucks || []).length} trucks</span>
+                            {getCompanySmsContact(c).phone && (
+                              <>
+                                <span>•</span>
+                                <span>SMS contact on file</span>
+                              </>
+                            )}
+                          </div>
+                          {c.pending_profile_change?.status === 'Pending' && <div className="mt-2 rounded-lg border border-amber-300 bg-amber-50 p-2 text-xs text-amber-900">Pending profile change request</div>}
+                          <p className="mt-2 text-xs text-slate-500">Click card to open company details</p>
                         </div>
                       </div>
-                      {c.pending_profile_change?.status === 'Pending' && (
-                        <div className="mt-3 w-full rounded-lg border border-slate-200 bg-slate-50 p-3 text-sm space-y-2">
-                          <p className="font-medium text-slate-900">Pending company profile change request</p>
-                          <div className="grid sm:grid-cols-2 gap-2 text-xs text-slate-600">
-                            <div><p className="font-semibold text-slate-700">Company name</p><p>Current: {c.pending_profile_change.current_name || c.name || '—'}</p><p>Requested: {c.pending_profile_change.requested_name || '—'}</p></div>
-                            <div><p className="font-semibold text-slate-700">Address</p><p className="whitespace-pre-line">Current: {c.pending_profile_change.current_address || c.address || '—'}</p><p className="whitespace-pre-line">Requested: {c.pending_profile_change.requested_address || '—'}</p></div>
-                            <div className="sm:col-span-2">
-                              <p className="font-semibold text-slate-700">Contact methods</p>
-                              <div className="grid sm:grid-cols-2 gap-3">
-                                <div>
-                                  <p className="font-medium text-slate-700 mb-1">Current</p>
-                                  {renderContactMethodsList(c.pending_profile_change.current_contact_methods, c.pending_profile_change.current_contact_info || c.contact_info || '—')}
-                                </div>
-                                <div>
-                                  <p className="font-medium text-slate-700 mb-1">Requested</p>
-                                  {renderContactMethodsList(c.pending_profile_change.requested_contact_methods, c.pending_profile_change.requested_contact_info || '—')}
-                                </div>
-                              </div>
-                            </div>
-                          </div>
-                          <div className="flex gap-2">
-                            <Button size="sm" className="bg-slate-900 hover:bg-slate-800" onClick={() => reviewProfileChangeMutation.mutate({ company: c, action: 'approve' })} disabled={reviewProfileChangeMutation.isPending}>Approve</Button>
-                            <Button size="sm" variant="outline" onClick={() => reviewProfileChangeMutation.mutate({ company: c, action: 'reject' })} disabled={reviewProfileChangeMutation.isPending}>Reject</Button>
-                          </div>
-                        </div>
-                      )}
                       <div className="flex gap-1">
-                        <Button variant="ghost" size="icon" onClick={() => openEdit(c)} className="h-8 w-8"><Pencil className="h-3.5 w-3.5" /></Button>
-                        <Button variant="ghost" size="icon" onClick={() => setCompanyPendingDelete(c)} className="h-8 w-8 text-red-500 hover:text-red-600"><Trash2 className="h-3.5 w-3.5" /></Button>
+                        <Button variant="ghost" size="icon" onClick={(event) => { event.stopPropagation(); openEdit(c); }} className="h-8 w-8"><Pencil className="h-3.5 w-3.5" /></Button>
+                        <Button variant="ghost" size="icon" onClick={(event) => { event.stopPropagation(); setCompanyPendingDelete(c); }} className="h-8 w-8 text-red-500 hover:text-red-600"><Trash2 className="h-3.5 w-3.5" /></Button>
                       </div>
                     </div>
                   </CardContent>
@@ -567,7 +547,7 @@ export default function AdminCompanies() {
               const trend = getTrendStyling(score.trend);
               const TrendIcon = trend.icon;
               return (
-                <Card key={company.id} className="cursor-pointer hover:shadow-md transition-shadow" onClick={() => { setSelectedCompany(company); setEventForm(initialEventForm); }}>
+                <Card key={company.id} className="cursor-pointer hover:shadow-md transition-shadow" onClick={() => { setSelectedScoringCompany(company); setEventForm(initialEventForm); }}>
                   <CardContent className="p-4 space-y-3">
                     <div className="flex justify-between items-start">
                       <div>
@@ -639,22 +619,140 @@ export default function AdminCompanies() {
         </DialogContent>
       </Dialog>
 
-      <Dialog open={!!selectedCompany} onOpenChange={(openState) => !openState && setSelectedCompany(null)}>
+      <Sheet open={!!selectedCompanyDetail} onOpenChange={(openState) => !openState && setSelectedCompanyDetail(null)}>
+        <SheetContent side="right" className="w-full sm:max-w-3xl overflow-y-auto">
+          <SheetHeader>
+            <SheetTitle>{selectedCompanyDetail?.name || 'Company'} Details</SheetTitle>
+          </SheetHeader>
+          {selectedCompanyDetail && (
+            <div className="mt-4 space-y-5 pb-6">
+              <Card>
+                <CardContent className="p-4 space-y-3">
+                  <p className="text-sm font-semibold text-slate-800">1. Company overview</p>
+                  <div className="grid sm:grid-cols-2 gap-3 text-sm">
+                    <div className="rounded-lg border p-3"><p className="text-slate-500">Status</p><p className="font-medium text-slate-900 capitalize">{selectedCompanyDetail.status || 'active'}</p></div>
+                    <div className="rounded-lg border p-3"><p className="text-slate-500">Drivers</p><p className="font-medium text-slate-900">{(driversByCompany.get(selectedCompanyDetail.id) || []).length}</p></div>
+                    <div className="rounded-lg border p-3 sm:col-span-2"><p className="text-slate-500">Address</p><p className="font-medium text-slate-900 whitespace-pre-line">{selectedCompanyDetail.address || '—'}</p></div>
+                    <div className="rounded-lg border p-3 sm:col-span-2"><p className="text-slate-500 mb-1">Contact methods</p>{renderContactMethodsList(selectedCompanyDetail.contact_methods, selectedCompanyDetail.contact_info || '—')}</div>
+                    <div className="rounded-lg border p-3 sm:col-span-2">
+                      <p className="text-slate-500 mb-1">Trucks</p>
+                      <div className="flex flex-wrap gap-1.5">{(selectedCompanyDetail.trucks || []).length ? selectedCompanyDetail.trucks.map((truck) => <Badge key={truck} variant="outline" className="font-mono text-xs">{truck}</Badge>) : <span className="text-slate-500">No trucks</span>}</div>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+
+              <Card>
+                <CardContent className="p-4 space-y-3">
+                  <p className="text-sm font-semibold text-slate-800">2. Company SMS/compliance information</p>
+                  {(() => {
+                    const smsContact = getCompanySmsContact(selectedCompanyDetail);
+                    const ownerCode = ownerCodeByCompany.get(selectedCompanyDetail.id);
+                    return (
+                      <div className="grid sm:grid-cols-2 gap-3 text-sm">
+                        <div className="rounded-lg border p-3"><p className="text-slate-500">SMS contact</p><p className="font-medium text-slate-900">{smsContact.phone ? formatPhoneNumber(smsContact.phone) : 'No SMS phone selected'}</p></div>
+                        <div className="rounded-lg border p-3"><p className="text-slate-500">Owner SMS enabled</p><p className="font-medium text-slate-900">{ownerCode?.sms_enabled === true ? 'Yes' : 'No'}</p></div>
+                        <div className="rounded-lg border p-3"><p className="text-slate-500">Owner consent</p><p className="font-medium text-slate-900">{ownerCode?.sms_consent_given === true ? 'Recorded' : 'Not recorded'}</p></div>
+                        <div className="rounded-lg border p-3"><p className="text-slate-500">Owner consent timestamp</p><p className="font-medium text-slate-900">{formatDateTime(ownerCode?.sms_consent_at)}</p></div>
+                        <div className="rounded-lg border p-3"><p className="text-slate-500">Owner opt-out timestamp</p><p className="font-medium text-slate-900">{formatDateTime(ownerCode?.sms_opted_out_at)}</p></div>
+                        <div className="rounded-lg border p-3"><p className="text-slate-500">Owner intro/welcome sent</p><p className="font-medium text-slate-900">{formatDateTime(ownerCode?.sms_intro_sent_at)}</p></div>
+                      </div>
+                    );
+                  })()}
+                </CardContent>
+              </Card>
+
+              <Card>
+                <CardContent className="p-4 space-y-3">
+                  <p className="text-sm font-semibold text-slate-800">3–4. Drivers and driver SMS/compliance information</p>
+                  {(() => {
+                    const companyDrivers = (driversByCompany.get(selectedCompanyDetail.id) || []).slice().sort((a, b) => (a.driver_name || '').localeCompare(b.driver_name || ''));
+                    if (companyDrivers.length === 0) {
+                      return <p className="text-sm text-slate-500">No drivers linked to this company.</p>;
+                    }
+                    return (
+                      <div className="space-y-3">
+                        {companyDrivers.map((driver) => {
+                          const smsState = getDriverSmsState(driver);
+                          const driverCode = accessCodeById.get(driver.access_code_id);
+                          return (
+                            <div key={driver.id} className="rounded-lg border border-slate-200 bg-slate-50 p-3 space-y-2 text-sm">
+                              <div className="flex items-start justify-between gap-3">
+                                <div>
+                                  <p className="font-semibold text-slate-900">{driver.driver_name || 'Unnamed driver'}</p>
+                                  <p className="text-slate-600">{driver.phone || 'No phone number on file'}</p>
+                                </div>
+                                <Badge variant={smsState.effective ? 'default' : 'secondary'}>{smsState.effective ? 'SMS Active' : 'SMS Off'}</Badge>
+                              </div>
+                              <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-2 text-xs">
+                                <div className="rounded-md border bg-white p-2"><p className="text-slate-500">Access code status</p><p className="font-medium text-slate-900">{driver.access_code_status || 'Not Requested'}</p></div>
+                                <div className="rounded-md border bg-white p-2"><p className="text-slate-500">Owner enabled</p><p className="font-medium text-slate-900">{smsState.ownerEnabled ? 'Yes' : 'No'}</p></div>
+                                <div className="rounded-md border bg-white p-2"><p className="text-slate-500">Driver opted in</p><p className="font-medium text-slate-900">{smsState.driverOptedIn ? 'Yes' : 'No'}</p></div>
+                                <div className="rounded-md border bg-white p-2"><p className="text-slate-500">Consent status</p><p className="font-medium text-slate-900">{driverCode?.sms_consent_given === true ? 'Recorded' : 'Not recorded'}</p></div>
+                                <div className="rounded-md border bg-white p-2"><p className="text-slate-500">Consent timestamp</p><p className="font-medium text-slate-900">{formatDateTime(driverCode?.sms_consent_at)}</p></div>
+                                <div className="rounded-md border bg-white p-2"><p className="text-slate-500">Consent method</p><p className="font-medium text-slate-900 break-all">{driverCode?.sms_consent_method || '—'}</p></div>
+                                <div className="rounded-md border bg-white p-2"><p className="text-slate-500">Opt-out timestamp</p><p className="font-medium text-slate-900">{formatDateTime(driverCode?.sms_opted_out_at)}</p></div>
+                                <div className="rounded-md border bg-white p-2"><p className="text-slate-500">Intro/welcome sent</p><p className="font-medium text-slate-900">{formatDateTime(driverCode?.sms_intro_sent_at)}</p></div>
+                                <div className="rounded-md border bg-white p-2"><p className="text-slate-500">SMS phone</p><p className="font-medium text-slate-900">{smsState.normalizedPhone ? formatPhoneNumber(smsState.normalizedPhone) : '—'}</p></div>
+                              </div>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    );
+                  })()}
+                </CardContent>
+              </Card>
+
+              {selectedCompanyDetail.pending_profile_change?.status === 'Pending' && (
+                <Card>
+                  <CardContent className="p-4 space-y-3">
+                    <p className="text-sm font-semibold text-slate-800">5. Pending profile change request</p>
+                    <div className="grid sm:grid-cols-2 gap-2 text-xs text-slate-600">
+                      <div><p className="font-semibold text-slate-700">Company name</p><p>Current: {selectedCompanyDetail.pending_profile_change.current_name || selectedCompanyDetail.name || '—'}</p><p>Requested: {selectedCompanyDetail.pending_profile_change.requested_name || '—'}</p></div>
+                      <div><p className="font-semibold text-slate-700">Address</p><p className="whitespace-pre-line">Current: {selectedCompanyDetail.pending_profile_change.current_address || selectedCompanyDetail.address || '—'}</p><p className="whitespace-pre-line">Requested: {selectedCompanyDetail.pending_profile_change.requested_address || '—'}</p></div>
+                      <div className="sm:col-span-2">
+                        <p className="font-semibold text-slate-700">Contact methods</p>
+                        <div className="grid sm:grid-cols-2 gap-3">
+                          <div>
+                            <p className="font-medium text-slate-700 mb-1">Current</p>
+                            {renderContactMethodsList(selectedCompanyDetail.pending_profile_change.current_contact_methods, selectedCompanyDetail.pending_profile_change.current_contact_info || selectedCompanyDetail.contact_info || '—')}
+                          </div>
+                          <div>
+                            <p className="font-medium text-slate-700 mb-1">Requested</p>
+                            {renderContactMethodsList(selectedCompanyDetail.pending_profile_change.requested_contact_methods, selectedCompanyDetail.pending_profile_change.requested_contact_info || '—')}
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                    <div className="flex gap-2">
+                      <Button size="sm" className="bg-slate-900 hover:bg-slate-800" onClick={() => reviewProfileChangeMutation.mutate({ company: selectedCompanyDetail, action: 'approve' })} disabled={reviewProfileChangeMutation.isPending}>Approve</Button>
+                      <Button size="sm" variant="outline" onClick={() => reviewProfileChangeMutation.mutate({ company: selectedCompanyDetail, action: 'reject' })} disabled={reviewProfileChangeMutation.isPending}>Reject</Button>
+                    </div>
+                  </CardContent>
+                </Card>
+              )}
+            </div>
+          )}
+        </SheetContent>
+      </Sheet>
+
+      <Dialog open={!!selectedScoringCompany} onOpenChange={(openState) => !openState && setSelectedScoringCompany(null)}>
         <DialogContent className="sm:max-w-6xl">
-          <DialogHeader><DialogTitle>{selectedCompany?.name} — Scoring Detail ({SCORING_PERIODS[periodKey].label})</DialogTitle></DialogHeader>
+          <DialogHeader><DialogTitle>{selectedScoringCompany?.name} — Scoring Detail ({SCORING_PERIODS[periodKey].label})</DialogTitle></DialogHeader>
           <ScoringDetailDialog
-            company={selectedCompany}
+            company={selectedScoringCompany}
             score={selectedScore}
             eventForm={eventForm}
             setEventForm={setEventForm}
             dispatchOptions={selectedCompanyDispatches}
             drivers={selectedCompanyDrivers}
-            trucks={selectedCompany?.trucks || []}
+            trucks={selectedScoringCompany?.trucks || []}
             isSaving={saveEventMutation.isPending}
             isDeleting={deleteEventMutation.isPending}
             onCreate={() => saveEventMutation.mutate({
               ...eventForm,
-              company_id: selectedCompany.id,
+              company_id: selectedScoringCompany.id,
               event_date: eventForm.event_date ? new Date(eventForm.event_date).toISOString() : new Date().toISOString(),
             })}
             onDelete={(id) => deleteEventMutation.mutate(id)}

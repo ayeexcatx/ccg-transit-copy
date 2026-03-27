@@ -4,8 +4,18 @@ import { Switch } from '@/components/ui/switch';
 import { Checkbox } from '@/components/ui/checkbox';
 import SmsConsentDisclosure from '@/components/profile/SmsConsentDisclosure';
 
-export default function DriverProfileSmsCard({ smsState, optedIn, consentChecked, onConsentChange, isPending, onToggle }) {
-  const canEnableSms = smsState.ownerEnabled && !optedIn ? consentChecked : true;
+export default function DriverProfileSmsCard({
+  smsState,
+  optedIn,
+  consentChecked,
+  onConsentChange,
+  showConsentCheckbox,
+  isPending,
+  onToggle,
+}) {
+  const canEnableSms = smsState.ownerEnabled && !optedIn
+    ? (showConsentCheckbox ? consentChecked : true)
+    : true;
 
   return (
     <div className="rounded-xl border border-slate-200 p-4 space-y-3">
@@ -16,10 +26,12 @@ export default function DriverProfileSmsCard({ smsState, optedIn, consentChecked
         </div>
         <Switch checked={optedIn} disabled={isPending || !canEnableSms} onCheckedChange={onToggle} />
       </div>
-      <label className="flex items-start gap-2 rounded-lg border border-slate-200 p-3 text-sm text-slate-700">
-        <Checkbox checked={consentChecked} onCheckedChange={(checked) => onConsentChange(checked === true)} disabled={isPending} className="mt-0.5" />
-        <span>I agree to receive operational SMS notifications from CCG Transit.</span>
-      </label>
+      {showConsentCheckbox && (
+        <label className="flex items-start gap-2 rounded-lg border border-slate-200 p-3 text-sm text-slate-700">
+          <Checkbox checked={consentChecked} onCheckedChange={(checked) => onConsentChange(checked === true)} disabled={isPending} className="mt-0.5" />
+          <span>I agree to receive operational SMS notifications from CCG Transit.</span>
+        </label>
+      )}
       <SmsConsentDisclosure />
       <div className="grid sm:grid-cols-3 gap-3 text-sm">
         <div className="rounded-lg bg-slate-50 p-3 border"><p className="text-slate-500">Owner enabled</p><p className="font-medium text-slate-900">{smsState.ownerEnabled ? 'Yes' : 'No'}</p></div>

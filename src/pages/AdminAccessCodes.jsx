@@ -7,14 +7,11 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
 import { Switch } from '@/components/ui/switch';
-import { Checkbox } from '@/components/ui/checkbox';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import DeleteConfirmationDialog from '@/components/admin/DeleteConfirmationDialog';
 import { Key, Plus, Pencil, Trash2, Building2, Shield, Copy, UserRound } from 'lucide-react';
-import { getCompanyOwnerSmsState, getDriverSmsState, normalizeSmsPhone as normalizePhoneShared, formatPhoneNumber as formatPhoneShared, hasUsSmsPhone } from '@/lib/sms';
-import { buildSmsConsentFields } from '@/lib/smsConsent';
-import SmsConsentDisclosure from '@/components/profile/SmsConsentDisclosure';
+import { getCompanyOwnerSmsState, getDriverSmsState, normalizeSmsPhone as normalizePhoneShared, formatPhoneNumber as formatPhoneShared } from '@/lib/sms';
 import { toast } from 'sonner';
 
 function formatPhoneNumber(value) {
@@ -23,13 +20,6 @@ function formatPhoneNumber(value) {
 
 function normalizeSmsPhone(value) {
   return normalizePhoneShared(value);
-}
-
-function formatDateTime(value) {
-  if (!value) return '—';
-  const parsed = new Date(value);
-  if (Number.isNaN(parsed.getTime())) return value;
-  return parsed.toLocaleString();
 }
 
 function generateCode(len = 8) {
@@ -44,7 +34,6 @@ export default function AdminAccessCodes() {
   const [open, setOpen] = useState(false);
   const [editing, setEditing] = useState(null);
   const [accessCodePendingDelete, setAccessCodePendingDelete] = useState(null);
-  const [smsConsentChecked, setSmsConsentChecked] = useState(false);
   const [form, setForm] = useState({
     code: '',
     label: '',
@@ -139,7 +128,6 @@ export default function AdminAccessCodes() {
       linked_company_ids: [],
     });
     setOpen(true);
-    setSmsConsentChecked(false);
   };
 
   const openPendingDriverCodeDialog = (driver) => {
@@ -158,7 +146,6 @@ export default function AdminAccessCodes() {
       linked_company_ids: [],
     });
     setOpen(true);
-    setSmsConsentChecked(false);
   };
 
   const openEdit = (code) => {
@@ -177,7 +164,6 @@ export default function AdminAccessCodes() {
       linked_company_ids: code.linked_company_ids || [],
     });
     setOpen(true);
-    setSmsConsentChecked(false);
   };
 
   const toggleTruck = (t) => {
@@ -239,16 +225,6 @@ export default function AdminAccessCodes() {
     }
 
     if (form.code_type === 'Admin') {
-      if (form.sms_enabled && !smsConsentChecked) {
-        toast.error('Consent is required before enabling SMS notifications.');
-        return;
-      }
-
-      if (form.sms_enabled && !hasUsSmsPhone(smsPhone)) {
-        toast.error('Enter a valid US 10-digit SMS phone number (example: (555) 123-4567).');
-        return;
-      }
-
       const normalizedViews = Array.from(new Set(['Admin', ...(form.available_views || [])]));
       const requiresLinkedCompanies = normalizedViews.includes('CompanyOwner');
       const linkedCompanyIds = form.linked_company_ids || [];
@@ -264,9 +240,6 @@ export default function AdminAccessCodes() {
         available_views: normalizedViews,
         linked_company_ids: linkedCompanyIds,
       };
-      if (form.sms_enabled) {
-        Object.assign(payload, buildSmsConsentFields());
-      }
       saveMutation.mutate(payload);
       return;
     }
@@ -409,8 +382,6 @@ export default function AdminAccessCodes() {
                           {c.code_type === 'Driver' && driverSmsState?.normalizedPhone && <span>SMS phone: {formatPhoneNumber(driverSmsState.normalizedPhone)}</span>}
                           {c.code_type === 'CompanyOwner' && ownerSmsState && <span>SMS enabled: {ownerSmsState.effective ? 'Yes' : 'No'}</span>}
                           {c.code_type === 'CompanyOwner' && ownerSmsState?.normalizedPhone && <span>SMS phone: {formatPhoneNumber(ownerSmsState.normalizedPhone)}</span>}
-                          {c.code_type === 'Admin' && c.sms_enabled === true && c.sms_phone && <span>SMS: {formatPhoneNumber(c.sms_phone)}</span>}
-                          {c.code_type === 'Admin' && <span>Consent: {c.sms_consent_given === true ? 'Given' : 'Not recorded'}</span>}
                           {c.code_type !== 'Driver' && (c.allowed_trucks || []).length > 0 && (
                             <span>Trucks: {c.allowed_trucks.join(', ')}</span>
                           )}
@@ -588,63 +559,9 @@ export default function AdminAccessCodes() {
                 )}
               </>
             )}
-
-            {form.code_type === 'Admin' ? (<>
-            <div className="flex items-center justify-between">
-              <Label>SMS Enabled</Label>
-              <Switch
-                checked={form.sms_enabled}
-                disabled={!smsConsentChecked && !form.sms_enabled}
-                onCheckedChange={(v) => {
-                  if (v && !smsConsentChecked) {
-                    toast.error('Consent is required before enabling SMS notifications.');
-                    return;
-                  }
-                  setForm({ ...form, sms_enabled: v });
-                }}
-              />
+            <div className="rounded-lg border border-slate-200 bg-slate-50 p-3 text-sm text-slate-600">
+              SMS opt-in, consent capture, and compliance details now live in Profile and company/driver pages to keep Access Codes focused on code management.
             </div>
-            <label className="flex items-start gap-2 rounded-lg border border-slate-200 p-3 text-sm text-slate-700">
-              <Checkbox checked={smsConsentChecked} onCheckedChange={(checked) => setSmsConsentChecked(checked === true)} className="mt-0.5" />
-              <span>I agree to receive operational SMS notifications from CCG Transit.</span>
-            </label>
-            <SmsConsentDisclosure />
-
-            <div>
-              <Label>SMS Phone</Label>
-              <Input
-                value={form.sms_phone}
-                onChange={(e) => setForm({ ...form, sms_phone: formatPhoneNumber(e.target.value) })}
-                placeholder="(555) 123-4567"
-              />
-            </div>
-            </>) : (
-              <div className="rounded-lg border border-slate-200 bg-slate-50 p-3 text-sm text-slate-600">
-                SMS fields for company owner and driver access codes are informational here. Manage consent from Profile and company/driver records.
-              </div>
-            )}
-
-            {editing && (
-              <div className="rounded-lg border border-slate-200 bg-slate-50 p-3">
-                <p className="text-xs font-medium uppercase tracking-wide text-slate-500 mb-2">SMS Compliance</p>
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-4 gap-y-1.5 text-xs">
-                  <div className="text-slate-500">sms_enabled</div>
-                  <div className="text-slate-800">{editing.sms_enabled === true ? 'true' : 'false'}</div>
-                  <div className="text-slate-500">sms_phone</div>
-                  <div className="text-slate-800">{editing.sms_phone ? formatPhoneNumber(editing.sms_phone) : '—'}</div>
-                  <div className="text-slate-500">sms_consent_given</div>
-                  <div className="text-slate-800">{editing.sms_consent_given === true ? 'true' : 'false'}</div>
-                  <div className="text-slate-500">sms_consent_at</div>
-                  <div className="text-slate-800">{formatDateTime(editing.sms_consent_at)}</div>
-                  <div className="text-slate-500">sms_consent_method</div>
-                  <div className="text-slate-800 break-all">{editing.sms_consent_method || '—'}</div>
-                  <div className="text-slate-500">sms_opted_out_at</div>
-                  <div className="text-slate-800">{formatDateTime(editing.sms_opted_out_at)}</div>
-                  <div className="text-slate-500">sms_intro_sent_at</div>
-                  <div className="text-slate-800">{formatDateTime(editing.sms_intro_sent_at)}</div>
-                </div>
-              </div>
-            )}
 
             <div className="flex items-center justify-between">
               <Label>Active</Label>

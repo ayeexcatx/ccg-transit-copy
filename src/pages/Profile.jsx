@@ -134,8 +134,12 @@ function AdminProfile({ session }) {
   const adminPhone = adminAccessCode?.sms_phone || '';
   const adminSmsState = getAdminSmsProductState(adminAccessCode);
   const adminSmsOptedIn = adminSmsState.optedIn;
-  const hasChanges = form.label !== adminName
-    || normalizeSmsPhone(form.sms_phone) !== normalizeSmsPhone(adminPhone)
+  const adminConsentRecorded = adminAccessCode?.sms_consent_given === true
+    || Boolean(adminAccessCode?.sms_consent_at)
+    || Boolean(adminAccessCode?.sms_consent_method);
+  const requiresAdminConsent = form.sms_enabled && !adminConsentRecorded;
+  const hasProfileChanges = form.label !== adminName;
+  const hasSmsChanges = normalizeSmsPhone(form.sms_phone) !== normalizeSmsPhone(adminPhone)
     || form.sms_enabled !== adminSmsOptedIn;
 
   useEffect(() => {
@@ -145,7 +149,8 @@ function AdminProfile({ session }) {
       sms_phone: formatPhoneNumber(adminPhone),
       sms_enabled: adminSmsOptedIn,
     });
-  }, [adminAccessCode, adminName, adminPhone, adminSmsOptedIn]);
+    setSmsConsentChecked(adminConsentRecorded);
+  }, [adminAccessCode, adminName, adminPhone, adminSmsOptedIn, adminConsentRecorded]);
 
   const closeEditModal = (nextOpen) => {
     if (nextOpen) {
@@ -154,7 +159,7 @@ function AdminProfile({ session }) {
       return;
     }
 
-    if (hasChanges && !window.confirm('Discard your unsaved admin profile changes?')) {
+    if ((hasProfileChanges || hasSmsChanges) && !window.confirm('Discard your unsaved admin profile changes?')) {
       return;
     }
 
@@ -165,11 +170,12 @@ function AdminProfile({ session }) {
       sms_phone: formatPhoneNumber(adminPhone),
       sms_enabled: adminSmsOptedIn,
     });
+    setSmsConsentChecked(adminConsentRecorded);
   };
 
   const mutation = useMutation({
     mutationFn: async () => {
-      if (form.sms_enabled && !smsConsentChecked) {
+      if (requiresAdminConsent && !smsConsentChecked) {
         throw new Error('Consent is required before enabling SMS notifications.');
       }
       const normalizedSmsPhone = normalizeSmsPhone(form.sms_phone);
@@ -177,11 +183,11 @@ function AdminProfile({ session }) {
         throw new Error('Enter a valid US 10-digit SMS phone number (example: (555) 123-4567).');
       }
       const payload = {
-        label: form.label.trim() || adminName,
-        sms_phone: normalizedSmsPhone,
-        sms_enabled: form.sms_enabled,
+      label: form.label.trim() || adminName,
+      sms_phone: normalizedSmsPhone,
+      sms_enabled: form.sms_enabled,
       };
-      if (form.sms_enabled) {
+      if (requiresAdminConsent) {
         Object.assign(payload, buildSmsConsentFields());
       }
       return base44.entities.AccessCode.update(adminAccessCode.id, payload);
@@ -208,7 +214,7 @@ function AdminProfile({ session }) {
               <div className="h-10 w-10 rounded-full bg-slate-100 flex items-center justify-center"><Shield className="h-5 w-5 text-slate-600" /></div>
               <div>
                 <h2 className="text-2xl font-semibold text-slate-900">Admin Profile</h2>
-                <p className="text-sm text-slate-500">Basic access details for this admin sign-in. Edit profile details in the modal below.</p>
+                <p className="text-sm text-slate-500">Basic access details for this admin sign-in. Edit your name in the modal below.</p>
               </div>
             </div>
             <Button onClick={() => closeEditModal(true)} className="bg-slate-900 hover:bg-slate-800">Edit Profile</Button>
@@ -230,16 +236,47 @@ function AdminProfile({ session }) {
       <Card>
         <CardContent className="p-6 space-y-4">
           <div className="flex items-center gap-2"><BellRing className="h-4 w-4 text-slate-500" /><h3 className="text-lg font-semibold text-slate-900">Your SMS Notifications</h3></div>
+          <div className="space-y-2">
+            <Label htmlFor="admin-sms-phone">Phone number for SMS</Label>
+            <Input
+              id="admin-sms-phone"
+              value={form.sms_phone}
+              placeholder="(555) 123-4567"
+              onChange={(e) => setForm((prev) => ({ ...prev, sms_phone: formatPhoneNumber(e.target.value) }))}
+            />
+          </div>
           <div className="flex items-center justify-between rounded-lg border p-4 gap-4">
             <div>
               <Label className="text-base">Receive SMS Notifications</Label>
               <p className="text-sm text-slate-500">This opt-in is saved on your admin profile now so future admin SMS support can use the same preference flow.</p>
             </div>
-            <Switch checked={adminSmsOptedIn} disabled />
+            <Switch
+              checked={form.sms_enabled}
+              disabled={requiresAdminConsent && !smsConsentChecked}
+              onCheckedChange={(checked) => {
+                if (checked && !adminConsentRecorded && !smsConsentChecked) {
+                  toast.error('Please confirm SMS consent before enabling notifications.');
+                  return;
+                }
+                setForm((prev) => ({ ...prev, sms_enabled: checked }));
+              }}
+            />
           </div>
+          {requiresAdminConsent && (
+            <label className="flex items-start gap-2 rounded-lg border border-slate-200 p-3 text-sm text-slate-700">
+              <Checkbox checked={smsConsentChecked} onCheckedChange={(checked) => setSmsConsentChecked(checked === true)} className="mt-0.5" />
+              <span>I agree to receive operational SMS notifications from CCG Transit.</span>
+            </label>
+          )}
+          <SmsConsentDisclosure />
           <div className="grid sm:grid-cols-2 gap-3 text-sm">
-            <div className="rounded-lg bg-slate-50 p-3 border"><p className="text-slate-500">Phone for future SMS</p><p className="font-medium text-slate-900">{adminPhone ? formatPhoneNumber(adminPhone) : 'No phone selected'}</p></div>
-            <div className="rounded-lg bg-slate-50 p-3 border"><p className="text-slate-500">SMS opt-in saved</p><p className={`font-medium ${adminSmsOptedIn ? 'text-emerald-700' : 'text-slate-900'}`}>{adminSmsOptedIn ? 'Yes' : 'No'}</p></div>
+            <div className="rounded-lg bg-slate-50 p-3 border"><p className="text-slate-500">Phone for future SMS</p><p className="font-medium text-slate-900">{form.sms_phone ? formatPhoneNumber(form.sms_phone) : 'No phone selected'}</p></div>
+            <div className="rounded-lg bg-slate-50 p-3 border"><p className="text-slate-500">SMS opt-in saved</p><p className={`font-medium ${form.sms_enabled ? 'text-emerald-700' : 'text-slate-900'}`}>{form.sms_enabled ? 'Yes' : 'No'}</p></div>
+          </div>
+          <div className="flex justify-end">
+            <Button onClick={() => mutation.mutate()} disabled={mutation.isPending || !hasSmsChanges} className="bg-red-600 text-white hover:bg-red-700">
+              {mutation.isPending ? 'Saving...' : 'Save SMS Settings'}
+            </Button>
           </div>
           {!adminSmsState.deliveryActive && <p className="text-sm text-slate-500">Admin SMS delivery is not enabled yet. Saving this preference does not change current notification behavior.</p>}
         </CardContent>
@@ -249,10 +286,10 @@ function AdminProfile({ session }) {
         <DialogContent
           className="sm:max-w-lg"
           onInteractOutside={(event) => {
-            if (hasChanges) event.preventDefault();
+            if (hasProfileChanges || hasSmsChanges) event.preventDefault();
           }}
           onEscapeKeyDown={(event) => {
-            if (hasChanges) event.preventDefault();
+            if (hasProfileChanges || hasSmsChanges) event.preventDefault();
           }}
         >
           <DialogHeader className="pr-8">
@@ -266,35 +303,13 @@ function AdminProfile({ session }) {
             </div>
             <div className="space-y-2">
               <Label htmlFor="admin-phone">Phone number</Label>
-              <Input id="admin-phone" value={form.sms_phone} placeholder="(555) 123-4567" onChange={(e) => setForm((prev) => ({ ...prev, sms_phone: formatPhoneNumber(e.target.value) }))} />
+              <Input id="admin-phone" value={form.sms_phone} readOnly placeholder="Manage on the SMS card below" />
             </div>
-            <div className="flex items-center justify-between rounded-lg border p-4 gap-4">
-              <div>
-                <Label className="text-base">Receive SMS Notifications</Label>
-                <p className="text-sm text-slate-500">This preference is stored now for future admin SMS support. It does not enable admin SMS delivery today.</p>
-              </div>
-              <Switch
-                checked={form.sms_enabled}
-                disabled={!smsConsentChecked && !form.sms_enabled}
-                onCheckedChange={(checked) => {
-                  if (checked && !smsConsentChecked) {
-                    toast.error('Please confirm SMS consent before enabling notifications.');
-                    return;
-                  }
-                  setForm((prev) => ({ ...prev, sms_enabled: checked }));
-                }}
-              />
-            </div>
-            <label className="flex items-start gap-2 rounded-lg border border-slate-200 p-3 text-sm text-slate-700">
-              <Checkbox checked={smsConsentChecked} onCheckedChange={(checked) => setSmsConsentChecked(checked === true)} className="mt-0.5" />
-              <span>I agree to receive operational SMS notifications from CCG Transit.</span>
-            </label>
-            <SmsConsentDisclosure />
-            {hasChanges && <p className="text-xs text-amber-700">You have unsaved changes. Use Save to keep them or Cancel to discard them.</p>}
+            {hasProfileChanges && <p className="text-xs text-amber-700">You have unsaved changes. Use Save to keep them or Cancel to discard them.</p>}
           </div>
           <DialogFooter className="gap-2 sm:gap-0">
             <Button variant="outline" onClick={() => closeEditModal(false)}>Cancel</Button>
-            <Button onClick={() => mutation.mutate()} disabled={mutation.isPending} className="bg-red-600 text-white hover:bg-red-700">
+            <Button onClick={() => mutation.mutate()} disabled={mutation.isPending || !hasProfileChanges} className="bg-red-600 text-white hover:bg-red-700">
               {mutation.isPending ? 'Saving...' : 'Save'}
             </Button>
           </DialogFooter>
@@ -312,6 +327,15 @@ function DriverProfile({ session }) {
     enabled: !!session?.driver_id,
   });
   const driver = drivers[0] || null;
+  const { data: driverAccessCodes = [] } = useQuery({
+    queryKey: ['driver-profile-access-code', driver?.access_code_id],
+    queryFn: () => base44.entities.AccessCode.filter({ id: driver.access_code_id }, '-created_date', 1),
+    enabled: !!driver?.access_code_id,
+  });
+  const driverAccessCode = driverAccessCodes[0] || null;
+  const driverConsentRecorded = driverAccessCode?.sms_consent_given === true
+    || Boolean(driverAccessCode?.sms_consent_at)
+    || Boolean(driverAccessCode?.sms_consent_method);
   const smsState = getDriverSmsState(driver);
   const [optedIn, setOptedIn] = useState(false);
   const [consentChecked, setConsentChecked] = useState(false);
@@ -320,9 +344,13 @@ function DriverProfile({ session }) {
     setOptedIn(smsState.driverOptedIn);
   }, [smsState.driverOptedIn]);
 
+  useEffect(() => {
+    setConsentChecked(driverConsentRecorded);
+  }, [driverConsentRecorded]);
+
   const mutation = useMutation({
     mutationFn: async (nextOptIn) => {
-      if (nextOptIn && !consentChecked) {
+      if (nextOptIn && !driverConsentRecorded && !consentChecked) {
         throw new Error('Consent is required before enabling SMS notifications.');
       }
       const updated = await base44.entities.Driver.update(driver.id, { driver_sms_opt_in: nextOptIn });
@@ -331,7 +359,7 @@ function DriverProfile({ session }) {
       if (nextOptIn) {
         await sendSmsWelcomeIfNeeded({
           accessCodeId: updated.access_code_id,
-          consentGiven: consentChecked,
+          consentGiven: driverConsentRecorded || consentChecked,
         });
       } else {
         await sendProfileSmsConfirmation(
@@ -374,10 +402,11 @@ function DriverProfile({ session }) {
           smsState={smsState}
           optedIn={optedIn}
           consentChecked={consentChecked}
+          showConsentCheckbox={!driverConsentRecorded && optedIn !== true}
           onConsentChange={setConsentChecked}
           isPending={mutation.isPending}
           onToggle={(checked) => {
-            if (checked && !consentChecked) {
+            if (checked && !driverConsentRecorded && !consentChecked) {
               toast.error('Please confirm SMS consent before enabling notifications.');
               return;
             }
@@ -415,6 +444,9 @@ function CompanyOwnerProfile({ session }) {
   const latestOwnerCode = accessCodes[0] || activeAccessCode;
   const smsState = getCompanyOwnerSmsState({ accessCode: activeAccessCode, company });
   const smsContact = getCompanySmsContact(company);
+  const ownerConsentRecorded = activeAccessCode?.sms_consent_given === true
+    || Boolean(activeAccessCode?.sms_consent_at)
+    || Boolean(activeAccessCode?.sms_consent_method);
   const hasPendingRequest = company?.pending_profile_change?.status === 'Pending';
   const hasRequestedCode = accessCodes.length > 0;
 
@@ -427,6 +459,10 @@ function CompanyOwnerProfile({ session }) {
     });
     setSmsIndex(Number.isInteger(company.sms_contact_method_index) ? company.sms_contact_method_index : 0);
   }, [company]);
+
+  useEffect(() => {
+    setSmsConsentChecked(ownerConsentRecorded);
+  }, [ownerConsentRecorded]);
 
   const requestCodeMutation = useMutation({
     mutationFn: async () => {
@@ -482,14 +518,14 @@ function CompanyOwnerProfile({ session }) {
 
   const smsMutation = useMutation({
     mutationFn: async (nextOptIn) => {
-      if (nextOptIn && !smsConsentChecked) {
+      if (nextOptIn && !ownerConsentRecorded && !smsConsentChecked) {
         throw new Error('Consent is required before enabling SMS notifications.');
       }
       const payload = {
         sms_enabled: nextOptIn && Boolean(smsState.target.phone),
         sms_phone: smsState.target.phone || '',
       };
-      if (nextOptIn) {
+      if (nextOptIn && !ownerConsentRecorded) {
         Object.assign(payload, buildSmsConsentFields());
       }
       const updatedAccessCode = await base44.entities.AccessCode.update(activeAccessCode.id, payload);
@@ -497,7 +533,7 @@ function CompanyOwnerProfile({ session }) {
       if (nextOptIn) {
         await sendSmsWelcomeIfNeeded({
           accessCodeId: updatedAccessCode.id,
-          consentGiven: smsConsentChecked,
+          consentGiven: ownerConsentRecorded || smsConsentChecked,
         });
       } else {
         await sendProfileSmsConfirmation(
@@ -555,9 +591,10 @@ function CompanyOwnerProfile({ session }) {
         smsContact={smsContact}
         smsPending={smsMutation.isPending}
         consentChecked={smsConsentChecked}
+        showConsentCheckbox={!ownerConsentRecorded && smsState.optedIn !== true}
         onConsentChange={setSmsConsentChecked}
         onToggle={(checked) => {
-          if (checked && !smsConsentChecked) {
+          if (checked && !ownerConsentRecorded && !smsConsentChecked) {
             toast.error('Please confirm SMS consent before enabling notifications.');
             return;
           }
