@@ -87,8 +87,6 @@ function buildLinkedUserSession({
   fallbackSession,
   workspace,
 }) {
-  if (!linkedIdentity?.onboarding_complete) return null;
-
   const appRole = linkedIdentity?.app_role;
   if (!SUPPORTED_CODE_TYPES.has(appRole)) return null;
 
@@ -126,8 +124,6 @@ function isActiveSupportedCode(accessCode) {
 }
 
 async function resolveLinkedIdentityAccessCode(linkedIdentity) {
-  if (!linkedIdentity?.onboarding_complete) return null;
-
   const appRole = linkedIdentity?.app_role;
   if (!SUPPORTED_CODE_TYPES.has(appRole)) return null;
 
@@ -225,8 +221,13 @@ export function useAccessSession() {
   }, [accessCode, workspace.activeCompanyId, workspace.activeViewMode]);
 
   useEffect(() => {
+    let cancelled = false;
+
     async function loadSession() {
       if (isLoadingAuth) return;
+      if (isAuthenticated && !currentAppIdentity?.user_id) return;
+
+      setLoading(true);
 
       const storedId = localStorage.getItem(STORAGE_ACCESS_CODE_ID);
       let restoredAccessCode = null;
@@ -234,9 +235,7 @@ export function useAccessSession() {
       try {
         if (isAuthenticated) {
           restoredAccessCode = await resolveLinkedIdentityAccessCode(currentAppIdentity);
-        }
-
-        if (!restoredAccessCode && storedId) {
+        } else if (storedId) {
           const codes = await base44.entities.AccessCode.filter({ id: storedId });
           const storedAccessCode = codes?.[0] || null;
           if (isActiveSupportedCode(storedAccessCode)) {
@@ -246,24 +245,39 @@ export function useAccessSession() {
           }
         }
 
+        if (cancelled) return;
+
         if (restoredAccessCode) {
           const nextWorkspace = pickInitialWorkspace(restoredAccessCode);
           localStorage.setItem(STORAGE_ACCESS_CODE_ID, restoredAccessCode.id);
           setAccessCode(restoredAccessCode);
           setWorkspace(nextWorkspace);
           persistWorkspace(nextWorkspace);
-        } else if (!storedId) {
+        } else {
+          if (isAuthenticated) {
+            localStorage.removeItem(STORAGE_ACCESS_CODE_ID);
+          }
           setAccessCode(null);
           setWorkspace({ activeViewMode: null, activeCompanyId: null });
+          setOwnerWorkspaceAllowedTrucks(null);
         }
       } catch {
+        if (cancelled) return;
         localStorage.removeItem(STORAGE_ACCESS_CODE_ID);
+        setAccessCode(null);
+        setWorkspace({ activeViewMode: null, activeCompanyId: null });
+        setOwnerWorkspaceAllowedTrucks(null);
       }
 
+      if (cancelled) return;
       setLoading(false);
     }
 
     loadSession();
+
+    return () => {
+      cancelled = true;
+    };
   }, [currentAppIdentity, isAuthenticated, isLoadingAuth, persistWorkspace]);
 
   const login = (nextAccessCode) => {
