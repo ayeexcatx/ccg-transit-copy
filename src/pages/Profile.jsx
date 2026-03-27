@@ -16,6 +16,7 @@ import { toast } from 'sonner';
 import { BellRing, Copy, Shield, UserRound } from 'lucide-react';
 import { buildCompanyProfileRequestPayload, formatPhoneNumber, getAdminSmsProductState, getCompanyOwnerSmsState, getCompanySmsContact, getDriverSmsState, hasUsSmsPhone, normalizeContactMethods, normalizeSmsPhone, PHONE_CONTACT_TYPES } from '@/lib/sms';
 import { buildSmsConsentFields } from '@/lib/smsConsent';
+import { sendSmsWelcomeIfNeeded } from '@/lib/smsIntro';
 import DriverProfileSmsCard from '@/components/profile/DriverProfileSmsCard';
 import { CompanyOwnerProfileOverview, CompanyOwnerSmsCard } from '@/components/profile/CompanyOwnerProfileSections';
 import SmsConsentDisclosure from '@/components/profile/SmsConsentDisclosure';
@@ -322,12 +323,19 @@ function DriverProfile({ session }) {
       }
       const updated = await base44.entities.Driver.update(driver.id, { driver_sms_opt_in: nextOptIn });
       await syncDriverAccessCode(updated, nextOptIn);
-      await sendProfileSmsConfirmation(
-        normalizeSmsPhone(updated.phone),
-        nextOptIn
-          ? 'CCG Transit: You are now opted in to receive SMS notifications.'
-          : 'CCG Transit: You are now opted out of SMS notifications.'
-      );
+
+      if (nextOptIn) {
+        await sendSmsWelcomeIfNeeded({
+          accessCodeId: updated.access_code_id,
+          consentGiven: consentChecked,
+        });
+      } else {
+        await sendProfileSmsConfirmation(
+          normalizeSmsPhone(updated.phone),
+          'CCG Transit: You are now opted out of SMS notifications.'
+        );
+      }
+
       return updated;
     },
     onSuccess: () => {
@@ -481,12 +489,19 @@ function CompanyOwnerProfile({ session }) {
         Object.assign(payload, buildSmsConsentFields());
       }
       const updatedAccessCode = await base44.entities.AccessCode.update(activeAccessCode.id, payload);
-      await sendProfileSmsConfirmation(
-        smsState.target.phone,
-        nextOptIn
-          ? 'CCG Transit: You are now opted in to receive SMS notifications.'
-          : 'CCG Transit: You are now opted out of SMS notifications.'
-      );
+
+      if (nextOptIn) {
+        await sendSmsWelcomeIfNeeded({
+          accessCodeId: updatedAccessCode.id,
+          consentGiven: smsConsentChecked,
+        });
+      } else {
+        await sendProfileSmsConfirmation(
+          smsState.target.phone,
+          'CCG Transit: You are now opted out of SMS notifications.'
+        );
+      }
+
       return updatedAccessCode;
     },
     onSuccess: () => {
