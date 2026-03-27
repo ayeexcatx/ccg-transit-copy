@@ -25,6 +25,13 @@ function normalizeSmsPhone(value) {
   return normalizePhoneShared(value);
 }
 
+function formatDateTime(value) {
+  if (!value) return '—';
+  const parsed = new Date(value);
+  if (Number.isNaN(parsed.getTime())) return value;
+  return parsed.toLocaleString();
+}
+
 function generateCode(len = 8) {
   const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
   let result = '';
@@ -403,6 +410,7 @@ export default function AdminAccessCodes() {
                           {c.code_type === 'CompanyOwner' && ownerSmsState && <span>SMS enabled: {ownerSmsState.effective ? 'Yes' : 'No'}</span>}
                           {c.code_type === 'CompanyOwner' && ownerSmsState?.normalizedPhone && <span>SMS phone: {formatPhoneNumber(ownerSmsState.normalizedPhone)}</span>}
                           {c.code_type === 'Admin' && c.sms_enabled === true && c.sms_phone && <span>SMS: {formatPhoneNumber(c.sms_phone)}</span>}
+                          {c.code_type === 'Admin' && <span>Consent: {c.sms_consent_given === true ? 'Given' : 'Not recorded'}</span>}
                           {c.code_type !== 'Driver' && (c.allowed_trucks || []).length > 0 && (
                             <span>Trucks: {c.allowed_trucks.join(', ')}</span>
                           )}
@@ -613,6 +621,28 @@ export default function AdminAccessCodes() {
             </>) : (
               <div className="rounded-lg border border-slate-200 bg-slate-50 p-3 text-sm text-slate-600">
                 SMS fields for company owner and driver access codes are informational here. Manage consent from Profile and company/driver records.
+              </div>
+            )}
+
+            {editing && (
+              <div className="rounded-lg border border-slate-200 bg-slate-50 p-3">
+                <p className="text-xs font-medium uppercase tracking-wide text-slate-500 mb-2">SMS Compliance</p>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-4 gap-y-1.5 text-xs">
+                  <div className="text-slate-500">sms_enabled</div>
+                  <div className="text-slate-800">{editing.sms_enabled === true ? 'true' : 'false'}</div>
+                  <div className="text-slate-500">sms_phone</div>
+                  <div className="text-slate-800">{editing.sms_phone ? formatPhoneNumber(editing.sms_phone) : '—'}</div>
+                  <div className="text-slate-500">sms_consent_given</div>
+                  <div className="text-slate-800">{editing.sms_consent_given === true ? 'true' : 'false'}</div>
+                  <div className="text-slate-500">sms_consent_at</div>
+                  <div className="text-slate-800">{formatDateTime(editing.sms_consent_at)}</div>
+                  <div className="text-slate-500">sms_consent_method</div>
+                  <div className="text-slate-800 break-all">{editing.sms_consent_method || '—'}</div>
+                  <div className="text-slate-500">sms_opted_out_at</div>
+                  <div className="text-slate-800">{formatDateTime(editing.sms_opted_out_at)}</div>
+                  <div className="text-slate-500">sms_intro_sent_at</div>
+                  <div className="text-slate-800">{formatDateTime(editing.sms_intro_sent_at)}</div>
+                </div>
               </div>
             )}
 
