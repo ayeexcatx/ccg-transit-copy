@@ -29,12 +29,14 @@ export function getDriverEffectiveSmsState({ driver, normalizedPhone }) {
  */
 export function getCompanyOwnerEffectiveSmsState({ accessCode, normalizedPhone }) {
   const optedIn = accessCode?.sms_enabled === true;
+  const optedOut = Boolean(accessCode?.sms_opted_out_at);
   const hasValidPhone = Boolean(normalizedPhone);
 
   return {
     optedIn,
+    optedOut,
     hasValidPhone,
-    effective: optedIn && hasValidPhone,
+    effective: optedIn && !optedOut && hasValidPhone,
   };
 }
 
@@ -44,6 +46,7 @@ export function getCompanyOwnerEffectiveSmsState({ accessCode, normalizedPhone }
 export function getAdminSmsProductState(accessCode) {
   return {
     optedIn: accessCode?.sms_enabled === true,
+    optedOut: Boolean(accessCode?.sms_opted_out_at),
     deliveryActive: false,
   };
 }

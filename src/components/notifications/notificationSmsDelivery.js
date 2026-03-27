@@ -103,6 +103,14 @@ async function resolveSmsEligibility(recipient) {
     return { smsEnabled: false, smsPhone: '', skipReason: 'recipient_access_code_not_found' };
   }
 
+  if (recipient.sms_opted_out_at) {
+    return {
+      smsEnabled: false,
+      smsPhone: normalizeText(recipient.sms_phone),
+      skipReason: 'sms_opted_out',
+    };
+  }
+
   if (recipient.code_type === 'Driver') {
     const driverRecords = await base44.entities.Driver.filter({ id: recipient.driver_id }, '-created_date', 1);
     const driver = driverRecords?.[0] || null;
@@ -121,7 +129,7 @@ async function resolveSmsEligibility(recipient) {
     return {
       smsEnabled: state.effective,
       smsPhone: state.normalizedPhone || '',
-      skipReason: !state.optedIn ? 'owner_not_opted_in' : !state.hasValidPhone ? 'missing_sms_phone' : null,
+      skipReason: state.optedOut ? 'sms_opted_out' : !state.optedIn ? 'owner_not_opted_in' : !state.hasValidPhone ? 'missing_sms_phone' : null,
     };
   }
 

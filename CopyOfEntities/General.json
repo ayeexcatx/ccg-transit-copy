@@ -5,7 +5,9 @@
     "record_type": {
       "type": "string",
       "enum": [
-        "sms_log"
+        "sms_log",
+        "sms_consent_log",
+        "sms_inbound_log"
       ],
       "description": "Type of general record"
     },
@@ -63,7 +65,7 @@
     },
     "provider": {
       "type": "string",
-      "description": "SMS provider used, such as Twilio"
+      "description": "SMS provider used, such as SignalWire"
     },
     "provider_message_id": {
       "type": "string",
@@ -84,10 +86,15 @@
     "provider_status_payload": {
       "type": "string",
       "description": "Raw provider callback payload for debugging"
+    },
+    "inbound_keyword": {
+      "type": "string",
+      "description": "Normalized inbound SMS keyword, if applicable"
     }
   },
   "required": [
     "record_type",
     "status"
-  ]
+  ],
+  "rls": {}
 }
