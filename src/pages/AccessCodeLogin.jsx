@@ -43,16 +43,6 @@ export default function AccessCodeLogin() {
       return;
     }
 
-    if (
-      match.code_type === 'Admin'
-      && match.user_id
-      && String(match.user_id) !== String(user.id)
-    ) {
-      setError('This admin access code is already linked to a different user.');
-      setLoading(false);
-      return;
-    }
-
     const userUpdatePayload = {
       app_role: appRole,
       onboarding_complete: true,
@@ -82,12 +72,7 @@ export default function AccessCodeLogin() {
 
     await base44.entities.User.update(user.id, userUpdatePayload);
 
-    let linkedAccessCode = match;
-    if (match.code_type === 'Admin' && !match.user_id) {
-      linkedAccessCode = await base44.entities.AccessCode.update(match.id, {
-        user_id: user.id,
-      });
-    }
+    const linkedAccessCode = match;
 
     await checkAppState();
     login(linkedAccessCode);

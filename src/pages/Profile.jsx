@@ -2,6 +2,7 @@ import React, { useEffect, useMemo, useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { base44 } from '@/api/base44Client';
 import { useSession } from '@/components/session/SessionContext';
+import { useAuth } from '@/lib/AuthContext';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -116,36 +117,42 @@ function ContactMethodEditor({ methods, setMethods, smsIndex, setSmsIndex, readO
 }
 
 function AdminProfile({ session }) {
+  const { user } = useAuth();
   const queryClient = useQueryClient();
   const [editOpen, setEditOpen] = useState(false);
-  const [form, setForm] = useState({ label: '', sms_phone: '', sms_enabled: false });
+  const [form, setForm] = useState({ sms_phone: '', sms_enabled: false });
 
   const { data: accessCodes = [] } = useQuery({
-    queryKey: ['admin-profile', session?.id],
-    queryFn: () => base44.entities.AccessCode.filter({ id: session.id }, '-created_date', 1),
-    enabled: !!session?.id,
+    queryKey: ['admin-profile', session?.shared_admin_access_code_id],
+    queryFn: () => base44.entities.AccessCode.filter({ id: session.shared_admin_access_code_id }, '-created_date', 1),
+    enabled: !!session?.shared_admin_access_code_id,
   });
 
-  const adminAccessCode = accessCodes[0] || session || null;
-  const adminName = adminAccessCode?.label || adminAccessCode?.name || adminAccessCode?.code || 'Admin';
+  const adminAccessCode = accessCodes[0] || null;
+  const adminName = (
+    session?.label
+    || user?.full_name
+    || user?.name
+    || user?.display_name
+    || user?.email
+    || 'Admin'
+  );
   const adminPhone = adminAccessCode?.sms_phone || '';
   const adminSmsState = getAdminSmsProductState(adminAccessCode);
   const adminSmsOptedIn = adminSmsState.optedIn;
   const adminConsentRecorded = adminAccessCode?.sms_consent_given === true
     || Boolean(adminAccessCode?.sms_consent_at)
     || Boolean(adminAccessCode?.sms_consent_method);
-  const hasProfileChanges = form.label !== adminName;
   const hasSmsChanges = normalizeSmsPhone(form.sms_phone) !== normalizeSmsPhone(adminPhone)
     || form.sms_enabled !== adminSmsOptedIn;
 
   useEffect(() => {
     if (!adminAccessCode) return;
     setForm({
-      label: adminName,
       sms_phone: formatPhoneNumber(adminPhone),
       sms_enabled: adminSmsOptedIn,
     });
-  }, [adminAccessCode, adminName, adminPhone, adminSmsOptedIn, adminConsentRecorded]);
+  }, [adminAccessCode, adminPhone, adminSmsOptedIn, adminConsentRecorded]);
 
   const closeEditModal = (nextOpen) => {
     if (nextOpen) {
@@ -153,13 +160,12 @@ function AdminProfile({ session }) {
       return;
     }
 
-    if ((hasProfileChanges || hasSmsChanges) && !window.confirm('Discard your unsaved admin profile changes?')) {
+    if (hasSmsChanges && !window.confirm('Discard your unsaved admin profile changes?')) {
       return;
     }
 
     setEditOpen(false);
     setForm({
-      label: adminName,
       sms_phone: formatPhoneNumber(adminPhone),
       sms_enabled: adminSmsOptedIn,
     });
@@ -171,10 +177,12 @@ function AdminProfile({ session }) {
       if (form.sms_enabled && !hasUsSmsPhone(normalizedSmsPhone)) {
         throw new Error('Enter a valid US 10-digit SMS phone number (example: (555) 123-4567).');
       }
+      if (!adminAccessCode?.id) {
+        throw new Error('Admin SMS settings are unavailable because no active shared admin config was found.');
+      }
       const payload = {
-      label: form.label.trim() || adminName,
-      sms_phone: normalizedSmsPhone,
-      sms_enabled: form.sms_enabled,
+        sms_phone: normalizedSmsPhone,
+        sms_enabled: form.sms_enabled,
       };
       if (form.sms_enabled) {
         Object.assign(payload, buildSmsConsentFields(adminAccessCode));
@@ -182,7 +190,7 @@ function AdminProfile({ session }) {
       return base44.entities.AccessCode.update(adminAccessCode.id, payload);
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['admin-profile', session?.id] });
+      queryClient.invalidateQueries({ queryKey: ['admin-profile', session?.shared_admin_access_code_id] });
       queryClient.invalidateQueries({ queryKey: ['access-codes'] });
       setEditOpen(false);
       toast.success('Admin profile updated');
@@ -191,8 +199,6 @@ function AdminProfile({ session }) {
       toast.error(error?.message || 'Unable to update admin profile');
     },
   });
-
-  if (!adminAccessCode) return <div className="text-sm text-slate-500">Admin profile not found.</div>;
 
   return (
     <>
@@ -203,7 +209,7 @@ function AdminProfile({ session }) {
               <div className="h-10 w-10 rounded-full bg-slate-100 flex items-center justify-center"><Shield className="h-5 w-5 text-slate-600" /></div>
               <div>
                 <h2 className="text-2xl font-semibold text-slate-900">Admin Profile</h2>
-                <p className="text-sm text-slate-500">Basic access details for this admin sign-in. Edit your name in the modal below.</p>
+                <p className="text-sm text-slate-500">Your admin identity is tied to your authenticated user account.</p>
               </div>
             </div>
             <Button onClick={() => closeEditModal(true)} className="bg-slate-900 hover:bg-slate-800">Edit Profile</Button>
@@ -216,7 +222,7 @@ function AdminProfile({ session }) {
             </div>
             <div className="rounded-lg border p-4">
               <p className="text-xs uppercase text-slate-500">Phone number</p>
-              <p className="mt-1 text-sm text-slate-700">{adminPhone ? formatPhoneNumber(adminPhone) : 'No admin phone on this record.'}</p>
+              <p className="mt-1 text-sm text-slate-700">{adminPhone ? formatPhoneNumber(adminPhone) : 'No shared admin phone on this config.'}</p>
             </div>
           </div>
         </CardContent>
@@ -237,7 +243,7 @@ function AdminProfile({ session }) {
           <div className="flex items-center justify-between rounded-lg border p-4 gap-4">
             <div>
               <Label className="text-base">Receive SMS Notifications</Label>
-              <p className="text-sm text-slate-500">This opt-in is saved on your admin profile now so future admin SMS support can use the same preference flow.</p>
+              <p className="text-sm text-slate-500">This opt-in is saved on the shared admin config so admin-side behavior stays synced.</p>
             </div>
             <Switch
               checked={form.sms_enabled}
@@ -254,6 +260,9 @@ function AdminProfile({ session }) {
               {mutation.isPending ? 'Saving...' : 'Save SMS Settings'}
             </Button>
           </div>
+          {!adminAccessCode && (
+            <p className="text-sm text-amber-700">No active Admin access-code config was found. Name remains per-user, but shared admin SMS settings cannot be saved until an active Admin code exists.</p>
+          )}
           {!adminSmsState.deliveryActive && <p className="text-sm text-slate-500">Admin SMS delivery is not enabled yet. Saving this preference does not change current notification behavior.</p>}
         </CardContent>
       </Card>
@@ -262,30 +271,29 @@ function AdminProfile({ session }) {
         <DialogContent
           className="sm:max-w-lg"
           onInteractOutside={(event) => {
-            if (hasProfileChanges || hasSmsChanges) event.preventDefault();
+            if (hasSmsChanges) event.preventDefault();
           }}
           onEscapeKeyDown={(event) => {
-            if (hasProfileChanges || hasSmsChanges) event.preventDefault();
+            if (hasSmsChanges) event.preventDefault();
           }}
         >
           <DialogHeader className="pr-8">
             <DialogTitle>Edit Profile</DialogTitle>
-            <DialogDescription>Update your admin name, phone number, and SMS preference. Changes save directly to your admin access record.</DialogDescription>
+            <DialogDescription>Admin name comes from your authenticated account. Shared admin SMS settings save to the shared admin config record.</DialogDescription>
           </DialogHeader>
           <div className="space-y-4 py-1">
             <div className="space-y-2">
               <Label htmlFor="admin-name">Name</Label>
-              <Input id="admin-name" value={form.label} onChange={(e) => setForm((prev) => ({ ...prev, label: e.target.value }))} />
+              <Input id="admin-name" value={adminName} readOnly />
             </div>
             <div className="space-y-2">
               <Label htmlFor="admin-phone">Phone number</Label>
               <Input id="admin-phone" value={form.sms_phone} readOnly placeholder="Manage on the SMS card below" />
             </div>
-            {hasProfileChanges && <p className="text-xs text-amber-700">You have unsaved changes. Use Save to keep them or Cancel to discard them.</p>}
           </div>
           <DialogFooter className="gap-2 sm:gap-0">
             <Button variant="outline" onClick={() => closeEditModal(false)}>Cancel</Button>
-            <Button onClick={() => mutation.mutate()} disabled={mutation.isPending || !hasProfileChanges} className="bg-red-600 text-white hover:bg-red-700">
+            <Button onClick={() => mutation.mutate()} disabled={mutation.isPending || !hasSmsChanges} className="bg-red-600 text-white hover:bg-red-700">
               {mutation.isPending ? 'Saving...' : 'Save'}
             </Button>
           </DialogFooter>

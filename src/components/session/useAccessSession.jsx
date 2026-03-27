@@ -81,13 +81,45 @@ function buildEffectiveSession(accessCode, activeViewMode, activeCompanyId, owne
 
 function buildLinkedUserSession({
   linkedIdentity,
+  authenticatedUser,
   fallbackSession,
   workspace,
 }) {
   const codeType = normalizeAppRoleToAccessCodeType(linkedIdentity?.app_role);
   if (!SUPPORTED_CODE_TYPES.has(codeType)) return null;
 
-  if (!fallbackSession?.id) return null;
+  if (codeType !== 'Admin' && !fallbackSession?.id) return null;
+
+  const userDisplayName = (
+    authenticatedUser?.full_name
+    || authenticatedUser?.name
+    || authenticatedUser?.display_name
+    || authenticatedUser?.email
+    || ''
+  ).trim();
+
+  if (codeType === 'Admin') {
+    const activeViewMode = workspace.activeViewMode || 'Admin';
+    const activeCompanyId = activeViewMode === 'CompanyOwner'
+      ? (workspace.activeCompanyId || null)
+      : null;
+
+    return {
+      ...(fallbackSession || {}),
+      id: linkedIdentity.user_id,
+      user_id: linkedIdentity.user_id,
+      onboarding_complete: true,
+      raw_code_type: fallbackSession?.raw_code_type || codeType,
+      code_type: codeType,
+      company_id: activeViewMode === 'CompanyOwner' ? activeCompanyId : null,
+      driver_id: null,
+      activeViewMode,
+      activeCompanyId,
+      label: userDisplayName || fallbackSession?.label || 'Admin',
+      name: userDisplayName || fallbackSession?.name || 'Admin',
+      shared_admin_access_code_id: fallbackSession?.id || null,
+    };
+  }
 
   const companyId = linkedIdentity?.company_id || fallbackSession?.company_id || null;
   const driverId = linkedIdentity?.driver_id || fallbackSession?.driver_id || null;
@@ -122,6 +154,11 @@ function isActiveSupportedCode(accessCode) {
 async function resolveLinkedIdentityAccessCode(linkedIdentity) {
   const codeType = normalizeAppRoleToAccessCodeType(linkedIdentity?.app_role);
   if (!SUPPORTED_CODE_TYPES.has(codeType)) return null;
+
+  if (codeType === 'Admin') {
+    const adminCodes = await base44.entities.AccessCode.filter({ code_type: 'Admin', active_flag: true }, '-created_date', 20);
+    return (adminCodes || []).find((accessCode) => isActiveSupportedCode(accessCode)) || null;
+  }
 
   const candidates = [];
 
@@ -181,14 +218,14 @@ function isAccessCodeCompatibleWithLinkedIdentity(accessCode, linkedIdentity) {
   }
 
   if (codeType === 'Admin') {
-    return String(accessCode.user_id || '') === String(linkedIdentity.user_id || '');
+    return true;
   }
 
   return true;
 }
 
 export function useAccessSession() {
-  const { currentAppIdentity, isAuthenticated, isLoadingAuth } = useAuth();
+  const { user, currentAppIdentity, isAuthenticated, isLoadingAuth } = useAuth();
   const [accessCode, setAccessCode] = useState(null);
   const [workspace, setWorkspace] = useState({ activeViewMode: null, activeCompanyId: null });
   const [ownerWorkspaceAllowedTrucks, setOwnerWorkspaceAllowedTrucks] = useState(null);
@@ -349,13 +386,14 @@ export function useAccessSession() {
     if (isAuthenticated) {
       const linkedSession = buildLinkedUserSession({
         linkedIdentity: currentAppIdentity,
+        authenticatedUser: user,
         fallbackSession: accessCodeSession,
         workspace,
       });
       if (linkedSession) return linkedSession;
     }
     return accessCodeSession;
-  }, [accessCodeSession, currentAppIdentity, isAuthenticated, workspace]);
+  }, [accessCodeSession, currentAppIdentity, isAuthenticated, user, workspace]);
 
   return {
     session,
