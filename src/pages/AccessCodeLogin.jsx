@@ -43,6 +43,16 @@ export default function AccessCodeLogin() {
       return;
     }
 
+    if (
+      match.code_type === 'Admin'
+      && match.user_id
+      && String(match.user_id) !== String(user.id)
+    ) {
+      setError('This admin access code is already linked to a different user.');
+      setLoading(false);
+      return;
+    }
+
     const userUpdatePayload = {
       app_role: appRole,
       onboarding_complete: true,
@@ -72,13 +82,20 @@ export default function AccessCodeLogin() {
 
     await base44.entities.User.update(user.id, userUpdatePayload);
 
-    await checkAppState();
-    login(match);
+    let linkedAccessCode = match;
+    if (match.code_type === 'Admin' && !match.user_id) {
+      linkedAccessCode = await base44.entities.AccessCode.update(match.id, {
+        user_id: user.id,
+      });
+    }
 
-    const workspaces = getAvailableWorkspaces(match);
+    await checkAppState();
+    login(linkedAccessCode);
+
+    const workspaces = getAvailableWorkspaces(linkedAccessCode);
     const hasAdminWorkspace = workspaces.some((workspace) => workspace.mode === 'Admin');
 
-    if (hasAdminWorkspace || match.code_type === 'Admin') {
+    if (hasAdminWorkspace || linkedAccessCode.code_type === 'Admin') {
       window.location.href = createPageUrl('AdminDashboard');
     } else {
       window.location.href = createPageUrl('Home');

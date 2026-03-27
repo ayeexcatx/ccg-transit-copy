@@ -143,12 +143,6 @@ async function resolveLinkedIdentityAccessCode(linkedIdentity) {
     );
   }
 
-  if (codeType === 'Admin') {
-    candidates.push(
-      base44.entities.AccessCode.filter({ code_type: 'Admin' }, '-created_date', 20),
-    );
-  }
-
   for (const query of candidates) {
     const results = await query;
     const valid = (results || []).find((accessCode) => isActiveSupportedCode(accessCode) && accessCode.code_type === codeType);
@@ -184,6 +178,10 @@ function isAccessCodeCompatibleWithLinkedIdentity(accessCode, linkedIdentity) {
       return String(accessCode.company_id || '') === String(linkedIdentity.company_id);
     }
     return true;
+  }
+
+  if (codeType === 'Admin') {
+    return String(accessCode.user_id || '') === String(linkedIdentity.user_id || '');
   }
 
   return true;
