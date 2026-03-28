@@ -667,7 +667,7 @@ export default function DispatchDetailDrawer({
   };
 
 
-  const ownerTruckOptions = session?.code_type === 'CompanyOwner'
+  const ownerTruckOptions = isOwner
     ? (Array.isArray(ownerCompanyRecord?.trucks) ? ownerCompanyRecord.trucks : [])
     : [];
   const showOwnerAssignmentsAndTimeLogs = !isOwner || canCompanyOwnerViewAssignmentsAndTimeLogs(dispatch.status);
