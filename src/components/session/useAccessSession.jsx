@@ -160,6 +160,7 @@ async function resolveLinkedIdentityAccessCode(linkedIdentity) {
     if (linkedAdminAccessCodeId) {
       const linkedAdminAccessCode = await resolveStoredAccessCodeById(linkedAdminAccessCodeId);
       if (linkedAdminAccessCode?.code_type === 'Admin') return linkedAdminAccessCode;
+      return null;
     }
 
     if (linkedIdentity?.user_id) {
@@ -313,15 +314,24 @@ export function useAccessSession() {
 
       try {
         if (isAuthenticated) {
-          if (storedId) {
-            const storedAccessCode = await resolveStoredAccessCodeById(storedId);
-            if (isAccessCodeCompatibleWithLinkedIdentity(storedAccessCode, currentAppIdentity)) {
-              restoredAccessCode = storedAccessCode;
-            }
-          }
+          const linkedAdminAccessCodeId = currentAppIdentity?.linked_admin_access_code_id || null;
 
-          if (!restoredAccessCode) {
-            restoredAccessCode = await resolveLinkedIdentityAccessCode(currentAppIdentity);
+          if (linkedAdminAccessCodeId) {
+            restoredAccessCode = await resolveStoredAccessCodeById(linkedAdminAccessCodeId);
+            if (restoredAccessCode?.code_type !== 'Admin') {
+              restoredAccessCode = null;
+            }
+          } else {
+            if (storedId) {
+              const storedAccessCode = await resolveStoredAccessCodeById(storedId);
+              if (isAccessCodeCompatibleWithLinkedIdentity(storedAccessCode, currentAppIdentity)) {
+                restoredAccessCode = storedAccessCode;
+              }
+            }
+
+            if (!restoredAccessCode) {
+              restoredAccessCode = await resolveLinkedIdentityAccessCode(currentAppIdentity);
+            }
           }
         } else if (storedId) {
           const storedAccessCode = await resolveStoredAccessCodeById(storedId);
