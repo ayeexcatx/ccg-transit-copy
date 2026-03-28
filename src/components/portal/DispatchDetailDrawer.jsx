@@ -25,6 +25,7 @@ import DispatchDrawerStatusReasonBox from './DispatchDrawerStatusReasonBox';
 import DispatchDrawerAssignmentsSection from './DispatchDrawerAssignmentsSection';
 import DispatchDrawerTemplateNotesSection from './DispatchDrawerTemplateNotesSection';
 import { getVisibleTrucksForDispatch } from '@/lib/dispatchVisibility';
+import { getActiveCompanyId, getEffectiveView } from '@/components/session/workspaceUtils';
 import { buildConfirmedTruckSetForStatus } from '@/components/notifications/confirmationStateHelpers';
 import { deactivateDriverAssignment, upsertDriverAssignment } from '@/services/driverAssignmentMutationService';
 import { resolveCompanyOwnerCompanyId, resolveDriverIdentity } from '@/services/currentAppIdentityService';
@@ -309,16 +310,21 @@ export default function DispatchDetailDrawer({
   }, [truckEditMessage]);
 
   const myTrucks = getVisibleTrucksForDispatch(session, dispatch);
-  const isOwner = session.code_type === 'CompanyOwner';
-  const isAdmin = session.code_type === 'Admin';
-  const isDriverUser = session.code_type === 'Driver';
+  const effectiveView = getEffectiveView(session);
+  const isOwner = effectiveView === 'CompanyOwner';
+  const isAdmin = effectiveView === 'Admin';
+  const isDriverUser = effectiveView === 'Driver';
   const driverIdentity = useMemo(
     () => resolveDriverIdentity({ currentAppIdentity, session }),
     [currentAppIdentity, session],
   );
+  const activeOwnerCompanyId = useMemo(
+    () => getActiveCompanyId(session),
+    [session],
+  );
   const ownerCompanyId = useMemo(
-    () => resolveCompanyOwnerCompanyId({ currentAppIdentity, session }),
-    [currentAppIdentity, session],
+    () => activeOwnerCompanyId || resolveCompanyOwnerCompanyId({ currentAppIdentity, session }),
+    [activeOwnerCompanyId, currentAppIdentity, session],
   );
 
   const { data: ownerCompanyRecord = null } = useQuery({
