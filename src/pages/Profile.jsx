@@ -248,7 +248,10 @@ function AdminProfile({ session }) {
 
       <Card>
         <CardContent className="p-6 space-y-4">
-          <div className="flex items-center gap-2"><BellRing className="h-4 w-4 text-slate-500" /><h3 className="text-lg font-semibold text-slate-900">Your SMS Notifications</h3></div>
+          <div className="flex items-center gap-2"><BellRing className="h-4 w-4 text-slate-500" /><h3 className="text-lg font-semibold text-slate-900">Shared Admin Dispatch SMS</h3></div>
+          <p className="text-sm text-slate-600">
+            This phone is the shared admin dispatch SMS number. Enter the phone for the admin currently covering operations, and update it anytime coverage shifts.
+          </p>
           <div className="space-y-2">
             <Label htmlFor="admin-sms-phone">Phone number for SMS</Label>
             <Input
@@ -261,7 +264,7 @@ function AdminProfile({ session }) {
           <div className="flex items-center justify-between rounded-lg border p-4 gap-4">
             <div>
               <Label className="text-base">Receive SMS Notifications</Label>
-              <p className="text-sm text-slate-500">This opt-in is saved on the shared admin config so admin-side behavior stays synced.</p>
+              <p className="text-sm text-slate-500">This opt-in is saved on the shared admin config so dispatch coverage can be handed off by updating one shared number.</p>
             </div>
             <Switch
               checked={form.sms_enabled}
@@ -297,7 +300,7 @@ function AdminProfile({ session }) {
         >
           <DialogHeader className="pr-8">
             <DialogTitle>Edit Profile</DialogTitle>
-            <DialogDescription>Admin name comes from your authenticated account. Shared admin SMS settings save to the shared admin config record.</DialogDescription>
+            <DialogDescription>Admin name comes from your authenticated account. Shared dispatch SMS settings save to the shared admin config record.</DialogDescription>
           </DialogHeader>
           <div className="space-y-4 py-1">
             <div className="space-y-2">

@@ -171,14 +171,6 @@ async function resolveLinkedIdentityAccessCode(linkedIdentity) {
       const activeUserLinkedAdminCode = (userLinkedCodes || []).find((accessCode) => isActiveSupportedCode(accessCode));
       if (activeUserLinkedAdminCode) return activeUserLinkedAdminCode;
     }
-
-    const adminCodes = await base44.entities.AccessCode.filter({ code_type: 'Admin' }, '-created_date', 20);
-    const activeAdminCodes = (adminCodes || []).filter((accessCode) => isActiveSupportedCode(accessCode));
-
-    if (activeAdminCodes.length === 1) {
-      return activeAdminCodes[0];
-    }
-
     return null;
   }
 
@@ -353,6 +345,7 @@ export function useAccessSession() {
             isAuthenticated
             && restoredAccessCode.code_type === 'Admin'
             && currentAppIdentity?.user_id
+            && !currentAppIdentity?.linked_admin_access_code_id
             && String(currentAppIdentity?.linked_admin_access_code_id || '') !== String(restoredAccessCode.id || '');
 
           if (shouldPersistLinkedAdminAccessCode) {
