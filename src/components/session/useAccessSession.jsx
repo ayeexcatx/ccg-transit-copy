@@ -213,6 +213,29 @@ async function resolveStoredAccessCodeById(storedId) {
   return storedAccessCode;
 }
 
+async function resolveAuthoritativeLinkedIdentity(currentAppIdentity) {
+  if (!currentAppIdentity?.user_id) return currentAppIdentity;
+
+  try {
+    const users = await base44.entities.User.filter({ id: currentAppIdentity.user_id }, '-created_date', 1);
+    const persistedUser = users?.[0];
+    if (!persistedUser?.id) return currentAppIdentity;
+
+    return {
+      ...currentAppIdentity,
+      app_role: persistedUser.app_role || currentAppIdentity.app_role || null,
+      company_id: persistedUser.company_id || null,
+      driver_id: persistedUser.driver_id || null,
+      linked_admin_access_code_id: persistedUser.linked_admin_access_code_id || null,
+      onboarding_complete: Boolean(
+        persistedUser.onboarding_complete ?? currentAppIdentity.onboarding_complete,
+      ),
+    };
+  } catch {
+    return currentAppIdentity;
+  }
+}
+
 function isAccessCodeCompatibleWithLinkedIdentity(accessCode, linkedIdentity) {
   const codeType = normalizeAppRoleToAccessCodeType(linkedIdentity?.app_role);
   if (!accessCode || !codeType) return false;
@@ -311,10 +334,12 @@ export function useAccessSession() {
 
       const storedId = localStorage.getItem(STORAGE_ACCESS_CODE_ID);
       let restoredAccessCode = null;
+      let authoritativeLinkedIdentity = currentAppIdentity;
 
       try {
         if (isAuthenticated) {
-          const linkedAdminAccessCodeId = currentAppIdentity?.linked_admin_access_code_id || null;
+          authoritativeLinkedIdentity = await resolveAuthoritativeLinkedIdentity(currentAppIdentity);
+          const linkedAdminAccessCodeId = authoritativeLinkedIdentity?.linked_admin_access_code_id || null;
 
           if (linkedAdminAccessCodeId) {
             restoredAccessCode = await resolveStoredAccessCodeById(linkedAdminAccessCodeId);
@@ -324,13 +349,13 @@ export function useAccessSession() {
           } else {
             if (storedId) {
               const storedAccessCode = await resolveStoredAccessCodeById(storedId);
-              if (isAccessCodeCompatibleWithLinkedIdentity(storedAccessCode, currentAppIdentity)) {
+              if (isAccessCodeCompatibleWithLinkedIdentity(storedAccessCode, authoritativeLinkedIdentity)) {
                 restoredAccessCode = storedAccessCode;
               }
             }
 
             if (!restoredAccessCode) {
-              restoredAccessCode = await resolveLinkedIdentityAccessCode(currentAppIdentity);
+              restoredAccessCode = await resolveLinkedIdentityAccessCode(authoritativeLinkedIdentity);
             }
           }
         } else if (storedId) {
@@ -354,13 +379,13 @@ export function useAccessSession() {
           const shouldPersistLinkedAdminAccessCode =
             isAuthenticated
             && restoredAccessCode.code_type === 'Admin'
-            && currentAppIdentity?.user_id
-            && !currentAppIdentity?.linked_admin_access_code_id
-            && String(currentAppIdentity?.linked_admin_access_code_id || '') !== String(restoredAccessCode.id || '');
+            && authoritativeLinkedIdentity?.user_id
+            && !authoritativeLinkedIdentity?.linked_admin_access_code_id
+            && String(authoritativeLinkedIdentity?.linked_admin_access_code_id || '') !== String(restoredAccessCode.id || '');
 
           if (shouldPersistLinkedAdminAccessCode) {
             try {
-              await base44.entities.User.update(currentAppIdentity.user_id, {
+              await base44.entities.User.update(authoritativeLinkedIdentity.user_id, {
                 linked_admin_access_code_id: restoredAccessCode.id,
               });
             } catch {
