@@ -150,9 +150,16 @@
       ]
     },
     "update": {
-      "user_condition": {
-        "data.app_role": "admin"
-      }
+      "$or": [
+        {
+          "user_condition": {
+            "data.app_role": "admin"
+          }
+        },
+        {
+          "id": "{{user.data.company_id}}"
+        }
+      ]
     },
     "delete": {
       "user_condition": {
