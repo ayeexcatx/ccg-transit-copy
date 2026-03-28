@@ -46,6 +46,7 @@ export default function AccessCodeLogin() {
     const userUpdatePayload = {
       app_role: appRole,
       onboarding_complete: true,
+      linked_admin_access_code_id: match.code_type === 'Admin' ? match.id : null,
     };
 
     if (match.code_type === 'Admin') {

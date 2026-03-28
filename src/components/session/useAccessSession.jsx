@@ -155,8 +155,31 @@ async function resolveLinkedIdentityAccessCode(linkedIdentity) {
   if (!SUPPORTED_CODE_TYPES.has(codeType)) return null;
 
   if (codeType === 'Admin') {
+    const linkedAdminAccessCodeId = linkedIdentity?.linked_admin_access_code_id || null;
+
+    if (linkedAdminAccessCodeId) {
+      const linkedAdminAccessCode = await resolveStoredAccessCodeById(linkedAdminAccessCodeId);
+      if (linkedAdminAccessCode?.code_type === 'Admin') return linkedAdminAccessCode;
+    }
+
+    if (linkedIdentity?.user_id) {
+      const userLinkedCodes = await base44.entities.AccessCode.filter(
+        { code_type: 'Admin', user_id: linkedIdentity.user_id },
+        '-created_date',
+        20,
+      );
+      const activeUserLinkedAdminCode = (userLinkedCodes || []).find((accessCode) => isActiveSupportedCode(accessCode));
+      if (activeUserLinkedAdminCode) return activeUserLinkedAdminCode;
+    }
+
     const adminCodes = await base44.entities.AccessCode.filter({ code_type: 'Admin' }, '-created_date', 20);
-    return (adminCodes || []).find((accessCode) => isActiveSupportedCode(accessCode)) || null;
+    const activeAdminCodes = (adminCodes || []).filter((accessCode) => isActiveSupportedCode(accessCode));
+
+    if (activeAdminCodes.length === 1) {
+      return activeAdminCodes[0];
+    }
+
+    return null;
   }
 
   const candidates = [];
@@ -217,6 +240,10 @@ function isAccessCodeCompatibleWithLinkedIdentity(accessCode, linkedIdentity) {
   }
 
   if (codeType === 'Admin') {
+    const linkedAdminAccessCodeId = linkedIdentity?.linked_admin_access_code_id || null;
+    if (linkedAdminAccessCodeId) {
+      return String(accessCode.id || '') === String(linkedAdminAccessCodeId);
+    }
     return true;
   }
 
@@ -321,6 +348,22 @@ export function useAccessSession() {
           setAccessCode(restoredAccessCode);
           setWorkspace(nextWorkspace);
           persistWorkspace(nextWorkspace);
+
+          const shouldPersistLinkedAdminAccessCode =
+            isAuthenticated
+            && restoredAccessCode.code_type === 'Admin'
+            && currentAppIdentity?.user_id
+            && String(currentAppIdentity?.linked_admin_access_code_id || '') !== String(restoredAccessCode.id || '');
+
+          if (shouldPersistLinkedAdminAccessCode) {
+            try {
+              await base44.entities.User.update(currentAppIdentity.user_id, {
+                linked_admin_access_code_id: restoredAccessCode.id,
+              });
+            } catch {
+              // Ignore persistence sync errors; session restore should still succeed.
+            }
+          }
         } else {
           if (isAuthenticated) {
             localStorage.removeItem(STORAGE_ACCESS_CODE_ID);

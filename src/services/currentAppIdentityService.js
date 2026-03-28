@@ -30,6 +30,7 @@ export function getCurrentAppIdentity(authenticatedUser) {
     app_role: authenticatedUser.app_role || null,
     company_id: authenticatedUser.company_id || null,
     driver_id: authenticatedUser.driver_id || null,
+    linked_admin_access_code_id: authenticatedUser.linked_admin_access_code_id || null,
     onboarding_complete: Boolean(authenticatedUser.onboarding_complete),
   };
 }
