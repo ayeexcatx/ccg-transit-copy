@@ -2,29 +2,88 @@
   "name": "DriverDispatch",
   "type": "object",
   "properties": {
-    "dispatch_id": { "type": "string", "description": "Linked dispatch ID" },
-    "company_id": { "type": "string", "description": "Company ID" },
-    "owner_user_id": { "type": "string", "description": "Company owner access code/user ID that controls delivery" },
-    "driver_id": { "type": "string", "description": "Assigned driver ID" },
-    "driver_user_id": { "type": "string", "description": "Optional linked driver user/access id" },
-    "driver_name": { "type": "string", "description": "Snapshot of driver name at assignment/send time" },
-    "truck_number": { "type": "string", "description": "Truck number this delivery targets" },
+    "dispatch_id": {
+      "type": "string",
+      "description": "Linked dispatch ID"
+    },
+    "company_id": {
+      "type": "string",
+      "description": "Company ID"
+    },
+    "owner_user_id": {
+      "type": "string",
+      "description": "Company owner access code/user ID that controls delivery"
+    },
+    "driver_id": {
+      "type": "string",
+      "description": "Assigned driver ID"
+    },
+    "driver_user_id": {
+      "type": "string",
+      "description": "Optional linked driver user/access id"
+    },
+    "driver_name": {
+      "type": "string",
+      "description": "Snapshot of driver name at assignment/send time"
+    },
+    "truck_number": {
+      "type": "string",
+      "description": "Truck number this delivery targets"
+    },
     "delivery_status": {
       "type": "string",
-      "enum": ["staged", "sent", "seen", "cancelled", "removed"],
+      "enum": [
+        "staged",
+        "sent",
+        "seen",
+        "cancelled",
+        "removed"
+      ],
       "default": "staged"
     },
-    "is_visible_to_driver": { "type": "boolean", "default": false },
-    "sent_at": { "type": "string", "description": "ISO timestamp when owner sent this dispatch" },
-    "cancelled_at": { "type": "string", "description": "ISO timestamp when owner/admin cancelled or removed this delivery" },
-    "cancellation_reason": { "type": "string" },
-    "last_updated_from_dispatch_at": { "type": "string" },
-    "last_opened_at": { "type": "string" },
-    "last_seen_at": { "type": "string" },
-    "created_by_owner_id": { "type": "string" },
-    "updated_by_owner_id": { "type": "string" },
-    "archived_at": { "type": "string" },
-    "active_flag": { "type": "boolean", "default": true }
+    "is_visible_to_driver": {
+      "type": "boolean",
+      "default": false
+    },
+    "sent_at": {
+      "type": "string",
+      "description": "ISO timestamp when owner sent this dispatch"
+    },
+    "cancelled_at": {
+      "type": "string",
+      "description": "ISO timestamp when owner/admin cancelled or removed this delivery"
+    },
+    "cancellation_reason": {
+      "type": "string"
+    },
+    "last_updated_from_dispatch_at": {
+      "type": "string"
+    },
+    "last_opened_at": {
+      "type": "string"
+    },
+    "last_seen_at": {
+      "type": "string"
+    },
+    "created_by_owner_id": {
+      "type": "string"
+    },
+    "updated_by_owner_id": {
+      "type": "string"
+    },
+    "archived_at": {
+      "type": "string"
+    },
+    "active_flag": {
+      "type": "boolean",
+      "default": true
+    }
   },
-  "required": ["dispatch_id", "company_id", "truck_number", "driver_id", "delivery_status"]
+  "required": [
+    "dispatch_id",
+    "company_id",
+    "truck_number",
+    "driver_id",
+    "delivery_status"
+  ]
 }
