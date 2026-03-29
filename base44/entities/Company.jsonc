@@ -144,6 +144,9 @@
     },
     "read": {
       "id": "{{user.data.company_id}}"
+    },
+    "update": {
+      "id": "{{user.data.company_id}}"
     }
   }
 }
