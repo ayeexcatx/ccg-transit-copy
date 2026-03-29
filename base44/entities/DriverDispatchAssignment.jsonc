@@ -68,51 +68,5 @@
     "driver_id",
     "driver_name",
     "assigned_datetime"
-  ],
-  "rls": {
-    "create": {
-      "$or": [
-        {
-          "user_condition": {
-            "data.app_role": "admin"
-          }
-        },
-        {
-          "data.company_id": "{{user.data.company_id}}"
-        }
-      ]
-    },
-    "read": {
-      "$or": [
-        {
-          "user_condition": {
-            "data.app_role": "admin"
-          }
-        },
-        {
-          "data.company_id": "{{user.data.company_id}}"
-        },
-        {
-          "data.driver_id": "{{user.data.driver_id}}"
-        }
-      ]
-    },
-    "update": {
-      "$or": [
-        {
-          "user_condition": {
-            "data.app_role": "admin"
-          }
-        },
-        {
-          "data.company_id": "{{user.data.company_id}}"
-        }
-      ]
-    },
-    "delete": {
-      "user_condition": {
-        "data.app_role": "admin"
-      }
-    }
-  }
+  ]
 }
