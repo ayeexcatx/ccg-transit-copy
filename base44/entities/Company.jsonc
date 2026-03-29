@@ -162,7 +162,7 @@
           }
         },
         {
-          "id": "{{user.data.company_id}}"
+          "data.company_id": "{{user.data.company_id}}"
         }
       ]
     }
