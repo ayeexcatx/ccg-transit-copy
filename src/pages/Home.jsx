@@ -270,29 +270,32 @@ export default function Home() {
   );
 
   // Build action items: unread dispatch-change notifications enriched with dispatch data
-  const actionItems = useMemo(() => {
+  const actionItemsSource = useMemo(() => {
     const dispatchMap = {};
     filteredDispatches.forEach((dispatch) => {dispatchMap[normalizeId(dispatch.id)] = dispatch;});
 
     return notifications
       .filter((notification) => {
-        const effectiveReadFlag = getNotificationEffectiveReadFlag({
-          session,
-          notification,
-          dispatch: notification.related_dispatch_id ? dispatchMap[normalizeId(notification.related_dispatch_id)] : null,
-          confirmations,
-          ownerAllowedTrucks: ownerScopeTrucks,
-        });
+        const effectiveReadFlag = typeof notification?.effectiveReadFlag === 'boolean'
+          ? notification.effectiveReadFlag
+          : getNotificationEffectiveReadFlag({
+            session,
+            notification,
+            dispatch: notification.related_dispatch_id ? dispatchMap[normalizeId(notification.related_dispatch_id)] : null,
+            confirmations,
+            ownerAllowedTrucks: ownerScopeTrucks,
+          });
         if (effectiveReadFlag) return false;
         if (!notification.related_dispatch_id) return true;
         return Boolean(dispatchMap[normalizeId(notification.related_dispatch_id)]);
       })
-      .slice(0, 8)
       .map((notification) => ({
         notification,
         dispatch: notification.related_dispatch_id ? dispatchMap[normalizeId(notification.related_dispatch_id)] : null,
       }));
   }, [notifications, filteredDispatches, session?.code_type, confirmations, ownerScopeTrucks]);
+  const actionItems = actionItemsSource.slice(0, 8);
+  const actionNeededCount = actionItemsSource.length;
 
   const handleNotificationClick = async (n) => {
     if (!session) return;
@@ -346,7 +349,7 @@ export default function Home() {
       {/* Action Needed — always visible for CompanyOwner */}
       {isOwner && (
         <ActionNeededSection
-          unreadCount={unreadCount}
+          unreadCount={actionNeededCount || unreadCount}
           actionItems={actionItems}
           confirmations={confirmations}
           ownerAllowedTrucks={ownerScopeTrucks}

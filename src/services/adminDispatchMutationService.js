@@ -93,7 +93,8 @@ export async function runAdminDispatchMutation({
 
     await clearRemovedTruckDriverAssignments({
       dispatch: savedDispatch,
-      removedTrucks
+      removedTrucks,
+      session,
     });
 
     if (shouldResetReceiptConfirmationForStatusChange(editing?.status, savedDispatch.status)) {

@@ -161,18 +161,33 @@ export async function deactivateDriverAssignment({ dispatch, driverAssignments =
   return { removed: true, existing: existingRows[0] };
 }
 
-export async function clearRemovedTruckDriverAssignments({ dispatch, removedTrucks = [], log = null }) {
+export async function clearRemovedTruckDriverAssignments({ dispatch, removedTrucks = [], session = null, log = null }) {
   if (!dispatch?.id || !removedTrucks.length) return;
   const activeRows = await base44.entities.DriverDispatch.filter({ dispatch_id: dispatch.id, active_flag: true }, '-created_date', 500);
   const toRemove = (activeRows || []).filter((row) => removedTrucks.includes(row.truck_number));
   log?.('assignmentsToRemove', { toRemove });
   if (!toRemove.length) return;
 
-  await Promise.all(toRemove.map((row) => base44.entities.DriverDispatch.update(row.id, {
-    active_flag: false,
-    delivery_status: isVisibleDelivery(row) ? 'removed' : 'cancelled',
-    is_visible_to_driver: false,
-    cancelled_at: nowIso(),
-    cancellation_reason: 'Truck removed from dispatch',
-  })));
+  await Promise.all(toRemove.map(async (row) => {
+    const wasVisibleToDriver = isVisibleDelivery(row);
+    await base44.entities.DriverDispatch.update(row.id, {
+      active_flag: false,
+      delivery_status: wasVisibleToDriver ? 'removed' : 'cancelled',
+      is_visible_to_driver: false,
+      cancelled_at: nowIso(),
+      cancellation_reason: 'Truck removed from dispatch',
+      updated_by_owner_id: session?.id,
+    });
+
+    if (wasVisibleToDriver && row.driver_user_id) {
+      await createDriverDispatchNotification({
+        dispatch,
+        driverAccessCodeId: row.driver_user_id,
+        title: 'Dispatch Removed',
+        message: 'This dispatch assignment is no longer available',
+        notificationType: 'driver_removed',
+        requiredTrucks: [row.truck_number],
+      });
+    }
+  }));
 }

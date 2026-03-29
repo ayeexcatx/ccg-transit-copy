@@ -947,14 +947,14 @@ export default function DispatchDetailDrawer({
                 hasAdditional={hasAdditional}
                 formatTimeToAmPm={formatTimeToAmPm}
               />
-              <DispatchDrawerTemplateNotesSection
-                boxNotes={boxNotes}
-                generalNotes={generalNotes}
-                NOTE_DISPLAY_WIDTH={NOTE_DISPLAY_WIDTH}
-              />
+            </>
+          )}
 
-              </>
-            )}
+          <DispatchDrawerTemplateNotesSection
+            boxNotes={boxNotes}
+            generalNotes={generalNotes}
+            NOTE_DISPLAY_WIDTH={NOTE_DISPLAY_WIDTH}
+          />
           </div>
 
           {/* Actions */}
