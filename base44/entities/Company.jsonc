@@ -138,16 +138,9 @@
       }
     },
     "update": {
-      "$or": [
-        {
-          "user_condition": {
-            "data.app_role": "admin"
-          }
-        },
-        {
-          "id": "{{user.data.company_id}}"
-        }
-      ]
+      "user_condition": {
+        "data.app_role": "admin"
+      }
     },
     "delete": {
       "user_condition": {
@@ -155,16 +148,14 @@
       }
     },
     "read": {
-      "$or": [
-        {
-          "user_condition": {
-            "data.app_role": "admin"
-          }
-        },
-        {
-          "data.company_id": "{{user.data.company_id}}"
-        }
-      ]
+      "user_condition": {
+        "data.app_role": "admin"
+      }
+    },
+    "write": {
+      "user_condition": {
+        "data.app_role": "admin"
+      }
     }
   }
 }
