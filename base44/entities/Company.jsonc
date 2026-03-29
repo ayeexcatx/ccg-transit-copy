@@ -130,23 +130,5 @@
   },
   "required": [
     "name"
-  ],
-  "rls": {
-    "create": {
-      "user_condition": {
-        "data.app_role": "admin"
-      }
-    },
-    "delete": {
-      "user_condition": {
-        "data.app_role": "admin"
-      }
-    },
-    "read": {
-      "id": "{{user.data.company_id}}"
-    },
-    "update": {
-      "id": "{{user.data.company_id}}"
-    }
-  }
+  ]
 }
