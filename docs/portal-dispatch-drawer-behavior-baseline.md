@@ -267,7 +267,7 @@ Loaded only when:
 - dispatch has id
 
 Query:
-- `base44.entities.DriverDispatchAssignment.filter({ dispatch_id: dispatch.id, active_flag: true }, '-assigned_datetime', 500)`
+- `base44.entities.DriverDispatch.filter({ dispatch_id: dispatch.id, active_flag: true }, '-created_date', 500)`
 
 Used for:
 - owner driver assignment UI
@@ -282,7 +282,7 @@ Loaded only when:
 - dispatch id and session.driver_id exist
 
 Query:
-- `base44.entities.DriverDispatchAssignment.filter({ dispatch_id: dispatch.id, driver_id: session.driver_id }, '-assigned_datetime', 200)`
+- `base44.entities.DriverDispatch.filter({ dispatch_id: dispatch.id, driver_id: session.driver_id }, '-created_date', 200)`
 
 Used to compute driver-visible trucks in drawer.
 
@@ -515,7 +515,7 @@ Depending on dispatch status and data presence, owner can see:
 ## Driver behavior
 
 ### What dispatches they can see
-- only dispatches whose IDs appear in active `DriverDispatchAssignment` records for `session.driver_id`
+- only dispatches whose IDs appear in active `DriverDispatch` records for `session.driver_id`
 - dispatch must also exist in company dispatch query result
 
 **Enforced by:**

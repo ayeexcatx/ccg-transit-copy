@@ -71,7 +71,7 @@ The system is designed for real-time operational visibility between dispatch adm
 - Marking drivers active or inactive
 - Assigning drivers to dispatches
 - Requesting driver access codes
-2. Driver access allows dispatch filtering based on DriverDispatchAssignment records.
+2. Driver access allows dispatch filtering based on DriverDispatch records.
 
 ** Incident Management **
 1. Incident tracking supports operational reporting across all roles.
@@ -141,7 +141,7 @@ The application is role-based and dynamically adjusts visibility and workflows.
 - Home
 - Dispatch Portal
 - Incidents
-3. Driver views rely on DriverDispatchAssignment records.
+3. Driver views rely on DriverDispatch records.
 ---------------------------------------------------------------------
 
 # System Architecture #
@@ -181,7 +181,7 @@ The application is role-based and dynamically adjusts visibility and workflows.
 8. Dispatch
 9. DispatchTemplateNotes
 10. Driver
-11. DriverDispatchAssignment
+11. DriverDispatch
 12. General
 13. IncidentReport
 14. IncidentUpdate

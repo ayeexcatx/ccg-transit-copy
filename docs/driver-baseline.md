@@ -12,7 +12,7 @@ Date reviewed: 2026-03-25.
 ## 1) Driver Home
 
 ### Confirmed from code
-- Uses the shared home/app shell, with driver data constrained by active `DriverDispatchAssignment` visibility (assignment-based visibility).
+- Uses the shared home/app shell, with driver data constrained by active `DriverDispatch` visibility (assignment-based visibility).
 - Today/Upcoming dispatch lists include only assigned dispatches.
 - Visible truck badges are based on assigned truck(s) per dispatch for that driver.
 - Action items come from notification stream filtered by driver visibility rules (assignment-based, not company-wide).

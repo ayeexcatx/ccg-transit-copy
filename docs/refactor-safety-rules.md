@@ -18,7 +18,7 @@ Source of truth: existing baseline docs in `/docs` (especially notifications, ad
 - All-trucks-confirmed admin notification remains created only when every currently assigned truck has a matching current-status confirmation, with dedupe preserved.
 
 ### Driver/owner visibility rules
-- Driver dispatch visibility remains assignment-driven (active `DriverDispatchAssignment`), not `allowed_trucks`-driven.
+- Driver dispatch visibility remains assignment-driven (active `DriverDispatch`), not `allowed_trucks`-driven.
 - Owner/truck-user dispatch visibility remains allowed-truck driven.
 - Owner visible trucks in dispatch detail remain `allowed_trucks ∩ dispatch.trucks_assigned`.
 - Driver visible trucks in drawer remain derived from that driver’s active assignments for the dispatch.

@@ -30,7 +30,7 @@ Generated from repository code review on 2026-03-23. This document is intentiona
 ### Admin / company owner / driver / truck differences
 - **Confirmed from code:** Admins can manage dispatches, companies, access codes, announcements, template notes, availability, confirmations, and incident records.
 - **Confirmed from code:** Company owners can view company-facing dispatches, edit their company availability, manage drivers, update trucks on existing dispatches from the drawer, manage their SMS preference, request access codes, and submit company profile changes for admin approval.
-- **Confirmed from code:** Drivers can only see dispatches tied to their active `DriverDispatchAssignment` records, can mark dispatch/removal notifications as seen, can manage their own SMS opt-in, and can view/add incident updates to incidents they can access.
+- **Confirmed from code:** Drivers can only see dispatches tied to their active `DriverDispatch` records, can mark dispatch/removal notifications as seen, can manage their own SMS opt-in, and can view/add incident updates to incidents they can access.
 - **Confirmed from code:** Truck users can view dispatches filtered by their allowed trucks, confirm truck-level dispatch statuses, log time, and create/view incidents within their truck scope.
 - **Confirmed from code:** Driver management UI is company-owner only, and truck / driver assignment controls in the dispatch drawer are primarily admin / owner capabilities.
 
@@ -60,7 +60,7 @@ Generated from repository code review on 2026-03-23. This document is intentiona
 ### Dispatch lifecycle behavior
 - **Confirmed from code:** Dispatch statuses used by the app are `Scheduled`, `Dispatch`, `Amended`, and `Cancelled`.
 - **Confirmed from code:** Creating or editing a dispatch can trigger owner notifications, driver notifications, edit-lock changes, admin activity-log entries, and Google Drive HTML sync.
-- **Confirmed from code:** Truck removals from a dispatch automatically deactivate related active `DriverDispatchAssignment` records for those removed trucks and notify affected drivers.
+- **Confirmed from code:** Truck removals from a dispatch automatically deactivate related active `DriverDispatch` records for those removed trucks and notify affected drivers.
 - **Confirmed from code:** Changing a dispatch status to `Amended` or `Cancelled` resets driver assignment receipt-confirmation fields (`receipt_confirmed_*`) on active driver assignments for that dispatch.
 - **Confirmed from code:** Dispatches can be archived manually by admins or automatically when all assigned trucks have complete time logs on or before the dispatch date; archive reasons are recorded.
 - **Confirmed from code:** Archived dispatches can be unarchived by admins; unarchiving clears archive metadata and clears the “finalized” Drive-sync marker.
@@ -114,7 +114,7 @@ Generated from repository code review on 2026-03-23. This document is intentiona
 - **Confirmed from code:** Companies listed in the dispatch form are filtered to `status === 'active'`.
 - **Confirmed from code:** Driver visibility commonly uses `active_flag !== false` for active assignments and current driver mapping.
 - **Confirmed from code:** Notifications and confirmations linked to deleted dispatches are excluded from admin review lists by filtering against still-existing dispatch IDs.
-- **Confirmed from code:** Driver assignment visibility for drivers depends on active `DriverDispatchAssignment` rows, not the dispatch’s `trucks_assigned` alone.
+- **Confirmed from code:** Driver assignment visibility for drivers depends on active `DriverDispatch` rows, not the dispatch’s `trucks_assigned` alone.
 - **Likely inferred from code:** Archived dispatches are still present and queryable, but some workflows treat them as history rather than current work.
 
 ---
@@ -173,7 +173,7 @@ Generated from repository code review on 2026-03-23. This document is intentiona
 ### Assigning a driver
 - **Confirmed from code:** Driver assignment happens in the dispatch detail drawer per truck.
 - **Confirmed from code:** A driver cannot be assigned if they already have an active assignment on another same-company, same-date, same-shift dispatch whose status is not `Cancelled`.
-- **Confirmed from code:** Assigning or replacing a driver creates/updates a `DriverDispatchAssignment` record with `receipt_confirmed_*` fields reset to false/null.
+- **Confirmed from code:** Assigning or replacing a driver creates/updates a `DriverDispatch` record with `receipt_confirmed_*` fields reset to false/null.
 - **Confirmed from code:** Assignment changes append dispatch activity-log entries and send driver assignment notifications.
 - **Confirmed from code:** After save, relevant dispatch and assignment queries are invalidated/refetched.
 
@@ -245,7 +245,7 @@ Generated from repository code review on 2026-03-23. This document is intentiona
 
 ### Additional role notes
 - **Confirmed from code:** Owner truck scope in current owner/notification flows uses company truck truth (`Company.trucks`); driver visibility remains assignment-driven.
-- **Confirmed from code:** Driver visibility depends on `DriverDispatchAssignment`, not only `allowed_trucks`.
+- **Confirmed from code:** Driver visibility depends on `DriverDispatch`, not only `allowed_trucks`.
 - **Needs manual verification:** Whether any hybrid access-code patterns beyond admin↔owner switching are used in production data.
 
 ---
