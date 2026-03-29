@@ -142,10 +142,12 @@ export async function runOwnerTruckEditMutation({
     await clearRemovedTruckDriverAssignments({
       dispatch: updatedDispatch,
       removedTrucks,
+      session,
     });
     await clearRemovedTruckDriverAssignments({
       dispatch: updatedConflictingDispatch,
       removedTrucks: [incomingTruck],
+      session,
     });
 
     const currentStatusConfirmations = getConfirmationsForDispatchStatus({
@@ -244,6 +246,7 @@ export async function runOwnerTruckEditMutation({
   await clearRemovedTruckDriverAssignments({
     dispatch: updatedDispatch,
     removedTrucks,
+    session,
   });
 
   const currentStatusConfirmations = getConfirmationsForDispatchStatus({

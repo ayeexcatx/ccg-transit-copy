@@ -30,8 +30,8 @@ export default function DispatchDriverAssignmentsSection({
 
   return (
     <div data-screenshot-exclude="true" data-tour="dispatch-driver-assignments" className="rounded-lg border border-slate-200 bg-white p-3 space-y-2">
-      <p className="text-xs text-slate-500 uppercase tracking-wide">Driver Dispatch Delivery</p>
-      <p className="text-xs text-slate-500">Selecting a driver stages assignment. Use Send Dispatch to deliver it.</p>
+      <p className="text-xs text-slate-500 uppercase tracking-wide">Driver Dispatch (Staged → Sent)</p>
+      <p className="text-xs text-slate-500">Select a driver to stage. Use <span className="font-medium text-slate-700">Send</span> to deliver; use <span className="font-medium text-slate-700">Cancel</span> to remove delivery access.</p>
       {eligibleDrivers.length === 0 && (
         <p className="text-xs text-amber-700 bg-amber-50 border border-amber-200 rounded-md px-2.5 py-2">
           Create and activate a driver access code first.
@@ -71,8 +71,8 @@ export default function DispatchDriverAssignmentsSection({
                 </Select>
                 <div className="flex items-center gap-2">
                   <span className="text-[11px] text-slate-500">Status: {status}</span>
-                  {canSend && <Button type="button" size="sm" className="h-7 text-xs" onClick={() => onSendDispatch(truckNumber)}>Send Dispatch</Button>}
-                  {canCancel && <Button type="button" size="sm" variant="outline" className="h-7 text-xs" onClick={() => onCancelDispatch(truckNumber)}>Cancel</Button>}
+                  {canSend && <Button type="button" size="sm" className="h-7 text-xs" onClick={() => onSendDispatch(truckNumber)}>Send</Button>}
+                  {canCancel && <Button type="button" size="sm" variant="outline" className="h-7 text-xs border-amber-300 text-amber-700 hover:bg-amber-50" onClick={() => onCancelDispatch(truckNumber)}>Cancel</Button>}
                   {row?.last_seen_at && <span className="text-[11px] text-emerald-700">Seen</span>}
                 </div>
                 {driverAssignmentErrors[truckNumber] && (

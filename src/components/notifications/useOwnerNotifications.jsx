@@ -67,9 +67,12 @@ export function useOwnerNotifications(session) {
       }
 
       const all = await base44.entities.Notification.filter({ recipient_type: 'AccessCode' }, '-created_date', 200);
-      return all.filter(n =>
-        n.recipient_access_code_id === session.id || n.recipient_id === session.id
-      );
+      return all.filter((notification) => {
+        const recipientAccessCodeId = String(notification?.recipient_access_code_id || '');
+        const recipientId = String(notification?.recipient_id || '');
+        const sessionId = String(session?.id || '');
+        return recipientAccessCodeId === sessionId || recipientId === sessionId;
+      });
     },
     enabled: !!session,
     refetchInterval: 30000,
@@ -101,6 +104,10 @@ export function useOwnerNotifications(session) {
   const driverDispatchIds = getDriverDispatchIdSet(driverAssignments);
   const validDispatchIds = new Set(dispatches.map((dispatch) => normalizeVisibilityId(dispatch.id)));
 
+  const dispatchById = new Map(
+    dispatches.map((dispatch) => [normalizeVisibilityId(dispatch.id), dispatch])
+  );
+
   const notifications = rawNotifications
     .filter((notification) => canUserSeeNotification(session, notification, {
       visibleDispatchIds: validDispatchIds,
@@ -115,7 +122,9 @@ export function useOwnerNotifications(session) {
     effectiveReadFlag: getNotificationEffectiveReadFlag({
       session,
       notification,
-      dispatch: notification.related_dispatch_id ? dispatches.find((dispatch) => dispatch.id === notification.related_dispatch_id) || null : null,
+      dispatch: notification.related_dispatch_id
+        ? dispatchById.get(normalizeVisibilityId(notification.related_dispatch_id)) || null
+        : null,
       confirmations,
       ownerAllowedTrucks: ownerScopeTrucks,
     }),
