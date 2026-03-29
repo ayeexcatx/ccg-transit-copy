@@ -27,6 +27,11 @@ export default function DispatchDriverConfirmationSection({
   driverAssignmentErrors,
   confirmations,
   shouldShowDriverAssignmentControls,
+  driverDispatchByTruck,
+  onSendDispatch,
+  onCancelDispatch,
+  sendMutationPending,
+  cancelMutationPending,
 }) {
   return (
     <>
@@ -54,6 +59,11 @@ export default function DispatchDriverConfirmationSection({
           conflictingDriverAssignmentsById={conflictingDriverAssignmentsById}
           driverAssignmentErrors={driverAssignmentErrors}
           shouldShowDriverAssignmentControls={shouldShowDriverAssignmentControls}
+          driverDispatchByTruck={driverDispatchByTruck}
+          onSendDispatch={onSendDispatch}
+          onCancelDispatch={onCancelDispatch}
+          sendMutationPending={sendMutationPending}
+          cancelMutationPending={cancelMutationPending}
         />
       )}
 

@@ -27,6 +27,7 @@ import {
   getVisibleTrucksForDispatch as getVisibleDispatchTrucks,
   normalizeVisibilityId,
 } from '@/lib/dispatchVisibility';
+import { listDriverDispatchesForDriver } from '@/lib/driverDispatch';
 import { resolveDriverIdentity } from '@/services/currentAppIdentityService';
 
 const dateOnly = (v) => (typeof v === 'string' ? v.slice(0, 10) : v);
@@ -195,7 +196,7 @@ export default function Home() {
 
   const { data: driverAssignments = [] } = useQuery({
     queryKey: ['driver-dispatch-assignments', driverIdentity],
-    queryFn: () => base44.entities.DriverDispatchAssignment.filter({ driver_id: driverIdentity }, '-assigned_datetime', 500),
+    queryFn: () => listDriverDispatchesForDriver(driverIdentity),
     enabled: isDriver && !!driverIdentity,
   });
 

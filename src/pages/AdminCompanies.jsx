@@ -354,7 +354,7 @@ export default function AdminCompanies() {
   const { data: incidents = [] } = useQuery({ queryKey: ['scoring-incidents'], queryFn: () => base44.entities.IncidentReport.list('-created_date', 1000) });
   const { data: drivers = [] } = useQuery({ queryKey: ['scoring-drivers'], queryFn: () => base44.entities.Driver.list('-created_date', 1000) });
   const { data: accessCodes = [] } = useQuery({ queryKey: ['access-codes'], queryFn: () => base44.entities.AccessCode.list() });
-  const { data: assignments = [] } = useQuery({ queryKey: ['scoring-driver-assignments'], queryFn: () => base44.entities.DriverDispatchAssignment.list('-assigned_datetime', 1000) });
+  const { data: assignments = [] } = useQuery({ queryKey: ['scoring-driver-assignments'], queryFn: () => base44.entities.DriverDispatch.list('-created_date', 1000) });
   const { data: events = [] } = useQuery({ queryKey: ['company-scoring-events'], queryFn: () => base44.entities.CompanyScoringEvent.list('-event_date', 1000) });
 
   const saveMutation = useMutation({

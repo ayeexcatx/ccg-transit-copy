@@ -42,6 +42,7 @@ import {
   getVisibleTrucksForDispatch,
   normalizeVisibilityId,
 } from '@/lib/dispatchVisibility';
+import { listDriverDispatchesForDriver } from '@/lib/driverDispatch';
 import { buildConfirmedTruckSetForStatus } from '@/components/notifications/confirmationStateHelpers';
 import { resolveCompanyOwnerCompanyId, resolveDriverIdentity } from '@/services/currentAppIdentityService';
 
@@ -112,7 +113,7 @@ export default function Portal() {
 
   const { data: driverAssignments = [] } = useQuery({
     queryKey: ['driver-dispatch-assignments', driverIdentity],
-    queryFn: () => base44.entities.DriverDispatchAssignment.filter({ driver_id: driverIdentity }, '-assigned_datetime', 500),
+    queryFn: () => listDriverDispatchesForDriver(driverIdentity),
     enabled: session?.code_type === 'Driver' && !!driverIdentity,
   });
 

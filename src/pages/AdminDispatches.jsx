@@ -126,7 +126,7 @@ const syncDispatchRecordHtml = async ({
   const [confirmationsForDispatch, timeEntriesForDispatch, driverAssignmentsForDispatch] = await Promise.all([
   base44.entities.Confirmation.filter({ dispatch_id: dispatch.id }, '-confirmed_at', 500),
   base44.entities.TimeEntry.filter({ dispatch_id: dispatch.id }, '-created_date', 500),
-  base44.entities.DriverDispatchAssignment.filter({ dispatch_id: dispatch.id }, '-assigned_datetime', 500)]
+  base44.entities.DriverDispatch.filter({ dispatch_id: dispatch.id }, '-created_date', 500)]
   );
 
   return syncDispatchHtmlToDrive({
@@ -440,7 +440,7 @@ export default function AdminDispatches() {
 
   const { data: driverAssignments = [] } = useQuery({
     queryKey: ['driver-dispatch-assignments-admin'],
-    queryFn: () => base44.entities.DriverDispatchAssignment.list('-assigned_datetime', 2000)
+    queryFn: () => base44.entities.DriverDispatch.list('-created_date', 2000)
   });
 
   const openDrawer = async (d) => {

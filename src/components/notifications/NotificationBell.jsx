@@ -23,6 +23,7 @@ import {
   getDriverDispatchIdSet,
   normalizeVisibilityId,
 } from '@/lib/dispatchVisibility';
+import { listDriverDispatchesForDriver } from '@/lib/driverDispatch';
 import { resolveDriverIdentity } from '@/services/currentAppIdentityService';
 
 const normalizeId = (value) => normalizeVisibilityId(value);
@@ -44,7 +45,7 @@ export default function NotificationBell({ session }) {
 
   const { data: driverAssignments = [] } = useQuery({
     queryKey: ['driver-dispatch-assignments', driverIdentity],
-    queryFn: () => base44.entities.DriverDispatchAssignment.filter({ driver_id: driverIdentity }, '-assigned_datetime', 500),
+    queryFn: () => listDriverDispatchesForDriver(driverIdentity),
     enabled: isDriver && !!driverIdentity,
   });
 
