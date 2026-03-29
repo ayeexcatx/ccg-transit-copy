@@ -75,7 +75,7 @@ function getDriverDispatchStatusNotification(status) {
 
 function getUniqueDriverIds(assignments = []) {
   return [...new Set((assignments || [])
-    .filter((assignment) => assignment?.active_flag !== false)
+    .filter((assignment) => assignment?.active_flag !== false && assignment?.is_visible_to_driver !== false && ['sent','seen'].includes(String(assignment?.delivery_status || 'sent').toLowerCase()))
     .map((assignment) => assignment?.driver_id)
     .filter(Boolean))];
 }
@@ -125,7 +125,7 @@ function didOnlyTruckAssignmentsChange(previousDispatch, nextDispatch) {
 
 function getDriverAssignedTrucks(assignments = [], driverId) {
   return [...new Set((assignments || [])
-    .filter((assignment) => assignment?.active_flag !== false && assignment?.driver_id === driverId)
+    .filter((assignment) => assignment?.active_flag !== false && assignment?.is_visible_to_driver !== false && ['sent','seen'].includes(String(assignment?.delivery_status || 'sent').toLowerCase()) && assignment?.driver_id === driverId)
     .map((assignment) => String(assignment?.truck_number || '').trim())
     .filter(Boolean))].sort();
 }
@@ -163,7 +163,7 @@ async function buildDriverAccessCodeMap(driverIds = []) {
     .filter(([, accessCodeId]) => Boolean(accessCodeId)));
 }
 
-async function createDriverDispatchNotification({
+export async function createDriverDispatchNotification({
   dispatch,
   driverAccessCodeId,
   title,
@@ -249,7 +249,7 @@ export async function notifyOwnerDriverSeen({
     if (!dispatch?.id || !dispatch?.company_id) return;
 
     const confirmedTrucks = [...new Set((assignments || [])
-      .filter((assignment) => assignment?.active_flag !== false)
+      .filter((assignment) => assignment?.active_flag !== false && assignment?.is_visible_to_driver !== false && ['sent','seen'].includes(String(assignment?.delivery_status || 'sent').toLowerCase()))
       .map((assignment) => assignment?.truck_number)
       .filter(Boolean))];
     if (!confirmedTrucks.length) return;
@@ -332,7 +332,7 @@ export async function notifyDriverAssignmentChanges(dispatch, previousAssignment
         message: 'This dispatch assignment is no longer available',
         notificationType: 'driver_removed',
         requiredTrucks: previousAssignments
-          .filter((assignment) => assignment?.active_flag !== false && assignment?.driver_id === driverId)
+          .filter((assignment) => assignment?.active_flag !== false && assignment?.is_visible_to_driver !== false && ['sent','seen'].includes(String(assignment?.delivery_status || 'sent').toLowerCase()) && assignment?.driver_id === driverId)
           .map((assignment) => assignment?.truck_number)
           .filter(Boolean),
       })),
@@ -343,7 +343,7 @@ export async function notifyDriverAssignmentChanges(dispatch, previousAssignment
         message: 'You have been assigned to a dispatch',
         notificationType: 'driver_assigned',
         requiredTrucks: nextAssignments
-          .filter((assignment) => assignment?.active_flag !== false && assignment?.driver_id === driverId)
+          .filter((assignment) => assignment?.active_flag !== false && assignment?.is_visible_to_driver !== false && ['sent','seen'].includes(String(assignment?.delivery_status || 'sent').toLowerCase()) && assignment?.driver_id === driverId)
           .map((assignment) => assignment?.truck_number)
           .filter(Boolean),
       })),
@@ -370,7 +370,7 @@ export async function notifyDriversForDispatchUpdate(dispatch, driverAssignments
       message,
       notificationType,
       requiredTrucks: driverAssignments
-        .filter((assignment) => assignment?.active_flag !== false && assignment?.driver_id === driverId)
+        .filter((assignment) => assignment?.active_flag !== false && assignment?.is_visible_to_driver !== false && ['sent','seen'].includes(String(assignment?.delivery_status || 'sent').toLowerCase()) && assignment?.driver_id === driverId)
         .map((assignment) => assignment?.truck_number)
         .filter(Boolean),
     })));
@@ -416,7 +416,7 @@ export async function notifyDriversForDispatchEdit({
           message,
           notificationType,
           requiredTrucks: driverAssignments
-            .filter((assignment) => assignment?.active_flag !== false && assignment?.driver_id === driverId)
+            .filter((assignment) => assignment?.active_flag !== false && assignment?.is_visible_to_driver !== false && ['sent','seen'].includes(String(assignment?.delivery_status || 'sent').toLowerCase()) && assignment?.driver_id === driverId)
             .map((assignment) => assignment?.truck_number)
             .filter(Boolean),
         })));
@@ -432,7 +432,7 @@ export async function notifyDriversForDispatchEdit({
       message: 'Your dispatch has been updated',
       notificationType: 'driver_updated',
       requiredTrucks: driverAssignments
-        .filter((assignment) => assignment?.active_flag !== false && assignment?.driver_id === driverId)
+        .filter((assignment) => assignment?.active_flag !== false && assignment?.is_visible_to_driver !== false && ['sent','seen'].includes(String(assignment?.delivery_status || 'sent').toLowerCase()) && assignment?.driver_id === driverId)
         .map((assignment) => assignment?.truck_number)
         .filter(Boolean),
     })));

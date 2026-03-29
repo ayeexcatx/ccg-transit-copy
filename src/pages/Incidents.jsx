@@ -18,6 +18,7 @@ import { createPageUrl } from '@/utils';
 import { buildDispatchOpenPath } from '@/lib/dispatchOpenOrchestration';
 import { toast } from 'sonner';
 import { canUserSeeIncident, normalizeVisibilityId } from '@/lib/dispatchVisibility';
+import { listDriverDispatchesForDriver } from '@/lib/driverDispatch';
 import { resolveDriverIdentity } from '@/services/currentAppIdentityService';
 import { getActiveCompanyId, getEffectiveView } from '@/components/session/workspaceUtils';
 
@@ -137,7 +138,7 @@ export default function Incidents() {
 
   const { data: driverAssignments = [] } = useQuery({
     queryKey: ['incident-driver-dispatch-assignments', driverIdentity],
-    queryFn: () => base44.entities.DriverDispatchAssignment.filter({ driver_id: driverIdentity }, '-assigned_datetime', 1000),
+    queryFn: () => listDriverDispatchesForDriver(driverIdentity),
     enabled: !!session && isDriver && !!driverIdentity,
   });
 

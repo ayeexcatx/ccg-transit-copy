@@ -11,7 +11,7 @@ export function buildDriverAssignedTrucksByDispatch(driverAssignments = []) {
   const map = new Map();
 
   driverAssignments
-    .filter((assignment) => assignment?.active_flag !== false)
+    .filter((assignment) => assignment?.active_flag !== false && assignment?.is_visible_to_driver !== false && ['sent','seen'].includes(String(assignment?.delivery_status || 'sent').toLowerCase()))
     .forEach((assignment) => {
       if (!assignment?.dispatch_id || !assignment?.truck_number) return;
       const dispatchId = normalizeId(assignment.dispatch_id);

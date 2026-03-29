@@ -80,10 +80,10 @@ export async function runAdminDispatchMutation({
       edit_locked_at: null
     });
 
-    const previousActiveDriverAssignments = await base44.entities.DriverDispatchAssignment.filter({
+    const previousActiveDriverAssignments = await base44.entities.DriverDispatch.filter({
       dispatch_id: editing.id,
       active_flag: true
-    }, '-assigned_datetime', 500);
+    }, '-created_date', 500);
 
     const savedDispatch = await base44.entities.Dispatch.filter({ id: editing.id }, '-created_date', 1).then((r) => r[0]);
     if (!savedDispatch) return savedDispatch;
@@ -97,27 +97,26 @@ export async function runAdminDispatchMutation({
     });
 
     if (shouldResetReceiptConfirmationForStatusChange(editing?.status, savedDispatch.status)) {
-      const activeDriverAssignmentsForReset = await base44.entities.DriverDispatchAssignment.filter({
+      const activeDriverAssignmentsForReset = await base44.entities.DriverDispatch.filter({
         dispatch_id: savedDispatch.id,
         active_flag: true
-      }, '-assigned_datetime', 500);
+      }, '-created_date', 500);
 
       await Promise.all((activeDriverAssignmentsForReset || [])
-        .filter((assignment) => assignment?.id)
-        .map((assignment) => base44.entities.DriverDispatchAssignment.update(assignment.id, {
-          receipt_confirmed_flag: false,
-          receipt_confirmed_at: null,
-          receipt_confirmed_by_driver_id: null,
-          receipt_confirmed_by_name: null
+        .filter((assignment) => assignment?.id && assignment?.is_visible_to_driver === true)
+        .map((assignment) => base44.entities.DriverDispatch.update(assignment.id, {
+          delivery_status: 'sent',
+          last_seen_at: null,
+          last_opened_at: null
         })));
     }
 
     await reconcileOwnerNotificationsForDispatch(savedDispatch, accessCodes);
 
-    const activeDriverAssignments = await base44.entities.DriverDispatchAssignment.filter({
+    const activeDriverAssignments = await base44.entities.DriverDispatch.filter({
       dispatch_id: savedDispatch.id,
       active_flag: true
-    }, '-assigned_datetime', 500);
+    }, '-created_date', 500);
 
     await notifyDriversForDispatchEdit({
       previousDispatch: editing,

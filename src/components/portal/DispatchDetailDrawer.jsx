@@ -27,8 +27,9 @@ import DispatchDrawerTemplateNotesSection from './DispatchDrawerTemplateNotesSec
 import { getVisibleTrucksForDispatch } from '@/lib/dispatchVisibility';
 import { getActiveCompanyId, getEffectiveView } from '@/components/session/workspaceUtils';
 import { buildConfirmedTruckSetForStatus } from '@/components/notifications/confirmationStateHelpers';
-import { deactivateDriverAssignment, upsertDriverAssignment } from '@/services/driverAssignmentMutationService';
+import { deactivateDriverAssignment, sendDriverAssignment, upsertDriverAssignment } from '@/services/driverAssignmentMutationService';
 import { resolveCompanyOwnerCompanyId, resolveDriverIdentity } from '@/services/currentAppIdentityService';
+import { listDriverDispatchesForDriver } from '@/lib/driverDispatch';
 
 const UNASSIGNED_DRIVER_VALUE = '__unassigned__';
 const DRIVER_SHIFT_CONFLICT_MESSAGE = 'That driver is already assigned on a different dispatch for the same shift. Please remove the driver from that assignment or select a different driver.';
@@ -352,7 +353,7 @@ export default function DispatchDetailDrawer({
 
   const { data: driverAssignments = [], refetch: refetchDriverAssignments } = useQuery({
     queryKey: ['driver-dispatch-assignments', dispatch?.id],
-    queryFn: () => base44.entities.DriverDispatchAssignment.filter({ dispatch_id: dispatch.id, active_flag: true }, '-assigned_datetime', 500),
+    queryFn: () => base44.entities.DriverDispatch.filter({ dispatch_id: dispatch.id }, '-created_date', 500),
     enabled: open && (isOwner || isAdmin) && !!dispatch?.id,
   });
 
@@ -360,7 +361,7 @@ export default function DispatchDetailDrawer({
 
   const { data: currentDriverAssignments = [] } = useQuery({
     queryKey: ['driver-dispatch-assignments', dispatch?.id, driverIdentity],
-    queryFn: () => base44.entities.DriverDispatchAssignment.filter({ dispatch_id: dispatch.id, driver_id: driverIdentity }, '-assigned_datetime', 200),
+    queryFn: async () => (await listDriverDispatchesForDriver(driverIdentity)).filter((entry) => String(entry.dispatch_id) === String(dispatch.id)),
     enabled: open && isDriverUser && !!dispatch?.id && !!driverIdentity,
   });
 
@@ -397,10 +398,10 @@ export default function DispatchDetailDrawer({
       const dispatchIds = new Set(conflictingDispatches.map((candidate) => candidate.id));
       const assignmentsByDispatch = await Promise.all(
         conflictingDispatches.map((candidate) =>
-          base44.entities.DriverDispatchAssignment.filter({
+          base44.entities.DriverDispatch.filter({
             dispatch_id: candidate.id,
             active_flag: true,
-          }, '-assigned_datetime', 200)
+          }, '-created_date', 200)
         )
       );
 
@@ -433,10 +434,10 @@ export default function DispatchDetailDrawer({
         .map((candidate) => candidate.id));
 
       if (conflictingDispatchIds.size > 0) {
-        const driverActiveAssignments = await base44.entities.DriverDispatchAssignment.filter({
+        const driverActiveAssignments = await base44.entities.DriverDispatch.filter({
           driver_id: driverId,
           active_flag: true,
-        }, '-assigned_datetime', 500);
+        }, '-created_date', 500);
 
         const hasConflict = (driverActiveAssignments || []).some((assignment) =>
           conflictingDispatchIds.has(assignment.dispatch_id)
@@ -478,6 +479,35 @@ export default function DispatchDetailDrawer({
     },
   });
 
+  const sendDriverDispatchMutation = useMutation({
+    mutationFn: async (truckNumber) => {
+      const row = driverAssignments.find((entry) => entry.truck_number === truckNumber && entry.active_flag !== false);
+      if (!row?.id) throw new Error('Select a driver first.');
+      return sendDriverAssignment({ dispatch, driverDispatch: row, session });
+    },
+    onSuccess: async () => {
+      await refetchDriverAssignments();
+      queryClient.invalidateQueries({ queryKey: ['driver-dispatch-assignments', dispatch?.id] });
+      queryClient.invalidateQueries({ queryKey: ['driver-dispatch-assignments', driverIdentity] });
+      toast.success('Dispatch sent to driver.');
+    },
+    onError: (error) => toast.error(error?.message || 'Unable to send dispatch.'),
+  });
+
+  const cancelDriverDispatchMutation = useMutation({
+    mutationFn: async (truckNumber) => deactivateDriverAssignment({ dispatch, driverAssignments, truckNumber, session }),
+    onSuccess: async () => {
+      await refetchDriverAssignments();
+      queryClient.invalidateQueries({ queryKey: ['driver-dispatch-assignments', dispatch?.id] });
+      queryClient.invalidateQueries({ queryKey: ['driver-dispatch-assignments', driverIdentity] });
+      toast.success('Driver dispatch cancelled.');
+    },
+    onError: (error) => toast.error(error?.message || 'Unable to cancel driver dispatch.'),
+  });
+
+  const handleSendDriverDispatch = async (truckNumber) => sendDriverDispatchMutation.mutateAsync(truckNumber);
+  const handleCancelDriverDispatch = async (truckNumber) => cancelDriverDispatchMutation.mutateAsync(truckNumber);
+
   const handleDriverSelection = async (truckNumber, driverId) => {
     const previousDriverId = selectedDriverByTruck[truckNumber] || UNASSIGNED_DRIVER_VALUE;
     setSelectedDriverByTruck((prev) => ({ ...prev, [truckNumber]: driverId }));
@@ -488,14 +518,7 @@ export default function DispatchDetailDrawer({
         dispatch,
         driverAssignments,
         truckNumber,
-        buildActivityEntries: ({ truckNumber: nextTruckNumber, previousAssignment, nextAssignment }) =>
-          buildDriverAssignmentActivityEntries({
-            session,
-            truckNumber: nextTruckNumber,
-            previousAssignment,
-            nextAssignment,
-          }),
-        appendActivityEntries: appendDispatchActivityEntries,
+        session,
       });
       if (!removed) return;
       await refetchDriverAssignments();
@@ -518,6 +541,7 @@ export default function DispatchDetailDrawer({
 
   if (!dispatch) return null;
 
+  const activeDriverDispatches = driverAssignments.filter((entry) => entry?.active_flag !== false);
   const driverAssignedTrucks = currentDriverAssignments
     .filter((entry) => entry?.active_flag !== false)
     .map((entry) => entry.truck_number)
@@ -526,16 +550,24 @@ export default function DispatchDetailDrawer({
   const visibleTrucks = getVisibleTrucksForDispatch(session, dispatch, {
     driverAssignedTrucks,
   });
-  const activeAssignmentsByTruck = (isOwner || isAdmin ? driverAssignments : currentDriverAssignments)
+  const activeAssignmentsByTruck = (isOwner || isAdmin ? activeDriverDispatches : currentDriverAssignments)
     .filter((entry) => entry?.active_flag !== false && entry?.truck_number)
     .reduce((map, entry) => {
       map[entry.truck_number] = entry;
       return map;
     }, {});
 
-  const hasTruckSeenStatus = (truckNumber) => Boolean(activeAssignmentsByTruck[truckNumber]?.receipt_confirmed_at);
+  const hasTruckSeenStatus = (truckNumber) => Boolean(activeAssignmentsByTruck[truckNumber]?.last_seen_at);
+  const latestDriverDispatchByTruck = driverAssignments
+    .filter((entry) => entry?.truck_number)
+    .sort((a, b) => new Date(b.updated_date || b.cancelled_at || b.sent_at || b.created_date || 0) - new Date(a.updated_date || a.cancelled_at || a.sent_at || a.created_date || 0))
+    .reduce((map, entry) => {
+      if (!map[entry.truck_number]) map[entry.truck_number] = entry;
+      return map;
+    }, {});
+  const driverDispatchByTruck = { ...latestDriverDispatchByTruck, ...activeAssignmentsByTruck };
 
-  const assignedDriverNameByTruck = driverAssignments
+  const assignedDriverNameByTruck = activeDriverDispatches
     .filter((entry) => entry?.active_flag !== false)
     .reduce((map, entry) => {
       if (!entry?.truck_number || !entry?.driver_name) return map;
@@ -951,6 +983,11 @@ export default function DispatchDetailDrawer({
                 driverAssignmentErrors={driverAssignmentErrors}
                 confirmations={confirmations}
                 shouldShowDriverAssignmentControls={shouldShowDriverAssignmentControls}
+                driverDispatchByTruck={driverDispatchByTruck}
+                onSendDispatch={handleSendDriverDispatch}
+                onCancelDispatch={handleCancelDriverDispatch}
+                sendMutationPending={sendDriverDispatchMutation.isPending}
+                cancelMutationPending={cancelDriverDispatchMutation.isPending}
               />
 
               {!isDriverUser && (
