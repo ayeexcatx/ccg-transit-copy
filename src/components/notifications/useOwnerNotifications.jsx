@@ -249,15 +249,6 @@ export function useOwnerNotifications(session) {
 
       if (unseenAssignments.length) {
         await Promise.all(unseenAssignments.map((assignment) => {
-          if (assignment?._source === 'legacy_assignment_compat' && assignment?._legacy_assignment_id) {
-            return base44.entities.DriverDispatchAssignment.update(assignment._legacy_assignment_id, {
-              receipt_confirmed_flag: true,
-              receipt_confirmed_at: seenAt,
-              receipt_confirmed_by_driver_id: driverIdentity,
-              receipt_confirmed_by_name: session?.label || session?.driver_name || session?.name || assignment?.driver_name || undefined,
-            });
-          }
-
           if (!assignment?.id) return Promise.resolve();
           return base44.entities.DriverDispatch.update(assignment.id, {
             delivery_status: 'seen',

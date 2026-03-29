@@ -290,7 +290,7 @@ export const calculateCompanyScore = ({
     const assignmentDispatchIds = new Set(relevantDriverAssignments.map((assignment) => assignment.dispatch_id));
     const assignedDispatches = relevantDispatches.filter((dispatch) => assignmentDispatchIds.has(dispatch.id));
     const driverConfirmedDispatches = new Set(relevantDriverAssignments
-      .filter((assignment) => (assignment.receipt_confirmed_at || assignment.last_seen_at))
+      .filter((assignment) => assignment.last_seen_at)
       .map((assignment) => assignment.dispatch_id));
     const negativeEventCount = scopedEvents.filter((event) => event.driver_id === driver.id && DRIVER_NEGATIVE_EVENT_TYPES.has(event.event_type)).length;
     const positiveEventCount = scopedEvents.filter((event) => event.driver_id === driver.id && event.event_type === 'Exceptional Performance').length;
