@@ -38,7 +38,7 @@ Mutation-critical responsibilities:
 - Marking individual notifications read.
 - Marking all current notifications read.
 - Marking driver dispatch notifications for a dispatch read.
-- Marking driver notifications seen when a driver opens a dispatch, including updating `DriverDispatchAssignment.receipt_confirmed_*` fields and creating owner "driver seen" notifications.
+- Marking driver notifications seen when a driver opens a dispatch, including updating `DriverDispatch.receipt_confirmed_*` fields and creating owner "driver seen" notifications.
 - Marking driver removal notifications seen when the removal modal is dismissed and creating the corresponding owner "driver seen" notification.
 
 Display/filtering responsibilities:
@@ -77,7 +77,7 @@ Display/filtering responsibilities:
 ### Mutation-critical vs display/filtering summary
 
 #### Mutation-critical
-- Any function in `createNotifications.jsx` that writes `Notification`, `DriverDispatchAssignment`, `Confirmation`, or invokes SMS.
+- Any function in `createNotifications.jsx` that writes `Notification`, `DriverDispatch`, `Confirmation`, or invokes SMS.
 - `markRead*`, `markDriverDispatchSeenAsync`, `markDriverRemovalNotificationSeenAsync` in `useOwnerNotifications.jsx`.
 - `ownerActionStatus.js` logic is behavior-critical even though it is a pure helper, because owner unread/read presentation depends on it.
 - `openConfirmations.js` is behavior-critical for admin reporting of unresolved owner confirmations.
@@ -131,7 +131,7 @@ Owner notifications are truck-scoped. Owners with no overlap receive nothing.
 
 #### Driver recipients
 Driver notifications are not sent to `Driver` entities directly. They are sent to the driver's `AccessCode` by:
-1. collecting affected `driver_id` values from active `DriverDispatchAssignment` rows,
+1. collecting affected `driver_id` values from active `DriverDispatch` rows,
 2. fetching each `Driver` record,
 3. reading `driver.access_code_id`,
 4. creating `Notification` with `recipient_type: 'AccessCode'` and `recipient_access_code_id` equal to that access code id.
@@ -162,7 +162,7 @@ Owner company truck scope materially affects:
 - construct fallback dispatch payloads for removal-seen owner notifications.
 
 ### Role of driver assignments
-`DriverDispatchAssignment` controls:
+`DriverDispatch` controls:
 - which drivers are notified,
 - which trucks are included in driver notification `required_trucks`,
 - which assignments are marked receipt-confirmed when a driver opens a dispatch,
@@ -397,7 +397,7 @@ Behavior in `markDriverRemovalNotificationSeenAsync`:
 6. Invalidate notification queries.
 
 Important difference from normal dispatch-open seen flow:
-- This flow does **not** update `DriverDispatchAssignment.receipt_confirmed_*` fields.
+- This flow does **not** update `DriverDispatch.receipt_confirmed_*` fields.
 - It always attempts owner seen notification creation after marking read, using synthetic assignments if necessary.
 
 ### Removal notifications
@@ -663,7 +663,7 @@ Caution: they are presentation-facing, but some contain click-to-mark-read behav
 
 ### Side-effect / mutation critical dependencies
 - `base44.entities.Notification.*`
-- `base44.entities.DriverDispatchAssignment.*`
+- `base44.entities.DriverDispatch.*`
 - `base44.entities.AccessCode.filter`
 - `base44.entities.Driver.filter`
 - `base44.entities.Dispatch.filter`
@@ -806,7 +806,7 @@ These functions combine business rules, side effects, dedupe, and data writes.
 - [ ] Verify owner receives one driver-seen notification per owner per driver/dispatch/seen kind/version.
 - [ ] Re-open the same dispatch without receipt reset; verify owner does not get a duplicate driver-seen notification.
 - [ ] Dismiss a removal modal; verify unread `driver_removed` notifications become read and owner gets a removed-seen notification.
-- [ ] Verify removal dismissal does not update `DriverDispatchAssignment.receipt_confirmed_*` fields.
+- [ ] Verify removal dismissal does not update `DriverDispatch.receipt_confirmed_*` fields.
 
 ### Admin notifications
 - [ ] Confirm trucks one by one; verify admin all-confirmed notification appears only when all currently assigned trucks are confirmed for that status.

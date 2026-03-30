@@ -67,7 +67,7 @@ AdminDispatches eagerly loads broad admin datasets with React Query:
 - `Confirmation` list (`['confirmations-admin']`) ordered by `-confirmed_at`, limit 500.
 - `TimeEntry` list (`['time-entries-admin']`) ordered by `-created_date`, limit 500.
 - `LiveDispatchBoardRequest` list (`['live-dispatch-board-requests']`) ordered by `-created_date`, limit 500.
-- `DriverDispatchAssignment` list (`['driver-dispatch-assignments-admin']`) ordered by `-assigned_datetime`, limit 2000.
+- `DriverDispatch` list (`['driver-dispatch-assignments-admin']`) ordered by `-created_date`, limit 2000.
 - `DispatchTemplateNotes` filtered to `active_flag: true` (`['template-notes']`).
 
 ### Extra loads triggered on drawer open
@@ -132,7 +132,7 @@ The page also performs targeted reads during mutations, including:
 - `base44/functions/syncDispatchHtmlToDrive/entry/entry.ts`
 - entity schemas:
   - `CopyOfEntities/Dispatch.json`
-  - `CopyOfEntities/DriverDispatchAssignment.json`
+  - `CopyOfEntities/DriverDispatch.json`
   - `CopyOfEntities/LiveDispatchBoardRequest.json`
 
 ### Repo-wide incoming references / navigation into AdminDispatches
@@ -185,7 +185,7 @@ The live board:
 ### Live board composition rules
 For each matching dispatch:
 - every truck in `trucks_assigned` becomes one visible line.
-- driver names come from active `DriverDispatchAssignment` rows keyed by `dispatch_id + truck_number`.
+- driver names come from active `DriverDispatch` rows keyed by `dispatch_id + truck_number`.
 - line start time comes from the earliest matching assignment start time for that truck; otherwise the dispatch primary start time.
 - extra per-truck assignments beyond the first appear as `Additional assignment` sub-lines.
 - live status comes from `dispatch.live_truck_statuses[truck]` and defaults to `Running`.
@@ -280,7 +280,7 @@ Primary entity mutation:
 - `Dispatch.update(editing.id, {...data, admin_activity_log appended, lock fields cleared})`
 
 Potential follow-up mutations:
-- deactivate removed-truck `DriverDispatchAssignment` rows.
+- deactivate removed-truck `DriverDispatch` rows.
 - reset `receipt_confirmed_*` fields on active driver assignments when status changes into `Amended` or `Cancelled`.
 - update notification records via `reconcileOwnerNotificationsForDispatch()`.
 - create/update driver notifications via `notifyDriversForDispatchEdit()`.
@@ -293,7 +293,7 @@ Primary entity mutation:
 Cleanup mutations:
 - delete related `Notification` rows for `related_dispatch_id = id`.
 - delete related `Confirmation` rows for `dispatch_id = id`.
-- **Needs manual verification:** related `TimeEntry`, `DriverDispatchAssignment`, and `LiveDispatchBoardRequest` cleanup is not performed here.
+- **Needs manual verification:** related `TimeEntry`, `DriverDispatch`, and `LiveDispatchBoardRequest` cleanup is not performed here.
 
 ### D. Archive / unarchive
 Primary entity mutation:
@@ -383,7 +383,7 @@ Admin page truck-change effects are split across flows:
 
 ### Driver assignment related effects touched by this page
 Through the shared admin drawer, this page can indirectly trigger driver assignment changes:
-- assigning a driver creates or updates a `DriverDispatchAssignment` row with receipt flags reset to false.
+- assigning a driver creates or updates a `DriverDispatch` row with receipt flags reset to false.
 - removing a driver marks the existing assignment inactive.
 - owner-style activity entries are only appended when the actor is `CompanyOwner`; admin assignment changes in the drawer do **not** create those activity entries.
 - driver assignment notifications are sent on add/remove via `notifyDriverAssignmentChanges()`.
@@ -506,7 +506,7 @@ Effects of that admin drawer mode:
 ### Entity / backend rule
 - entity schemas define dispatch/assignment/request field shape and enums.
 - lock fields, archive fields, drive sync metadata fields, and live-board fields exist on the `Dispatch` entity.
-- receipt confirmation fields exist on `DriverDispatchAssignment`.
+- receipt confirmation fields exist on `DriverDispatch`.
 - **Needs manual verification:** backend-level ACL enforcement is not present in this repo snapshot.
 
 ### Backend function
