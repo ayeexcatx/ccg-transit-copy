@@ -26,6 +26,10 @@ export default function AccessCodeLogin() {
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [resetEmail, setResetEmail] = useState('');
+  const [verificationEmail, setVerificationEmail] = useState('');
+  const [verificationPassword, setVerificationPassword] = useState('');
+  const [verificationCode, setVerificationCode] = useState('');
+  const [isVerificationStep, setIsVerificationStep] = useState(false);
 
   const isAuthBusy = authLoading || isLoadingAuth;
 
@@ -103,12 +107,20 @@ export default function AccessCodeLogin() {
   };
 
   const authPrimaryActionLabel = useMemo(() => (activeAuthTab === 'signup' ? 'Create account' : 'Sign in'), [activeAuthTab]);
+  const authProviders = useMemo(() => ([
+    {
+      id: 'google',
+      label: 'Continue with Google',
+      onClick: () => base44.auth.loginWithProvider('google', window.location.href),
+      className: 'bg-white text-slate-900 hover:bg-slate-100',
+    },
+  ]), []);
 
   const handleGoogleAuth = () => {
-    if (isAuthBusy) return;
+    if (isAuthBusy || isVerificationStep) return;
     setAuthError('');
     setAuthMessage('');
-    base44.auth.loginWithProvider('google', window.location.href);
+    authProviders[0].onClick();
   };
 
   const handleEmailAuth = async (e) => {
@@ -147,17 +159,94 @@ export default function AccessCodeLogin() {
           email: normalizedEmail,
           password,
         });
-        await base44.auth.loginViaEmailPassword(normalizedEmail, password);
-        setAuthMessage('Account created successfully.');
+        setVerificationEmail(normalizedEmail);
+        setVerificationPassword(password);
+        setVerificationCode('');
+        setIsVerificationStep(true);
+        setAuthMessage('Account created. Enter the verification code sent to your email.');
       } else {
         await base44.auth.loginViaEmailPassword(normalizedEmail, password);
+        setIsVerificationStep(false);
+        setVerificationPassword('');
+        await checkAppState();
       }
-      await checkAppState();
     } catch (err) {
       setAuthError(err?.response?.data?.message || err?.message || 'Authentication failed. Please try again.');
     } finally {
       setAuthLoading(false);
     }
+  };
+
+  const handleVerifyOtp = async (e) => {
+    e.preventDefault();
+    if (isAuthBusy) return;
+    setAuthError('');
+    setAuthMessage('');
+
+    const normalizedVerificationEmail = verificationEmail.trim();
+    const normalizedVerificationCode = verificationCode.trim();
+
+    if (!normalizedVerificationEmail || !EMAIL_PATTERN.test(normalizedVerificationEmail)) {
+      setAuthError('Please use a valid email address for verification.');
+      return;
+    }
+    if (!normalizedVerificationCode) {
+      setAuthError('Please enter the verification code.');
+      return;
+    }
+    if (!verificationPassword) {
+      setAuthError('Missing sign-up session. Please sign up again.');
+      return;
+    }
+
+    setAuthLoading(true);
+    try {
+      await base44.auth.verifyOtp({
+        email: normalizedVerificationEmail,
+        otpCode: normalizedVerificationCode,
+      });
+      await base44.auth.loginViaEmailPassword(normalizedVerificationEmail, verificationPassword);
+      setAuthMessage('Email verified successfully.');
+      setIsVerificationStep(false);
+      setVerificationCode('');
+      setVerificationPassword('');
+      await checkAppState();
+    } catch (err) {
+      setAuthError(err?.response?.data?.message || err?.message || 'Unable to verify code. Please try again.');
+    } finally {
+      setAuthLoading(false);
+    }
+  };
+
+  const handleResendOtp = async () => {
+    if (isAuthBusy) return;
+    setAuthError('');
+    setAuthMessage('');
+
+    const normalizedVerificationEmail = verificationEmail.trim();
+    if (!normalizedVerificationEmail || !EMAIL_PATTERN.test(normalizedVerificationEmail)) {
+      setAuthError('Please use a valid email address for verification.');
+      return;
+    }
+
+    setAuthLoading(true);
+    try {
+      await base44.auth.resendOtp(normalizedVerificationEmail);
+      setAuthMessage('A new verification code has been sent.');
+    } catch (err) {
+      setAuthError(err?.response?.data?.message || err?.message || 'Unable to resend verification code.');
+    } finally {
+      setAuthLoading(false);
+    }
+  };
+
+  const handleBackToSignup = () => {
+    if (isAuthBusy) return;
+    setIsVerificationStep(false);
+    setVerificationCode('');
+    setAuthError('');
+    setAuthMessage('');
+    setActiveAuthTab('signup');
   };
 
   const handlePasswordReset = async (e) => {
@@ -243,14 +332,17 @@ export default function AccessCodeLogin() {
                 <p className="text-sm leading-relaxed text-slate-400">Sign in or create your account first. You will enter your access code on the next step.</p>
               </div>
 
+              {authProviders.map((provider) => (
                 <Button
+                  key={provider.id}
                   type="button"
-                  onClick={handleGoogleAuth}
-                  disabled={isAuthBusy}
-                  className="mt-6 h-11 w-full bg-white text-slate-900 hover:bg-slate-100"
+                  onClick={provider.onClick}
+                  disabled={isAuthBusy || isVerificationStep}
+                  className={`mt-6 h-11 w-full ${provider.className}`}
                 >
-                  Continue with Google
-              </Button>
+                  {provider.label}
+                </Button>
+              ))}
 
               <div className="relative my-6">
                 <div className="absolute inset-0 flex items-center">
@@ -261,45 +353,72 @@ export default function AccessCodeLogin() {
                 </div>
               </div>
 
-              <Tabs value={activeAuthTab} onValueChange={setActiveAuthTab} className="w-full">
-                <TabsList className="grid h-10 w-full grid-cols-2 bg-slate-800/80">
-                  <TabsTrigger value="signin">Sign in</TabsTrigger>
-                  <TabsTrigger value="signup">Sign up</TabsTrigger>
-                </TabsList>
-
-                <TabsContent value="signin" className="mt-5">
-                  <form onSubmit={handleEmailAuth} className="space-y-3">
-                    <p className="text-xs text-slate-400">Use your account credentials to authenticate before access code verification.</p>
-                    {renderEmailField()}
-                    {renderPasswordField('current-password')}
-                    <Button type="submit" disabled={isAuthBusy} className="h-11 w-full bg-blue-600 text-white hover:bg-blue-500">
-                      {authLoading ? 'Please wait...' : authPrimaryActionLabel}
+              {isVerificationStep ? (
+                <form onSubmit={handleVerifyOtp} className="space-y-3">
+                  <p className="text-xs font-medium uppercase tracking-wide text-slate-400">Verify your email</p>
+                  <p className="text-xs text-slate-400">
+                    Enter the verification code sent to <span className="font-semibold text-slate-200">{verificationEmail}</span>.
+                  </p>
+                  <Input
+                    value={verificationCode}
+                    onChange={(e) => setVerificationCode(e.target.value)}
+                    placeholder="Verification code"
+                    autoComplete="one-time-code"
+                    className="h-11 border-white/10 bg-white/5 text-white placeholder:text-slate-500"
+                  />
+                  <Button type="submit" disabled={isAuthBusy} className="h-11 w-full bg-blue-600 text-white hover:bg-blue-500">
+                    {authLoading ? 'Please wait...' : 'Verify'}
+                  </Button>
+                  <div className="flex items-center justify-between gap-3">
+                    <Button type="button" variant="ghost" onClick={handleBackToSignup} disabled={isAuthBusy} className="px-0 text-slate-300 hover:text-white">
+                      Back
                     </Button>
-                  </form>
-                </TabsContent>
-
-                <TabsContent value="signup" className="mt-5">
-                  <form onSubmit={handleEmailAuth} className="space-y-3">
-                    <p className="text-xs text-slate-400">Create your account now, then continue to the access code step.</p>
-                    {renderEmailField()}
-                    {renderPasswordField('new-password')}
-                    <div className="relative">
-                      <Lock className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
-                      <Input
-                        value={confirmPassword}
-                        onChange={(e) => setConfirmPassword(e.target.value)}
-                        placeholder="Confirm password"
-                        type="password"
-                        autoComplete="new-password"
-                        className="h-11 border-white/10 bg-white/5 pl-9 text-white placeholder:text-slate-500"
-                      />
-                    </div>
-                    <Button type="submit" disabled={isAuthBusy} className="h-11 w-full bg-blue-600 text-white hover:bg-blue-500">
-                      {authLoading ? 'Please wait...' : authPrimaryActionLabel}
+                    <Button type="button" variant="outline" onClick={handleResendOtp} disabled={isAuthBusy} className="border-white/20 text-slate-100 hover:bg-white/10">
+                      Resend code
                     </Button>
-                  </form>
-                </TabsContent>
-              </Tabs>
+                  </div>
+                </form>
+              ) : (
+                <Tabs value={activeAuthTab} onValueChange={setActiveAuthTab} className="w-full">
+                  <TabsList className="grid h-10 w-full grid-cols-2 bg-slate-800/80">
+                    <TabsTrigger value="signin">Sign in</TabsTrigger>
+                    <TabsTrigger value="signup">Sign up</TabsTrigger>
+                  </TabsList>
+
+                  <TabsContent value="signin" className="mt-5">
+                    <form onSubmit={handleEmailAuth} className="space-y-3">
+                      <p className="text-xs text-slate-400">Use your account credentials to authenticate before access code verification.</p>
+                      {renderEmailField()}
+                      {renderPasswordField('current-password')}
+                      <Button type="submit" disabled={isAuthBusy} className="h-11 w-full bg-blue-600 text-white hover:bg-blue-500">
+                        {authLoading ? 'Please wait...' : authPrimaryActionLabel}
+                      </Button>
+                    </form>
+                  </TabsContent>
+
+                  <TabsContent value="signup" className="mt-5">
+                    <form onSubmit={handleEmailAuth} className="space-y-3">
+                      <p className="text-xs text-slate-400">Create your account now, then continue to the verification step.</p>
+                      {renderEmailField()}
+                      {renderPasswordField('new-password')}
+                      <div className="relative">
+                        <Lock className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+                        <Input
+                          value={confirmPassword}
+                          onChange={(e) => setConfirmPassword(e.target.value)}
+                          placeholder="Confirm password"
+                          type="password"
+                          autoComplete="new-password"
+                          className="h-11 border-white/10 bg-white/5 pl-9 text-white placeholder:text-slate-500"
+                        />
+                      </div>
+                      <Button type="submit" disabled={isAuthBusy} className="h-11 w-full bg-blue-600 text-white hover:bg-blue-500">
+                        {authLoading ? 'Please wait...' : authPrimaryActionLabel}
+                      </Button>
+                    </form>
+                  </TabsContent>
+                </Tabs>
+              )}
 
               <form onSubmit={handlePasswordReset} className="mt-6 space-y-3 rounded-xl border border-white/10 bg-slate-800/40 p-4">
                 <p className="text-xs font-medium uppercase tracking-wide text-slate-400">Forgot password</p>
@@ -326,7 +445,7 @@ export default function AccessCodeLogin() {
               {authMessage && <div className="mt-4 rounded-lg border border-emerald-500/30 bg-emerald-500/10 px-3 py-2.5 text-sm text-emerald-300">{authMessage}</div>}
               {(authLoading || isLoadingAuth) && (
                 <div className="mt-4 rounded-lg border border-white/10 bg-white/5 px-3 py-2 text-xs text-slate-300">
-                  Authenticating your account...
+                  Processing authentication...
                 </div>
               )}
             </div>
