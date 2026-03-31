@@ -10,6 +10,8 @@ import { getAvailableWorkspaces } from '@/components/session/workspaceUtils';
 import { normalizeAccessCodeTypeToAppRole } from '@/services/currentAppIdentityService';
 import { ArrowRight, AlertCircle, Lock, Mail } from 'lucide-react';
 
+const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
 export default function AccessCodeLogin() {
   const { login } = useSession();
   const { user, isAuthenticated, isLoadingAuth, checkAppState } = useAuth();
@@ -25,8 +27,11 @@ export default function AccessCodeLogin() {
   const [confirmPassword, setConfirmPassword] = useState('');
   const [resetEmail, setResetEmail] = useState('');
 
+  const isAuthBusy = authLoading || isLoadingAuth;
+
   const handleSubmit = async (e) => {
     e.preventDefault();
+    if (loading) return;
     if (!code.trim()) return;
     setLoading(true);
     setError('');
@@ -100,6 +105,7 @@ export default function AccessCodeLogin() {
   const authPrimaryActionLabel = useMemo(() => (activeAuthTab === 'signup' ? 'Create account' : 'Sign in'), [activeAuthTab]);
 
   const handleGoogleAuth = () => {
+    if (isAuthBusy) return;
     setAuthError('');
     setAuthMessage('');
     base44.auth.loginWithProvider('google', window.location.href);
@@ -107,12 +113,25 @@ export default function AccessCodeLogin() {
 
   const handleEmailAuth = async (e) => {
     e.preventDefault();
+    if (isAuthBusy) return;
     setAuthError('');
     setAuthMessage('');
 
     const normalizedEmail = email.trim();
-    if (!normalizedEmail || !password) {
+    if (!normalizedEmail && !password) {
       setAuthError('Please enter your email and password.');
+      return;
+    }
+    if (!normalizedEmail) {
+      setAuthError('Please enter your email address.');
+      return;
+    }
+    if (!EMAIL_PATTERN.test(normalizedEmail)) {
+      setAuthError('Please enter a valid email address.');
+      return;
+    }
+    if (!password) {
+      setAuthError('Please enter your password.');
       return;
     }
 
@@ -143,12 +162,17 @@ export default function AccessCodeLogin() {
 
   const handlePasswordReset = async (e) => {
     e.preventDefault();
+    if (isAuthBusy) return;
     setAuthError('');
     setAuthMessage('');
 
     const normalizedResetEmail = resetEmail.trim();
     if (!normalizedResetEmail) {
       setAuthError('Enter your email address to receive a reset link.');
+      return;
+    }
+    if (!EMAIL_PATTERN.test(normalizedResetEmail)) {
+      setAuthError('Please enter a valid email address.');
       return;
     }
 
@@ -164,6 +188,34 @@ export default function AccessCodeLogin() {
   };
 
   if (!isAuthenticated) {
+    const renderEmailField = () => (
+      <div className="relative">
+        <Mail className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+        <Input
+          value={email}
+          onChange={(e) => setEmail(e.target.value)}
+          placeholder="Email"
+          type="email"
+          autoComplete="email"
+          className="h-11 border-white/10 bg-white/5 pl-9 text-white placeholder:text-slate-500"
+        />
+      </div>
+    );
+
+    const renderPasswordField = (autoComplete = 'current-password') => (
+      <div className="relative">
+        <Lock className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+        <Input
+          value={password}
+          onChange={(e) => setPassword(e.target.value)}
+          placeholder="Password"
+          type="password"
+          autoComplete={autoComplete}
+          className="h-11 border-white/10 bg-white/5 pl-9 text-white placeholder:text-slate-500"
+        />
+      </div>
+    );
+
     return (
       <div className="min-h-screen bg-slate-950 px-4 py-6 sm:px-6 sm:py-8">
         <div className="mx-auto flex min-h-[calc(100vh-3rem)] w-full max-w-6xl items-stretch overflow-hidden rounded-3xl border border-white/10 bg-slate-900/70 shadow-[0_30px_80px_-35px_rgba(2,6,23,0.9)] backdrop-blur md:min-h-[calc(100vh-4rem)]">
@@ -191,13 +243,13 @@ export default function AccessCodeLogin() {
                 <p className="text-sm leading-relaxed text-slate-400">Sign in or create your account first. You will enter your access code on the next step.</p>
               </div>
 
-              <Button
-                type="button"
-                onClick={handleGoogleAuth}
-                disabled={authLoading || isLoadingAuth}
-                className="mt-6 h-11 w-full bg-white text-slate-900 hover:bg-slate-100"
-              >
-                Continue with Google
+                <Button
+                  type="button"
+                  onClick={handleGoogleAuth}
+                  disabled={isAuthBusy}
+                  className="mt-6 h-11 w-full bg-white text-slate-900 hover:bg-slate-100"
+                >
+                  Continue with Google
               </Button>
 
               <div className="relative my-6">
@@ -218,29 +270,9 @@ export default function AccessCodeLogin() {
                 <TabsContent value="signin" className="mt-5">
                   <form onSubmit={handleEmailAuth} className="space-y-3">
                     <p className="text-xs text-slate-400">Use your account credentials to authenticate before access code verification.</p>
-                    <div className="relative">
-                      <Mail className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
-                      <Input
-                        value={email}
-                        onChange={(e) => setEmail(e.target.value)}
-                        placeholder="Email"
-                        type="email"
-                        autoComplete="email"
-                        className="h-11 border-white/10 bg-white/5 pl-9 text-white placeholder:text-slate-500"
-                      />
-                    </div>
-                    <div className="relative">
-                      <Lock className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
-                      <Input
-                        value={password}
-                        onChange={(e) => setPassword(e.target.value)}
-                        placeholder="Password"
-                        type="password"
-                        autoComplete="current-password"
-                        className="h-11 border-white/10 bg-white/5 pl-9 text-white placeholder:text-slate-500"
-                      />
-                    </div>
-                    <Button type="submit" disabled={authLoading || isLoadingAuth} className="h-11 w-full bg-blue-600 text-white hover:bg-blue-500">
+                    {renderEmailField()}
+                    {renderPasswordField('current-password')}
+                    <Button type="submit" disabled={isAuthBusy} className="h-11 w-full bg-blue-600 text-white hover:bg-blue-500">
                       {authLoading ? 'Please wait...' : authPrimaryActionLabel}
                     </Button>
                   </form>
@@ -249,28 +281,8 @@ export default function AccessCodeLogin() {
                 <TabsContent value="signup" className="mt-5">
                   <form onSubmit={handleEmailAuth} className="space-y-3">
                     <p className="text-xs text-slate-400">Create your account now, then continue to the access code step.</p>
-                    <div className="relative">
-                      <Mail className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
-                      <Input
-                        value={email}
-                        onChange={(e) => setEmail(e.target.value)}
-                        placeholder="Email"
-                        type="email"
-                        autoComplete="email"
-                        className="h-11 border-white/10 bg-white/5 pl-9 text-white placeholder:text-slate-500"
-                      />
-                    </div>
-                    <div className="relative">
-                      <Lock className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
-                      <Input
-                        value={password}
-                        onChange={(e) => setPassword(e.target.value)}
-                        placeholder="Password"
-                        type="password"
-                        autoComplete="new-password"
-                        className="h-11 border-white/10 bg-white/5 pl-9 text-white placeholder:text-slate-500"
-                      />
-                    </div>
+                    {renderEmailField()}
+                    {renderPasswordField('new-password')}
                     <div className="relative">
                       <Lock className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
                       <Input
@@ -282,7 +294,7 @@ export default function AccessCodeLogin() {
                         className="h-11 border-white/10 bg-white/5 pl-9 text-white placeholder:text-slate-500"
                       />
                     </div>
-                    <Button type="submit" disabled={authLoading || isLoadingAuth} className="h-11 w-full bg-blue-600 text-white hover:bg-blue-500">
+                    <Button type="submit" disabled={isAuthBusy} className="h-11 w-full bg-blue-600 text-white hover:bg-blue-500">
                       {authLoading ? 'Please wait...' : authPrimaryActionLabel}
                     </Button>
                   </form>
@@ -300,7 +312,7 @@ export default function AccessCodeLogin() {
                   autoComplete="email"
                   className="h-10 border-white/10 bg-white/5 text-white placeholder:text-slate-500"
                 />
-                <Button type="submit" variant="outline" disabled={authLoading || isLoadingAuth} className="h-10 w-full border-white/20 text-slate-100 hover:bg-white/10">
+                <Button type="submit" variant="outline" disabled={isAuthBusy} className="h-10 w-full border-white/20 text-slate-100 hover:bg-white/10">
                   Send reset instructions
                 </Button>
               </form>
