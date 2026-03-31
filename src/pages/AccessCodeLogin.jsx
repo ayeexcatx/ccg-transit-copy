@@ -1,20 +1,29 @@
-import React, { useState } from 'react';
+import React, { useMemo, useState } from 'react';
 import { base44 } from '@/api/base44Client';
 import { createPageUrl } from '../utils';
 import { useSession } from '../components/session/SessionContext';
 import { useAuth } from '@/lib/AuthContext';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { getAvailableWorkspaces } from '@/components/session/workspaceUtils';
 import { normalizeAccessCodeTypeToAppRole } from '@/services/currentAppIdentityService';
-import { ArrowRight, AlertCircle } from 'lucide-react';
+import { ArrowRight, AlertCircle, Lock, Mail } from 'lucide-react';
 
 export default function AccessCodeLogin() {
   const { login } = useSession();
-  const { user, checkAppState } = useAuth();
+  const { user, isAuthenticated, isLoadingAuth, checkAppState } = useAuth();
   const [code, setCode] = useState('');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
+  const [activeAuthTab, setActiveAuthTab] = useState('signin');
+  const [authLoading, setAuthLoading] = useState(false);
+  const [authError, setAuthError] = useState('');
+  const [authMessage, setAuthMessage] = useState('');
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
+  const [resetEmail, setResetEmail] = useState('');
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -87,6 +96,224 @@ export default function AccessCodeLogin() {
       window.location.href = createPageUrl('Home');
     }
   };
+
+  const authPrimaryActionLabel = useMemo(() => (activeAuthTab === 'signup' ? 'Create account' : 'Sign in'), [activeAuthTab]);
+
+  const handleGoogleAuth = () => {
+    setAuthError('');
+    setAuthMessage('');
+    base44.auth.loginWithProvider('google', window.location.href);
+  };
+
+  const handleEmailAuth = async (e) => {
+    e.preventDefault();
+    setAuthError('');
+    setAuthMessage('');
+
+    const normalizedEmail = email.trim();
+    if (!normalizedEmail || !password) {
+      setAuthError('Please enter your email and password.');
+      return;
+    }
+
+    if (activeAuthTab === 'signup' && password !== confirmPassword) {
+      setAuthError('Passwords do not match.');
+      return;
+    }
+
+    setAuthLoading(true);
+    try {
+      if (activeAuthTab === 'signup') {
+        await base44.auth.register({
+          email: normalizedEmail,
+          password,
+        });
+        await base44.auth.loginViaEmailPassword(normalizedEmail, password);
+        setAuthMessage('Account created successfully.');
+      } else {
+        await base44.auth.loginViaEmailPassword(normalizedEmail, password);
+      }
+      await checkAppState();
+    } catch (err) {
+      setAuthError(err?.response?.data?.message || err?.message || 'Authentication failed. Please try again.');
+    } finally {
+      setAuthLoading(false);
+    }
+  };
+
+  const handlePasswordReset = async (e) => {
+    e.preventDefault();
+    setAuthError('');
+    setAuthMessage('');
+
+    const normalizedResetEmail = resetEmail.trim();
+    if (!normalizedResetEmail) {
+      setAuthError('Enter your email address to receive a reset link.');
+      return;
+    }
+
+    setAuthLoading(true);
+    try {
+      await base44.auth.resetPasswordRequest(normalizedResetEmail);
+      setAuthMessage('Password reset instructions were sent if the account exists.');
+    } catch (err) {
+      setAuthError(err?.response?.data?.message || err?.message || 'Unable to send password reset request.');
+    } finally {
+      setAuthLoading(false);
+    }
+  };
+
+  if (!isAuthenticated) {
+    return (
+      <div className="min-h-screen bg-slate-950 p-4 md:p-8">
+        <div className="mx-auto flex min-h-[calc(100vh-2rem)] w-full max-w-6xl items-stretch overflow-hidden rounded-3xl border border-white/10 bg-slate-900/70 shadow-2xl md:min-h-[calc(100vh-4rem)]">
+          <div className="hidden w-1/2 flex-col justify-between bg-gradient-to-b from-slate-900 via-slate-900 to-slate-800 p-10 lg:flex">
+            <div>
+              <img src="/transitlogo.png" alt="CCG Transit logo" className="h-20 w-20 object-contain" />
+              <h1 className="mt-6 text-3xl font-semibold tracking-tight text-white">CCG Transit Dispatch</h1>
+              <p className="mt-3 max-w-sm text-sm text-slate-300">
+                Secure access for dispatchers, owners, and drivers. Sign in to continue to your access-code step.
+              </p>
+            </div>
+            <div className="space-y-3 text-sm text-slate-300">
+              <p>• Professional dispatch workflow</p>
+              <p>• Real-time updates and notifications</p>
+              <p>• Multi-workspace support</p>
+            </div>
+          </div>
+
+          <div className="flex w-full items-center justify-center p-6 sm:p-10 lg:w-1/2">
+            <div className="w-full max-w-md space-y-6">
+              <div className="space-y-2 text-center lg:text-left">
+                <img src="/transitlogo.png" alt="CCG Transit logo" className="mx-auto h-16 w-16 object-contain lg:mx-0 lg:hidden" />
+                <h2 className="text-2xl font-semibold text-white">Welcome</h2>
+                <p className="text-sm text-slate-400">Sign in to your Base44 account before entering your CCG Transit access code.</p>
+              </div>
+
+              <Button
+                type="button"
+                onClick={handleGoogleAuth}
+                disabled={authLoading || isLoadingAuth}
+                className="h-11 w-full bg-white text-slate-900 hover:bg-slate-100"
+              >
+                Continue with Google
+              </Button>
+
+              <div className="relative">
+                <div className="absolute inset-0 flex items-center">
+                  <span className="w-full border-t border-white/10" />
+                </div>
+                <div className="relative flex justify-center text-xs uppercase tracking-wide">
+                  <span className="bg-slate-900 px-2 text-slate-400">or continue with email</span>
+                </div>
+              </div>
+
+              <Tabs value={activeAuthTab} onValueChange={setActiveAuthTab} className="w-full">
+                <TabsList className="grid h-10 w-full grid-cols-2 bg-slate-800/70">
+                  <TabsTrigger value="signin">Sign in</TabsTrigger>
+                  <TabsTrigger value="signup">Sign up</TabsTrigger>
+                </TabsList>
+
+                <TabsContent value="signin" className="mt-4">
+                  <form onSubmit={handleEmailAuth} className="space-y-3">
+                    <div className="relative">
+                      <Mail className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+                      <Input
+                        value={email}
+                        onChange={(e) => setEmail(e.target.value)}
+                        placeholder="Email"
+                        type="email"
+                        autoComplete="email"
+                        className="h-11 border-white/10 bg-white/5 pl-9 text-white placeholder:text-slate-500"
+                      />
+                    </div>
+                    <div className="relative">
+                      <Lock className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+                      <Input
+                        value={password}
+                        onChange={(e) => setPassword(e.target.value)}
+                        placeholder="Password"
+                        type="password"
+                        autoComplete="current-password"
+                        className="h-11 border-white/10 bg-white/5 pl-9 text-white placeholder:text-slate-500"
+                      />
+                    </div>
+                    <Button type="submit" disabled={authLoading || isLoadingAuth} className="h-11 w-full bg-blue-600 text-white hover:bg-blue-500">
+                      {authLoading ? 'Please wait...' : authPrimaryActionLabel}
+                    </Button>
+                  </form>
+                </TabsContent>
+
+                <TabsContent value="signup" className="mt-4">
+                  <form onSubmit={handleEmailAuth} className="space-y-3">
+                    <div className="relative">
+                      <Mail className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+                      <Input
+                        value={email}
+                        onChange={(e) => setEmail(e.target.value)}
+                        placeholder="Email"
+                        type="email"
+                        autoComplete="email"
+                        className="h-11 border-white/10 bg-white/5 pl-9 text-white placeholder:text-slate-500"
+                      />
+                    </div>
+                    <div className="relative">
+                      <Lock className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+                      <Input
+                        value={password}
+                        onChange={(e) => setPassword(e.target.value)}
+                        placeholder="Password"
+                        type="password"
+                        autoComplete="new-password"
+                        className="h-11 border-white/10 bg-white/5 pl-9 text-white placeholder:text-slate-500"
+                      />
+                    </div>
+                    <div className="relative">
+                      <Lock className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+                      <Input
+                        value={confirmPassword}
+                        onChange={(e) => setConfirmPassword(e.target.value)}
+                        placeholder="Confirm password"
+                        type="password"
+                        autoComplete="new-password"
+                        className="h-11 border-white/10 bg-white/5 pl-9 text-white placeholder:text-slate-500"
+                      />
+                    </div>
+                    <Button type="submit" disabled={authLoading || isLoadingAuth} className="h-11 w-full bg-blue-600 text-white hover:bg-blue-500">
+                      {authLoading ? 'Please wait...' : authPrimaryActionLabel}
+                    </Button>
+                  </form>
+                </TabsContent>
+              </Tabs>
+
+              <form onSubmit={handlePasswordReset} className="space-y-3 rounded-xl border border-white/10 bg-slate-800/40 p-3">
+                <p className="text-xs font-medium uppercase tracking-wide text-slate-400">Forgot password?</p>
+                <Input
+                  value={resetEmail}
+                  onChange={(e) => setResetEmail(e.target.value)}
+                  placeholder="Email for password reset"
+                  type="email"
+                  autoComplete="email"
+                  className="h-10 border-white/10 bg-white/5 text-white placeholder:text-slate-500"
+                />
+                <Button type="submit" variant="outline" disabled={authLoading || isLoadingAuth} className="h-10 w-full border-white/20 text-slate-100 hover:bg-white/10">
+                  Send reset instructions
+                </Button>
+              </form>
+
+              {authError && (
+                <div className="flex items-center gap-2 rounded-lg border border-red-500/30 bg-red-500/10 px-3 py-2 text-sm text-red-300">
+                  <AlertCircle className="h-4 w-4" />
+                  <span>{authError}</span>
+                </div>
+              )}
+              {authMessage && <div className="rounded-lg border border-emerald-500/30 bg-emerald-500/10 px-3 py-2 text-sm text-emerald-300">{authMessage}</div>}
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-slate-950 flex items-center justify-center p-4">
