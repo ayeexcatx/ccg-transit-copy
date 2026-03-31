@@ -165,57 +165,59 @@ export default function AccessCodeLogin() {
 
   if (!isAuthenticated) {
     return (
-      <div className="min-h-screen bg-slate-950 p-4 md:p-8">
-        <div className="mx-auto flex min-h-[calc(100vh-2rem)] w-full max-w-6xl items-stretch overflow-hidden rounded-3xl border border-white/10 bg-slate-900/70 shadow-2xl md:min-h-[calc(100vh-4rem)]">
-          <div className="hidden w-1/2 flex-col justify-between bg-gradient-to-b from-slate-900 via-slate-900 to-slate-800 p-10 lg:flex">
+      <div className="min-h-screen bg-slate-950 px-4 py-6 sm:px-6 sm:py-8">
+        <div className="mx-auto flex min-h-[calc(100vh-3rem)] w-full max-w-6xl items-stretch overflow-hidden rounded-3xl border border-white/10 bg-slate-900/70 shadow-[0_30px_80px_-35px_rgba(2,6,23,0.9)] backdrop-blur md:min-h-[calc(100vh-4rem)]">
+          <div className="hidden w-1/2 flex-col justify-between bg-gradient-to-b from-slate-900 via-slate-900 to-slate-800 p-12 lg:flex">
             <div>
               <img src="/transitlogo.png" alt="CCG Transit logo" className="h-20 w-20 object-contain" />
-              <h1 className="mt-6 text-3xl font-semibold tracking-tight text-white">CCG Transit Dispatch</h1>
-              <p className="mt-3 max-w-sm text-sm text-slate-300">
-                Secure access for dispatchers, owners, and drivers. Sign in to continue to your access-code step.
+              <h1 className="mt-8 text-3xl font-semibold tracking-tight text-white">CCG Transit Dispatch</h1>
+              <p className="mt-4 max-w-sm text-sm leading-relaxed text-slate-300">
+                Secure sign-in for dispatchers, owners, and drivers. First authenticate with your account, then enter your CCG Transit access code.
               </p>
             </div>
-            <div className="space-y-3 text-sm text-slate-300">
-              <p>• Professional dispatch workflow</p>
+            <div className="space-y-3 rounded-2xl border border-white/10 bg-white/[0.03] p-5 text-sm text-slate-300">
+              <p>• Professional dispatch workflows</p>
               <p>• Real-time updates and notifications</p>
               <p>• Multi-workspace support</p>
             </div>
           </div>
 
-          <div className="flex w-full items-center justify-center p-6 sm:p-10 lg:w-1/2">
-            <div className="w-full max-w-md space-y-6">
+          <div className="flex w-full items-center justify-center p-4 sm:p-8 lg:w-1/2 lg:p-12">
+            <div className="w-full max-w-md rounded-2xl border border-white/10 bg-slate-900/70 p-5 shadow-xl sm:p-7">
               <div className="space-y-2 text-center lg:text-left">
                 <img src="/transitlogo.png" alt="CCG Transit logo" className="mx-auto h-16 w-16 object-contain lg:mx-0 lg:hidden" />
-                <h2 className="text-2xl font-semibold text-white">Welcome</h2>
-                <p className="text-sm text-slate-400">Sign in to your Base44 account before entering your CCG Transit access code.</p>
+                <p className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-400">Account authentication</p>
+                <h2 className="text-2xl font-semibold tracking-tight text-white">Welcome</h2>
+                <p className="text-sm leading-relaxed text-slate-400">Sign in or create your account first. You will enter your access code on the next step.</p>
               </div>
 
               <Button
                 type="button"
                 onClick={handleGoogleAuth}
                 disabled={authLoading || isLoadingAuth}
-                className="h-11 w-full bg-white text-slate-900 hover:bg-slate-100"
+                className="mt-6 h-11 w-full bg-white text-slate-900 hover:bg-slate-100"
               >
                 Continue with Google
               </Button>
 
-              <div className="relative">
+              <div className="relative my-6">
                 <div className="absolute inset-0 flex items-center">
-                  <span className="w-full border-t border-white/10" />
+                  <span className="w-full border-t border-white/15" />
                 </div>
                 <div className="relative flex justify-center text-xs uppercase tracking-wide">
-                  <span className="bg-slate-900 px-2 text-slate-400">or continue with email</span>
+                  <span className="rounded-full border border-white/10 bg-slate-900 px-3 py-1 text-[10px] font-semibold tracking-[0.14em] text-slate-400">Or continue with email</span>
                 </div>
               </div>
 
               <Tabs value={activeAuthTab} onValueChange={setActiveAuthTab} className="w-full">
-                <TabsList className="grid h-10 w-full grid-cols-2 bg-slate-800/70">
+                <TabsList className="grid h-10 w-full grid-cols-2 bg-slate-800/80">
                   <TabsTrigger value="signin">Sign in</TabsTrigger>
                   <TabsTrigger value="signup">Sign up</TabsTrigger>
                 </TabsList>
 
-                <TabsContent value="signin" className="mt-4">
+                <TabsContent value="signin" className="mt-5">
                   <form onSubmit={handleEmailAuth} className="space-y-3">
+                    <p className="text-xs text-slate-400">Use your account credentials to authenticate before access code verification.</p>
                     <div className="relative">
                       <Mail className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
                       <Input
@@ -244,8 +246,9 @@ export default function AccessCodeLogin() {
                   </form>
                 </TabsContent>
 
-                <TabsContent value="signup" className="mt-4">
+                <TabsContent value="signup" className="mt-5">
                   <form onSubmit={handleEmailAuth} className="space-y-3">
+                    <p className="text-xs text-slate-400">Create your account now, then continue to the access code step.</p>
                     <div className="relative">
                       <Mail className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
                       <Input
@@ -286,8 +289,9 @@ export default function AccessCodeLogin() {
                 </TabsContent>
               </Tabs>
 
-              <form onSubmit={handlePasswordReset} className="space-y-3 rounded-xl border border-white/10 bg-slate-800/40 p-3">
-                <p className="text-xs font-medium uppercase tracking-wide text-slate-400">Forgot password?</p>
+              <form onSubmit={handlePasswordReset} className="mt-6 space-y-3 rounded-xl border border-white/10 bg-slate-800/40 p-4">
+                <p className="text-xs font-medium uppercase tracking-wide text-slate-400">Forgot password</p>
+                <p className="text-xs text-slate-400">Enter your email and we’ll send reset instructions.</p>
                 <Input
                   value={resetEmail}
                   onChange={(e) => setResetEmail(e.target.value)}
@@ -302,12 +306,17 @@ export default function AccessCodeLogin() {
               </form>
 
               {authError && (
-                <div className="flex items-center gap-2 rounded-lg border border-red-500/30 bg-red-500/10 px-3 py-2 text-sm text-red-300">
+                <div className="mt-4 flex items-start gap-2 rounded-lg border border-red-500/30 bg-red-500/10 px-3 py-2.5 text-sm text-red-300">
                   <AlertCircle className="h-4 w-4" />
                   <span>{authError}</span>
                 </div>
               )}
-              {authMessage && <div className="rounded-lg border border-emerald-500/30 bg-emerald-500/10 px-3 py-2 text-sm text-emerald-300">{authMessage}</div>}
+              {authMessage && <div className="mt-4 rounded-lg border border-emerald-500/30 bg-emerald-500/10 px-3 py-2.5 text-sm text-emerald-300">{authMessage}</div>}
+              {(authLoading || isLoadingAuth) && (
+                <div className="mt-4 rounded-lg border border-white/10 bg-white/5 px-3 py-2 text-xs text-slate-300">
+                  Authenticating your account...
+                </div>
+              )}
             </div>
           </div>
         </div>
@@ -318,7 +327,7 @@ export default function AccessCodeLogin() {
   return (
     <div className="min-h-screen bg-slate-950 flex items-center justify-center p-4">
       <div className="w-full max-w-sm">
-        <div className="text-center mb-10">
+        <div className="mb-9 text-center">
           <div className="inline-flex items-center justify-center mb-6">
             <img
               src="/transitlogo.png"
@@ -327,10 +336,10 @@ export default function AccessCodeLogin() {
             />
           </div>
           <h1 className="text-2xl font-semibold text-white tracking-tight">CCG Transit</h1>
-          <p className="text-slate-400 text-sm mt-2">Enter your access code to continue</p>
+          <p className="mt-2 text-sm text-slate-400">Enter your access code to continue</p>
         </div>
 
-        <form onSubmit={handleSubmit} className="space-y-4">
+        <form onSubmit={handleSubmit} className="space-y-4 rounded-2xl border border-white/10 bg-slate-900/60 p-5 shadow-lg">
           <div className="relative">
             <Input
               value={code}
@@ -342,7 +351,7 @@ export default function AccessCodeLogin() {
           </div>
 
           {error && (
-            <div className="flex items-center gap-2 text-red-400 text-sm justify-center">
+            <div className="flex items-center justify-center gap-2 rounded-lg border border-red-500/30 bg-red-500/10 px-3 py-2 text-sm text-red-300">
               <AlertCircle className="h-4 w-4" />
               {error}
             </div>
